@@ -1,0 +1,1266 @@
+//
+//  ScenarioSimulationView.swift
+//  SoulMark
+//
+
+import SwiftUI
+
+struct ScenarioSimulationView: View {
+    @State private var participants: [ScenarioParticipant]
+    @State private var selectedParticipantID: ScenarioParticipant.ID?
+    @State private var isAddingParticipant = false
+    @State private var isAddingMode = false
+    @State private var modes = ScenarioMode.defaultModes
+    @State private var selectedModeID = ScenarioMode.defaultModes[0].id
+    @State private var recordingTimer = RecordingTimer()
+    @State private var draftMessage = ""
+    @State private var conversation = ScenarioMessage.sample
+    @State private var conversationHistory: [ScenarioConversationSession] = []
+    @State private var isShowingHistory = false
+    @State private var isShowingParticipantPicker = false
+    @State private var conversationScrollTarget = UUID()
+
+    init(relationshipPeople: [RelationshipPerson], focusedPersonID: RelationshipPerson.ID? = nil) {
+        let initialParticipants = relationshipPeople.scenarioParticipants()
+        _participants = State(initialValue: initialParticipants)
+        let focusedID = focusedPersonID?.uuidString
+        let selectedID = initialParticipants.contains { $0.id == focusedID } ? focusedID : initialParticipants.first?.id
+        _selectedParticipantID = State(initialValue: selectedID)
+    }
+
+    private var selectedParticipant: ScenarioParticipant {
+        participants.first { $0.id == selectedParticipantID } ?? participants[0]
+    }
+
+    private var selectedMode: ScenarioMode {
+        modes.first { $0.id == selectedModeID } ?? modes[0]
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            SoulBackground()
+
+            VStack(spacing: 0) {
+                ScenarioHeader(
+                    onShowHistory: {
+                        isShowingHistory = true
+                    },
+                    onNewHeartTalk: startHeartTalk,
+                    onNewConversation: startNewConversation,
+                    onChangeParticipant: {
+                        isShowingParticipantPicker = true
+                    },
+                    onAddMode: {
+                        isAddingMode = true
+                    }
+                )
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 18) {
+                    ScenarioStage(participant: selectedParticipant)
+
+                        partnerSelector
+
+                        ScenarioControlCard(
+                            participant: selectedParticipant,
+                            selectedModeID: $selectedModeID,
+                            modes: modes,
+                            messages: conversation,
+                            scrollTarget: conversationScrollTarget,
+                            draftMessage: $draftMessage,
+                            recordingTimer: $recordingTimer,
+                            onAddMode: {
+                                isAddingMode = true
+                            },
+                            onNewConversation: startNewConversation,
+                            onCancelRecording: {
+                                recordingTimer.cancel()
+                            },
+                            onConfirmRecording: confirmRecording,
+                            onSend: sendMessage
+                        )
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, 8)
+                    .padding(.bottom, 126)
+                }
+            }
+        }
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            recordingTimer.tick()
+        }
+        .sheet(isPresented: $isAddingParticipant) {
+            AddScenarioParticipantSheet { name, note, relationshipLabel in
+                let participant = ScenarioParticipant.custom(
+                    name: name,
+                    note: note,
+                    relationshipLabel: relationshipLabel
+                )
+                participants.append(participant)
+                switchToParticipant(participant)
+            }
+            .presentationDetents([.height(360)])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isAddingMode) {
+            AddScenarioModeSheet { title, guidance in
+                modes.addCustomMode(title: title, guidance: guidance)
+                selectedModeID = modes.last?.id ?? selectedModeID
+            }
+            .presentationDetents([.height(320)])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingParticipantPicker) {
+            ScenarioParticipantPickerSheet(
+                participants: participants,
+                selectedID: selectedParticipantID,
+                onSelect: { participant in
+                    switchToParticipant(participant)
+                    isShowingParticipantPicker = false
+                },
+                onAdd: {
+                    isShowingParticipantPicker = false
+                    isAddingParticipant = true
+                },
+                onDeleteCustom: deleteCustomParticipant
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingHistory) {
+            ScenarioHistorySheet(
+                sessions: conversationSessions,
+                currentParticipantName: selectedParticipant.name,
+                onContinue: continueConversation,
+                onDelete: deleteConversationSession
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var partnerSelector: some View {
+        Button {
+            isShowingParticipantPicker = true
+        } label: {
+            HStack(spacing: 13) {
+                ScenarioAvatar(participant: selectedParticipant, size: 46)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localizedText("当前模拟对象", "Current Partner"))
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.energy)
+
+                    HStack(spacing: 7) {
+                        Text(selectedParticipant.name)
+                            .font(.system(size: 17, weight: .heavy, design: .rounded))
+                            .foregroundStyle(primaryTextColor)
+
+                        Text(selectedParticipant.relationshipLabel)
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(secondaryTextColor)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "person.2.badge.gearshape.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(SoulTheme.accent)
+                    .frame(width: 40, height: 40)
+                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .padding(14)
+            .background(SoulGlassCardBackground())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var conversationSessions: [ScenarioConversationSession] {
+        [
+            ScenarioConversationSession(
+                participantID: selectedParticipantID,
+                participantName: selectedParticipant.name,
+                date: Date(),
+                messages: conversation
+            )
+        ] + conversationHistory
+    }
+
+    private func sendMessage() {
+        let text = draftMessage.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        conversation.append(ScenarioMessage(speaker: localizedText("你", "You"), text: text, isUser: true))
+        conversation.append(
+            ScenarioMessage(
+                speaker: selectedParticipant.name,
+                text: localizedText("我听到了。你希望我接下来怎么回应这件事？", "I hear you. How would you like me to respond to this next?"),
+                isUser: false
+            )
+        )
+        draftMessage = ""
+        conversationScrollTarget = UUID()
+    }
+
+    private func confirmRecording(seconds: Int) {
+        guard seconds > 0 else { return }
+
+        conversation.append(
+            ScenarioMessage(
+                speaker: localizedText("你", "You"),
+                text: localizedText("已提交一段 \(seconds) 秒的语音给 AI。", "Submitted a \(seconds)-second voice message to AI."),
+                isUser: true
+            )
+        )
+        conversationScrollTarget = UUID()
+    }
+
+    private func deleteCustomParticipant(_ participant: ScenarioParticipant) {
+        participants.deleteCustomParticipant(participant.id)
+
+        if selectedParticipantID == participant.id {
+            selectedParticipantID = participants.first?.id
+            resetConversation()
+        }
+    }
+
+    private func deleteConversationSession(_ session: ScenarioConversationSession) {
+        let oldCount = conversationHistory.count
+        conversationHistory.removeAll { $0.id == session.id }
+
+        if oldCount == conversationHistory.count,
+           session.participantName == selectedParticipant.name,
+           session.messages == conversation {
+            resetConversation()
+        }
+    }
+
+    private func switchToParticipant(_ participant: ScenarioParticipant) {
+        guard selectedParticipantID != participant.id else { return }
+        saveCurrentConversationIfNeeded()
+        selectedParticipantID = participant.id
+        resetConversation()
+    }
+
+    private func startNewConversation() {
+        saveCurrentConversationIfNeeded()
+        resetConversation()
+    }
+
+    private func startHeartTalk() {
+        saveCurrentConversationIfNeeded()
+        selectedModeID = modes.first { $0.id == "boundary" }?.id ?? selectedModeID
+        conversation = [
+            ScenarioMessage(speaker: "AI", text: localizedText("心对话已开启。你可以先说最真实的感受，不需要一次说完。", "Heart talk is open. Start with the most honest feeling; you do not need to say everything at once."), isUser: false)
+        ]
+        draftMessage = ""
+        recordingTimer.cancel()
+        conversationScrollTarget = UUID()
+    }
+
+    private func continueConversation(_ session: ScenarioConversationSession) {
+        saveCurrentConversationIfNeeded()
+        if let participantID = session.participantID,
+           participants.contains(where: { $0.id == participantID }) {
+            selectedParticipantID = participantID
+        } else if let participant = participants.first(where: { $0.name == session.participantName }) {
+            selectedParticipantID = participant.id
+        }
+        conversation = session.messages
+        draftMessage = ""
+        recordingTimer.cancel()
+        conversationHistory.removeAll { $0.id == session.id }
+        isShowingHistory = false
+        conversationScrollTarget = UUID()
+    }
+
+    private func resetConversation() {
+        conversation = []
+        draftMessage = ""
+        recordingTimer.cancel()
+        conversationScrollTarget = UUID()
+    }
+
+    private func saveCurrentConversationIfNeeded() {
+        guard !conversation.isEmpty else { return }
+
+        conversationHistory.insert(
+            ScenarioConversationSession(
+                participantID: selectedParticipantID,
+                participantName: selectedParticipant.name,
+                date: Date(),
+                messages: conversation
+            ),
+            at: 0
+        )
+    }
+}
+
+private struct ScenarioHeader: View {
+    let onShowHistory: () -> Void
+    let onNewHeartTalk: () -> Void
+    let onNewConversation: () -> Void
+    let onChangeParticipant: () -> Void
+    let onAddMode: () -> Void
+
+    var body: some View {
+        SoulPageHeader(
+            eyebrow: "Practice / 03",
+            title: localizedText("情景模拟", "Simulation"),
+            subtitle: localizedText("先练习，再走进真实对话。", "Practice first, then step into the real conversation.")
+        ) {
+            HStack(spacing: 8) {
+                SoulIconButton(systemImage: "clock.arrow.circlepath", action: onShowHistory)
+
+                Menu {
+                    Button(action: onNewHeartTalk) {
+                        Label(localizedText("心情倾诉", "Heart Talk"), systemImage: "heart.text.square.fill")
+                    }
+
+                    Button(action: onNewConversation) {
+                        Label(localizedText("新对话", "New Chat"), systemImage: "plus.message.fill")
+                    }
+
+                    Button(action: onChangeParticipant) {
+                        Label(localizedText("切换对象", "Switch Partner"), systemImage: "person.2.fill")
+                    }
+
+                    Button(action: onAddMode) {
+                        Label(localizedText("自定义模式", "Custom Mode"), systemImage: "slider.horizontal.3")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .frame(width: 42, height: 42)
+                        .background(SoulTheme.cardFill, in: Circle())
+                        .overlay(Circle().stroke(SoulTheme.cardStroke, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 18)
+        .padding(.bottom, 6)
+    }
+}
+
+private struct ScenarioStage: View {
+    let participant: ScenarioParticipant
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            SoulVisorPanelBackground()
+
+            VStack(alignment: .leading, spacing: 10) {
+                SoulStatusPill(text: localizedText("模拟信号已连接", "SIMULATION LINKED"), systemImage: "wave.3.right.circle.fill")
+
+                Spacer()
+
+                Text(localizedText("对话目标", "CONVERSATION TARGET"))
+                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(Color.white.opacity(0.42))
+
+                Text(participant.name)
+                    .font(.system(size: 29, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color.white)
+
+                Text(localizedText("Soul 正在分析语气与表达节奏", "Soul is reading tone and expression rhythm"))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.56))
+                    .frame(maxWidth: 170, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .padding(18)
+
+            ScenarioCharacterIllustration()
+                .offset(x: 8, y: 24)
+        }
+        .frame(height: 250)
+        .clipped()
+    }
+}
+
+private struct ScenarioCharacterIllustration: View {
+    var body: some View {
+        SoulMascotFigure(height: 245)
+    }
+}
+
+private struct ScenarioParticipantRail: View {
+    let participants: [ScenarioParticipant]
+    let selectedID: ScenarioParticipant.ID?
+    let onSelect: (ScenarioParticipant) -> Void
+    let onAdd: () -> Void
+    let onDeleteCustom: (ScenarioParticipant) -> Void
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 10) {
+                ForEach(participants) { participant in
+                    ZStack(alignment: .topTrailing) {
+                        Button {
+                            onSelect(participant)
+                        } label: {
+                            VStack(spacing: 5) {
+                                ScenarioAvatar(participant: participant, size: 44)
+
+                                Text(participant.name)
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundStyle(primaryTextColor)
+                                    .lineLimit(1)
+                                    .minimumScaleFactor(0.80)
+                            }
+                            .frame(width: 68, height: 64)
+                            .background(
+                                selectedID == participant.id
+                                ? SoulTheme.accentSoft
+                                : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 8)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(selectedID == participant.id ? participant.color.opacity(0.56) : .clear, lineWidth: 1.4)
+                            )
+                        }
+                        .buttonStyle(.plain)
+
+                        if participant.isCustom {
+                            Button {
+                                onDeleteCustom(participant)
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundStyle(SoulTheme.danger, SoulTheme.cardFill)
+                                    .frame(width: 24, height: 24)
+                                    .contentShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                            .offset(x: 2, y: -4)
+                        }
+                    }
+                }
+
+                Button(action: onAdd) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundStyle(SoulTheme.accent)
+                        .frame(width: 52, height: 52)
+                        .background(SoulTheme.cardFill, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(width: 76, height: 236)
+    }
+}
+
+private struct ScenarioParticipantPickerSheet: View {
+    let participants: [ScenarioParticipant]
+    let selectedID: ScenarioParticipant.ID?
+    let onSelect: (ScenarioParticipant) -> Void
+    let onAdd: () -> Void
+    let onDeleteCustom: (ScenarioParticipant) -> Void
+
+    private var groupedParticipants: [(String, [ScenarioParticipant])] {
+        Dictionary(grouping: participants, by: \.relationshipLabel)
+            .map { key, value in (key, value.sorted { $0.name < $1.name }) }
+            .sorted { $0.0 < $1.0 }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    ForEach(groupedParticipants, id: \.0) { groupName, people in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(groupName)
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(secondaryTextColor)
+
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 86), spacing: 10)], spacing: 10) {
+                                ForEach(people) { participant in
+                                    ZStack(alignment: .topTrailing) {
+                                        Button {
+                                            onSelect(participant)
+                                        } label: {
+                                            VStack(spacing: 7) {
+                                                ScenarioAvatar(participant: participant, size: 48)
+
+                                                Text(participant.name)
+                                                    .font(.system(size: 12, weight: .bold))
+                                                    .foregroundStyle(primaryTextColor)
+                                                    .lineLimit(1)
+                                            }
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 88)
+                                            .background(
+                                                selectedID == participant.id
+                                                ? participant.color.opacity(0.18)
+                                                : SoulTheme.cardFill,
+                                                in: RoundedRectangle(cornerRadius: 10)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 10)
+                                                    .stroke(selectedID == participant.id ? participant.color.opacity(0.52) : Color.clear, lineWidth: 1.3)
+                                            )
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if participant.isCustom {
+                                            Button {
+                                                onDeleteCustom(participant)
+                                            } label: {
+                                                Image(systemName: "minus.circle.fill")
+                                                    .font(.system(size: 18, weight: .bold))
+                                                    .foregroundStyle(SoulTheme.danger, SoulTheme.cardFill)
+                                                    .frame(width: 28, height: 28)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .offset(x: 4, y: -6)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Button(action: onAdd) {
+                        Label(localizedText("创建自定义对象", "Create Custom Partner"), systemImage: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("选择交流对象", "Choose Conversation Partner"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+private struct ScenarioHistorySheet: View {
+    let sessions: [ScenarioConversationSession]
+    let currentParticipantName: String
+    let onContinue: (ScenarioConversationSession) -> Void
+    let onDelete: (ScenarioConversationSession) -> Void
+
+    @State private var searchText = ""
+
+    private var filteredSessions: [ScenarioConversationSession] {
+        sessions.filter { $0.matches(searchText) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(secondaryTextColor)
+
+                        TextField(localizedText("搜索用户或聊天关键词", "Search user or chat keywords"), text: $searchText)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(primaryTextColor)
+                            .textFieldStyle(.plain)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 42)
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+
+                    if filteredSessions.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "text.magnifyingglass")
+                                .font(.system(size: 30, weight: .semibold))
+                                .foregroundStyle(secondaryTextColor)
+
+                            Text(localizedText("没有找到相关对话", "No matching conversations"))
+                                .font(.system(size: 15, weight: .bold))
+                                .foregroundStyle(primaryTextColor)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 34)
+                    }
+
+                    ForEach(filteredSessions) { session in
+                        VStack(alignment: .leading, spacing: 10) {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.participantName)
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundStyle(primaryTextColor)
+
+                                    Text(session.dateText)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(secondaryTextColor)
+                                }
+
+                                Spacer()
+
+                                HStack(spacing: 6) {
+                                    Text(session.participantName == currentParticipantName ? localizedText("当前", "Current") : localizedText("历史", "History"))
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundStyle(SoulTheme.accent)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 5)
+                                        .background(SoulTheme.accentSoft, in: Capsule())
+
+                                    Button(role: .destructive) {
+                                        onDelete(session)
+                                    } label: {
+                                        Image(systemName: "trash.fill")
+                                            .font(.system(size: 12, weight: .bold))
+                                            .foregroundStyle(SoulTheme.danger)
+                                            .frame(width: 28, height: 28)
+                                            .background(SoulTheme.danger.opacity(0.14), in: Circle())
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+
+                            ForEach(session.messages) { message in
+                                Text("\(message.speaker)：\(message.text)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(message.isUser ? primaryTextColor : secondaryTextColor)
+                                    .lineLimit(3)
+                            }
+
+                            Button {
+                                onContinue(session)
+                            } label: {
+                                Label(localizedText("继续这个对话", "Continue this conversation"), systemImage: "arrowshape.turn.up.right.fill")
+                                    .font(.system(size: 14, weight: .bold))
+                                    .foregroundStyle(Color.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 38)
+                                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(14)
+                        .background(SoulGlassCardBackground())
+                    }
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("以前对话", "Past Conversations"))
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
+private struct ScenarioControlCard: View {
+    let participant: ScenarioParticipant
+    @Binding var selectedModeID: ScenarioMode.ID
+    let modes: [ScenarioMode]
+    let messages: [ScenarioMessage]
+    let scrollTarget: UUID
+    @Binding var draftMessage: String
+    @Binding var recordingTimer: RecordingTimer
+    let onAddMode: () -> Void
+    let onNewConversation: () -> Void
+    let onCancelRecording: () -> Void
+    let onConfirmRecording: (Int) -> Void
+    let onSend: () -> Void
+
+    @State private var isShowingGuidance = false
+
+    private var selectedMode: ScenarioMode {
+        modes.first { $0.id == selectedModeID } ?? modes[0]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localizedText("模拟控制台", "Simulation Console"))
+                        .font(.system(size: 20, weight: .heavy, design: .rounded))
+                        .foregroundStyle(primaryTextColor)
+
+                    Text(localizedText("与 \(participant.name) · \(selectedMode.displayTitle)", "With \(participant.name) · \(selectedMode.displayTitle)"))
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundStyle(secondaryTextColor)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Button(action: onNewConversation) {
+                    Label(localizedText("新对话", "New Chat"), systemImage: "plus")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 12)
+                        .frame(height: 38)
+                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+
+            ScenarioModePicker(
+                selectedModeID: $selectedModeID,
+                modes: modes,
+                onAddMode: onAddMode
+            )
+
+            SoulSectionHeader(title: localizedText("对话预览", "Conversation"), detail: "AI Live")
+
+            ScenarioConversationPreview(
+                messages: messages,
+                guidance: selectedMode.displayGuidance,
+                scrollTarget: scrollTarget
+            )
+
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(recordingTimer.isRunning ? SoulTheme.danger : SoulTheme.energy)
+                            .frame(width: 7, height: 7)
+
+                        Text(recordingTimer.isRunning ? localizedText("录音中", "RECORDING") : localizedText("语音待命", "VOICE READY"))
+                            .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(secondaryTextColor)
+                    }
+
+                    Spacer()
+
+                    VoiceWaveform()
+                        .scaleEffect(x: 0.72, y: 0.52)
+                        .frame(width: 116, height: 26)
+
+                    Spacer()
+
+                    if recordingTimer.isRunning {
+                        Text(recordingTimer.displayText)
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(SoulTheme.danger)
+                    } else {
+                        Text("00:00")
+                            .font(.system(size: 12, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(secondaryTextColor)
+                    }
+                }
+
+                HStack(spacing: 32) {
+                    ScenarioCircleAction(
+                        systemImage: "xmark",
+                        color: SoulTheme.danger,
+                        action: onCancelRecording
+                    )
+
+                    Button {
+                        if recordingTimer.isRunning {
+                            recordingTimer.stop()
+                        } else {
+                            recordingTimer.start()
+                        }
+                    } label: {
+                        Image(systemName: recordingTimer.isRunning ? "pause.fill" : "mic.fill")
+                            .font(.system(size: 25, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 72, height: 72)
+                            .background(SoulTheme.accent, in: Circle())
+                            .overlay(Circle().stroke(Color.white.opacity(0.80), lineWidth: 2))
+                            .overlay(Circle().stroke(SoulTheme.energy.opacity(0.70), lineWidth: 1.5).padding(-5))
+                            .shadow(color: SoulTheme.accent.opacity(0.28), radius: 12, x: 0, y: 7)
+                    }
+                    .buttonStyle(.plain)
+
+                    ScenarioCircleAction(systemImage: "checkmark", color: Color.white) {
+                        let submittedSeconds = recordingTimer.finish()
+                        onConfirmRecording(submittedSeconds)
+                    }
+                }
+            }
+            .padding(15)
+            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+
+            HStack(spacing: 10) {
+                TextField(localizedText("输入你想练习说的话", "Type what you want to practice saying"), text: $draftMessage)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(primaryTextColor)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .frame(height: 46)
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+
+                Button(action: onSend) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 46, height: 46)
+                        .background(
+                            draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            ? Color.gray.opacity(0.35)
+                            : SoulTheme.accent,
+                            in: RoundedRectangle(cornerRadius: 8)
+                        )
+                }
+                .disabled(draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+                .background(SoulTheme.cardStroke)
+
+            Button {
+                isShowingGuidance = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "lightbulb.max.fill")
+                        .foregroundStyle(SoulTheme.warning)
+                        .frame(width: 34, height: 34)
+                        .background(SoulTheme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+
+                    Text(localizedText("实时指导：\(selectedMode.displayGuidance)", "Live guide: \(selectedMode.displayGuidance)"))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(secondaryTextColor)
+                        .lineLimit(2)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(secondaryTextColor)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(SoulGlassCardBackground(cornerRadius: 8, accented: true))
+        .sheet(isPresented: $isShowingGuidance) {
+            ScenarioGuidanceSheet(mode: selectedMode)
+                .presentationDetents([.height(330), .medium])
+                .presentationDragIndicator(.visible)
+        }
+    }
+}
+
+private struct ScenarioGuidanceSheet: View {
+    let mode: ScenarioMode
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(mode.displayTitle)
+                        .font(.system(size: 24, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+
+                    Text(localizedText("完整实时指导", "Full Live Guide"))
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(secondaryTextColor)
+                }
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+                        .frame(width: 34, height: 34)
+                        .background(SoulTheme.cardFill, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            Text(mode.displayGuidance)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(primaryTextColor)
+                .lineSpacing(4)
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+
+            VStack(alignment: .leading, spacing: 10) {
+                GuidanceBullet(text: localizedText("先说事实，减少评价和指责。", "Start with facts and reduce judgment or blame."))
+                GuidanceBullet(text: localizedText("再说你的感受，让对方知道这件事对你的影响。", "Then share your feelings so they understand the impact."))
+                GuidanceBullet(text: localizedText("最后提出一个具体、可执行的下一步。", "Finally propose one specific next step."))
+            }
+
+            Spacer()
+        }
+        .padding(22)
+        .background(SoulTheme.pageGradient)
+    }
+}
+
+private struct GuidanceBullet: View {
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 9) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(SoulTheme.accent)
+
+            Text(text)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(secondaryTextColor)
+                .lineSpacing(2)
+        }
+    }
+}
+
+private struct ScenarioModePicker: View {
+    @Binding var selectedModeID: ScenarioMode.ID
+    let modes: [ScenarioMode]
+    let onAddMode: () -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(modes) { mode in
+                    Button {
+                        selectedModeID = mode.id
+                    } label: {
+                        Label(mode.displayTitle, systemImage: mode.systemImage)
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundStyle(selectedModeID == mode.id ? SoulTheme.accent : SoulTheme.secondaryText)
+                            .padding(.horizontal, 11)
+                            .frame(height: 36)
+                            .background(
+                                selectedModeID == mode.id
+                                ? SoulTheme.accentSoft
+                                : SoulTheme.cardFill,
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button(action: onAddMode) {
+                    Label(localizedText("自定义", "Custom"), systemImage: "plus")
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.accent)
+                        .padding(.horizontal, 11)
+                        .frame(height: 36)
+                        .background(SoulTheme.cardFill, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+private struct ScenarioConversationPreview: View {
+    let messages: [ScenarioMessage]
+    let guidance: String
+    let scrollTarget: UUID
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if messages.isEmpty {
+                        VStack(spacing: 9) {
+                            Image(systemName: "bubble.left.and.bubble.right")
+                                .font(.system(size: 25, weight: .semibold))
+                                .foregroundStyle(SoulTheme.energy)
+
+                            Text(localizedText("新的对话已准备好", "New conversation ready"))
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .foregroundStyle(primaryTextColor)
+
+                            Text(localizedText("说出第一句话，AI 会根据当前对象回应。", "Say the first line and AI will respond based on the current partner."))
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(secondaryTextColor)
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 34)
+                    }
+
+                    ForEach(messages) { message in
+                        HStack {
+                            if message.isUser {
+                                Spacer(minLength: 28)
+                            }
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(message.speaker)
+                                    .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                                    .foregroundStyle(secondaryTextColor)
+
+                                Text(message.text)
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(primaryTextColor)
+                                    .lineSpacing(2)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                message.isUser
+                                ? SoulTheme.accent.opacity(0.18)
+                                : SoulTheme.cardFill,
+                                in: RoundedRectangle(cornerRadius: 8)
+                            )
+
+                            if !message.isUser {
+                                Spacer(minLength: 28)
+                            }
+                        }
+                        .id(message.id)
+                    }
+
+                    Color.clear
+                        .frame(height: 1)
+                        .id("conversation-bottom")
+                }
+                .padding(10)
+            }
+            .onChange(of: scrollTarget) { _, _ in
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo("conversation-bottom", anchor: .bottom)
+                }
+            }
+            .onAppear {
+                proxy.scrollTo("conversation-bottom", anchor: .bottom)
+            }
+        }
+        .frame(height: 210)
+        .frame(maxWidth: .infinity)
+        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+private struct ScenarioCircleAction: View {
+    let systemImage: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 26, weight: .regular))
+                .foregroundStyle(systemImage == "checkmark" ? SoulTheme.visorSurface : Color.white)
+                .frame(width: 50, height: 50)
+                .background(color, in: Circle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct VoiceWaveform: View {
+    private let bars: [CGFloat] = [18, 8, 26, 36, 22, 10, 28, 42, 16, 24, 34, 12, 26, 18]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(Array(bars.enumerated()), id: \.offset) { _, height in
+                Capsule()
+                    .fill(SoulTheme.accent.opacity(0.62))
+                    .frame(width: 4, height: height)
+            }
+        }
+    }
+}
+
+private struct ScenarioAvatar: View {
+    let participant: ScenarioParticipant
+    let size: CGFloat
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(participant.color.opacity(participant.isCustom ? 0.24 : 0.70))
+                .frame(width: size, height: size)
+                .overlay(Circle().stroke(Color.white.opacity(0.88), lineWidth: 2))
+
+            Image(systemName: participant.symbol)
+                .font(.system(size: size * 0.34, weight: .semibold))
+                .foregroundStyle(primaryTextColor)
+        }
+    }
+}
+
+private struct ScenarioTabBar: View {
+    let onOpenRelationshipGraph: () -> Void
+
+    var body: some View {
+        HStack(alignment: .bottom) {
+            ScenarioTabItem(title: localizedText("首页", "Home"), systemImage: "house.fill", isSelected: false)
+
+            Button(action: onOpenRelationshipGraph) {
+                ScenarioTabItem(title: localizedText("关系网", "Map"), systemImage: "point.3.connected.trianglepath.dotted", isSelected: false)
+            }
+            .frame(maxWidth: .infinity)
+            .buttonStyle(.plain)
+
+            VStack(spacing: 2) {
+                ZStack {
+                    Circle()
+                        .fill(SoulTheme.accent)
+                        .frame(width: 74, height: 74)
+
+                    Image(systemName: "figure.wave")
+                        .font(.system(size: 36, weight: .bold))
+                        .foregroundStyle(Color.white)
+                }
+
+                Text(localizedText("情景模拟", "Simulation"))
+                    .font(.system(size: 20, weight: .heavy))
+                    .foregroundStyle(primaryTextColor)
+            }
+            .frame(maxWidth: .infinity)
+            .offset(y: -18)
+
+            ScenarioTabItem(title: localizedText("情景模拟", "Simulation"), systemImage: "text.bubble.fill", isSelected: false)
+            ScenarioTabItem(title: localizedText("我的", "Me"), systemImage: "person.crop.circle", isSelected: false)
+        }
+        .padding(.horizontal, 18)
+        .padding(.top, 12)
+        .padding(.bottom, 22)
+        .frame(height: 98)
+        .background(.ultraThinMaterial)
+        .ignoresSafeArea(edges: .bottom)
+    }
+}
+
+private struct ScenarioTabItem: View {
+    let title: String
+    let systemImage: String
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.system(size: 25, weight: .semibold))
+
+            Text(title)
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundStyle(isSelected ? SoulTheme.primaryText : SoulTheme.secondaryText)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct AddScenarioParticipantSheet: View {
+    let onAdd: (String, String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var note = ""
+    @State private var relationship = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(localizedText("创建模拟对象", "Create Simulation Partner"))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(primaryTextColor)
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+                        .frame(width: 34, height: 34)
+                        .background(SoulTheme.cardFill, in: Circle())
+                }
+            }
+
+            TextField(localizedText("名字，例如：面试官", "Name, e.g. Interviewer"), text: $name)
+                .textFieldStyle(.roundedBorder)
+
+            TextField(localizedText("场景备注，例如：模拟一次艰难沟通", "Scene note, e.g. Practice a difficult conversation"), text: $note)
+                .textFieldStyle(.roundedBorder)
+
+            TextField(localizedText("关系标签，例如：导师、客户、朋友", "Relationship label, e.g. Mentor, Client, Friend"), text: $relationship)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                onAdd(name, note, relationship)
+                dismiss()
+            } label: {
+                Label(localizedText("加入模拟", "Add to Simulation"), systemImage: "plus.message.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 8))
+            }
+            .disabled(!canSubmit)
+
+            Spacer()
+        }
+        .padding(24)
+        .background(SoulTheme.pageGradient)
+    }
+
+    private var canSubmit: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
+
+private struct AddScenarioModeSheet: View {
+    let onAdd: (String, String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var guidance = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(localizedText("自定义模拟模式", "Custom Simulation Mode"))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(primaryTextColor)
+
+                Spacer()
+
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+                        .frame(width: 34, height: 34)
+                        .background(SoulTheme.cardFill, in: Circle())
+                }
+            }
+
+            TextField(localizedText("模式名称，例如：和室友沟通", "Mode name, e.g. Talk with roommate"), text: $title)
+                .textFieldStyle(.roundedBorder)
+
+            TextField(localizedText("实时指导，例如：先讲事实，再讲需求", "Live guide, e.g. Say facts first, then needs"), text: $guidance)
+                .textFieldStyle(.roundedBorder)
+
+            Button {
+                onAdd(title, guidance)
+                dismiss()
+            } label: {
+                Label(localizedText("添加模式", "Add Mode"), systemImage: "slider.horizontal.3")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 8))
+            }
+            .disabled(!canSubmit)
+
+            Spacer()
+        }
+        .padding(24)
+        .background(SoulTheme.pageGradient)
+    }
+
+    private var canSubmit: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+}
