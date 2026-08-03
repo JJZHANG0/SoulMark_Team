@@ -6,12 +6,213 @@
 //
 
 import Testing
+import CoreGraphics
+import Foundation
 @testable import SoulMark
 
 struct SoulMarkTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
+    @Test func relationshipFiltersReturnExpectedPeople() async throws {
+        let people = RelationshipSampleData.people
+
+        #expect(RelationshipFilter.all.filteredPeople(from: people).count == 14)
+        #expect(RelationshipFilter.confidant.filteredPeople(from: people).map(\.name) == ["Wren", "Rhea"])
+        #expect(RelationshipFilter.friend.filteredPeople(from: people).map(\.name) == ["Jasper", "Feel", "Owen"])
+        #expect(RelationshipFilter.family.filteredPeople(from: people).map(\.name) == ["Lune", "Beau"])
+        #expect(RelationshipFilter.collaborator.filteredPeople(from: people).map(\.name) == ["Hugo"])
+        #expect(RelationshipFilter.classmate.filteredPeople(from: people).map(\.name) == ["Zora", "Silas"])
+        #expect(RelationshipFilter.lightTie.filteredPeople(from: people).map(\.name) == ["Vivi", "Kai"])
+        #expect(RelationshipFilter.distant.filteredPeople(from: people).map(\.name) == ["Torin", "Marduk"])
+    }
+
+    @Test func changingRelationshipCategoryMovesPersonBetweenFilters() async throws {
+        var people = RelationshipSampleData.people
+        let wrenID = try #require(people.first { $0.name == "Wren" }?.id)
+
+        people.updateRelationship(for: wrenID, to: .family)
+
+        #expect(RelationshipFilter.confidant.filteredPeople(from: people).map(\.name) == ["Rhea"])
+        #expect(RelationshipFilter.family.filteredPeople(from: people).map(\.name) == ["Wren", "Lune", "Beau"])
+    }
+
+    @Test func addingPersonIncludesThemInMatchingFilter() async throws {
+        var people = RelationshipSampleData.people
+        let custom = RelationshipCategory.custom("闺蜜")
+
+        people.addPerson(name: "Nia", note: "一起长大的朋友", category: custom)
+
+        #expect(people.count == 15)
+        #expect(custom.filteredPeople(from: people).map(\.name) == ["Nia"])
+    }
+
+    @Test func customRelationshipCanBeAssignedToExistingPerson() async throws {
+        var people = RelationshipSampleData.people
+        let custom = RelationshipCategory.custom("兄弟")
+        let owenID = try #require(people.first { $0.name == "Owen" }?.id)
+
+        people.updateRelationship(for: owenID, to: custom)
+
+        #expect(RelationshipFilter.friend.filteredPeople(from: people).map(\.name) == ["Jasper", "Feel"])
+        #expect(custom.filteredPeople(from: people).map(\.name) == ["Owen"])
+    }
+
+    @Test func deletingRelationshipRemovesMatchingPeopleFromGraph() async throws {
+        var people = RelationshipSampleData.people
+
+        people.deleteRelationship(.friend)
+
+        #expect(RelationshipFilter.friend.filteredPeople(from: people).isEmpty)
+        #expect(people.count == 11)
+        #expect(!people.map(\.name).contains("Owen"))
+    }
+
+    @Test func deletingPersonRemovesOnlyThatPerson() async throws {
+        var people = RelationshipSampleData.people
+        let wrenID = try #require(people.first { $0.name == "Wren" }?.id)
+
+        people.deletePerson(wrenID)
+
+        #expect(people.count == 13)
+        #expect(!people.map(\.name).contains("Wren"))
+        #expect(people.map(\.name).contains("Rhea"))
+    }
+
+    @Test func updatingPersonPositionKeepsNodeInsideGraphBounds() async throws {
+        var people = RelationshipSampleData.people
+        let wrenID = try #require(people.first { $0.name == "Wren" }?.id)
+
+        people.updatePosition(for: wrenID, to: CGPoint(x: -0.4, y: 1.4))
+
+        let wren = try #require(people.first { $0.id == wrenID })
+        #expect(wren.position.x == 0.10)
+        #expect(wren.position.y == 0.92)
+    }
+
+    @Test func organizingPositionsCreatesReadableSpread() async throws {
+        var people = RelationshipSampleData.people
+        let originalPositions = people.map(\.position)
+
+        people.organizePositions()
+
+        #expect(people.map(\.position) != originalPositions)
+        #expect(people.allSatisfy { person in
+            person.position.x >= 0.12 &&
+            person.position.x <= 0.88 &&
+            person.position.y >= 0.12 &&
+            person.position.y <= 0.90
+        })
+    }
+
+    @Test func scenarioParticipantsCanComeFromRelationshipGraphAndCustomPersona() async throws {
+        var participants = RelationshipSampleData.people.scenarioParticipants()
+
+        participants.append(.custom(name: "面试官", note: "模拟压力面试", relationshipLabel: "自定义"))
+
+        #expect(participants.count == RelationshipSampleData.people.count + 1)
+        #expect(participants.prefix(4).map(\.name) == ["Wren", "Rhea", "Owen", "Feel"])
+        #expect(participants.last?.isCustom == true)
+    }
+
+    @Test func scenarioOnlyCustomParticipantsCanBeDeleted() async throws {
+        var participants = RelationshipSampleData.people.scenarioParticipants()
+        let relationshipParticipantID = try #require(participants.first?.id)
+        let customParticipant = ScenarioParticipant.custom(name: "面试官", note: "模拟压力面试", relationshipLabel: "自定义")
+
+        participants.append(customParticipant)
+        participants.deleteCustomParticipant(customParticipant.id)
+        participants.deleteCustomParticipant(relationshipParticipantID)
+
+        #expect(!participants.map(\.id).contains(customParticipant.id))
+        #expect(participants.map(\.id).contains(relationshipParticipantID))
+    }
+
+    @Test func customScenarioModeCanBeAddedToPickerOptions() async throws {
+        var modes = ScenarioMode.defaultModes
+
+        modes.addCustomMode(title: "和室友沟通", guidance: "先讲具体事情，再提出可执行的约定。")
+
+        #expect(modes.count == 5)
+        #expect(modes.last?.title == "和室友沟通")
+        #expect(modes.last?.guidance == "先讲具体事情，再提出可执行的约定。")
+        #expect(modes.last?.isCustom == true)
+    }
+
+    @Test func recordingTimerStartsAtZeroAndTicksUp() async throws {
+        var timer = RecordingTimer()
+
+        #expect(timer.displayText == "00:00")
+
+        timer.start()
+        timer.tick()
+        timer.tick()
+
+        #expect(timer.displayText == "00:02")
+    }
+
+    @Test func recordingTimerCancelAndFinishResetToZero() async throws {
+        var timer = RecordingTimer()
+
+        timer.start()
+        timer.tick()
+        timer.tick()
+        timer.cancel()
+
+        #expect(timer.displayText == "00:00")
+        #expect(timer.isRunning == false)
+
+        timer.start()
+        timer.tick()
+        timer.tick()
+        timer.tick()
+
+        let submittedSeconds = timer.finish()
+
+        #expect(submittedSeconds == 3)
+        #expect(timer.displayText == "00:00")
+        #expect(timer.isRunning == false)
+    }
+
+    @Test func conversationReviewRecordCreatesScoreReasonAndAdvice() async throws {
+        let record = ConversationReviewRecord.make(
+            title: "微信聊天复盘",
+            source: .wechat,
+            transcript: "我昨天没有及时回复你，是因为我在赶项目。下次我会提前告诉你。"
+        )
+
+        #expect(record.score >= 60)
+        #expect(!record.reason.isEmpty)
+        #expect(!record.advice.isEmpty)
+        #expect(record.source == .wechat)
+    }
+
+    @Test func conversationReviewRecordCanBeFilteredBySourceAndKeyword() async throws {
+        let record = ConversationReviewRecord.make(
+            title: "和 Wren 的复盘",
+            source: .scenario,
+            transcript: "我希望下次可以提前沟通。"
+        )
+
+        #expect(record.matches(source: .scenario, query: "Wren"))
+        #expect(record.matches(source: .scenario, query: "提前"))
+        #expect(!record.matches(source: .wechat, query: "Wren"))
+        #expect(!record.matches(source: .scenario, query: "面试"))
+    }
+
+    @Test func scenarioHistorySearchMatchesParticipantAndMessageText() async throws {
+        let session = ScenarioConversationSession(
+            participantID: "wren",
+            participantName: "Wren",
+            date: Date(),
+            messages: [
+                ScenarioMessage(speaker: "你", text: "我想练习一次道歉。", isUser: true),
+                ScenarioMessage(speaker: "Wren", text: "可以，先说你对这件事的理解。", isUser: false)
+            ]
+        )
+
+        #expect(session.matches("Wren"))
+        #expect(session.matches("道歉"))
+        #expect(session.matches("理解"))
+        #expect(!session.matches("面试"))
     }
 
 }
