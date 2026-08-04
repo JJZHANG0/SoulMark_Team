@@ -1,10 +1,16 @@
-from fastapi import FastAPI
+from typing import Annotated
+
+from fastapi import Depends, FastAPI
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.contacts import router as contacts_router
 from app.api.v1.users import router as users_router
 from app.core.config import get_settings
 from app.core.errors import AppError, app_error_handler
+from app.db.session import get_db
 
 
 def create_app() -> FastAPI:
@@ -18,6 +24,16 @@ def create_app() -> FastAPI:
     @application.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
         return {"status": "ok", "service": "soulmark-backend"}
+
+    @application.get("/health/ready", tags=["health"])
+    async def readiness(
+        session: Annotated[AsyncSession, Depends(get_db)],
+    ) -> dict[str, str]:
+        try:
+            await session.execute(text("SELECT 1"))
+        except SQLAlchemyError as exc:
+            raise AppError("database_unavailable", "The database is unavailable.", 503) from exc
+        return {"status": "ready", "database": "ok"}
 
     return application
 
