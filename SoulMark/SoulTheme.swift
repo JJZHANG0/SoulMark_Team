@@ -218,13 +218,15 @@ struct SoulGlassCapsule: View {
 
 struct SoulMascotFigure: View {
     var height: CGFloat
+    var haloIntensity: CGFloat = 1
 
     var body: some View {
         Image("SoulMascot")
             .resizable()
             .scaledToFit()
             .frame(height: height)
-            .shadow(color: SoulTheme.energy.opacity(0.28), radius: 12, x: 0, y: 4)
+            .shadow(color: SoulTheme.energy.opacity(0.24 * haloIntensity), radius: 8 * haloIntensity, x: 0, y: 2)
+            .shadow(color: SoulTheme.accent.opacity(0.18 * haloIntensity), radius: 12 * haloIntensity, x: 0, y: 4)
             .accessibilityHidden(true)
     }
 }

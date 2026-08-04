@@ -11,6 +11,7 @@ struct IntegratedHomePage: View {
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
 
+    let people: [RelationshipPerson]
     let onOpenRelationshipGraph: () -> Void
     let onOpenScenario: () -> Void
     let onOpenJournal: () -> Void
@@ -31,6 +32,7 @@ struct IntegratedHomePage: View {
                         }
                     }
 
+                    dailyDose
                     heroPanel
 
                     VStack(alignment: .leading, spacing: 14) {
@@ -103,11 +105,58 @@ struct IntegratedHomePage: View {
             .padding(20)
             .padding(.trailing, language == "en" ? 104 : 118)
 
-            SoulMascotFigure(height: 244)
-                .offset(x: 16, y: 20)
+            ZStack {
+                Circle()
+                    .stroke(SoulTheme.energy.opacity(0.70), lineWidth: 2.4)
+                    .frame(width: 174, height: 174)
+                    .shadow(color: SoulTheme.energy.opacity(0.68), radius: 16)
+
+                Circle()
+                    .stroke(SoulTheme.accent.opacity(0.36), style: StrokeStyle(lineWidth: 1, dash: [5, 7]))
+                    .frame(width: 202, height: 202)
+
+                SoulMascotFigure(height: 244, haloIntensity: 1.65)
+            }
+            .offset(x: 16, y: 20)
         }
         .frame(height: language == "en" ? 334 : 286)
         .clipped()
+    }
+
+    private var dailyDose: some View {
+        let quote = DailySoulQuote.quote()
+
+        return VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Label(localizedText("今日毒鸡汤", "DAILY REALITY CHECK"), systemImage: "quote.opening")
+                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(SoulTheme.energy)
+
+                Spacer()
+
+                ShareLink(item: quote.shareText) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 38, height: 38)
+                        .background(SoulTheme.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(localizedText("分享今日毒鸡汤", "Share today's quote"))
+            }
+
+            Text(quote.text)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("SOULMARK / DAILY DOSE")
+                .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                .foregroundStyle(SoulTheme.tertiaryText)
+        }
+        .padding(18)
+        .background(SoulGlassCardBackground(accented: true))
     }
 
     private var quickActions: some View {
@@ -137,49 +186,83 @@ struct IntegratedHomePage: View {
                 detail: localizedText("最近连接", "Recent links")
             )
 
-            VStack(spacing: 0) {
-                ForEach(Array(samplePeople.enumerated()), id: \.element.0) { index, person in
+            if radarPeople.isEmpty {
+                Button(action: onOpenRelationshipGraph) {
                     HStack(spacing: 13) {
-                        ZStack {
-                            Circle()
-                                .fill(SoulTheme.accentSoft)
-                                .frame(width: 46, height: 46)
-
-                            Text(String(person.0.prefix(1)))
-                                .font(.system(size: 17, weight: .heavy, design: .rounded))
-                                .foregroundStyle(SoulTheme.accent)
-                        }
+                        Image(systemName: "person.badge.plus")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(SoulTheme.accent)
+                            .frame(width: 44, height: 44)
+                            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(person.0)
+                            Text(localizedText("关系雷达还是空的", "Your relationship radar is empty"))
                                 .font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .foregroundStyle(SoulTheme.primaryText)
 
-                            Text(person.1)
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            Text(localizedText("添加第一个人，开始看见关系变化", "Add someone to start seeing relationship signals"))
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
                                 .foregroundStyle(SoulTheme.secondaryText)
                         }
 
                         Spacer()
 
-                        HStack(spacing: 4) {
-                            ForEach(0..<4, id: \.self) { strength in
-                                Capsule()
-                                    .fill(strength <= (3 - index) ? SoulTheme.energy : SoulTheme.subtleFill)
-                                    .frame(width: 4, height: CGFloat(9 + strength * 4))
-                            }
-                        }
-                        .frame(width: 30, height: 28, alignment: .bottom)
+                        Image(systemName: "arrow.up.right")
+                            .font(.system(size: 12, weight: .heavy))
+                            .foregroundStyle(SoulTheme.energy)
                     }
-                    .padding(.vertical, 13)
+                    .padding(16)
+                    .background(SoulGlassCardBackground(accented: true))
+                }
+                .buttonStyle(.plain)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(radarPeople.enumerated()), id: \.element.id) { index, person in
+                        HStack(spacing: 13) {
+                            ZStack {
+                                Circle()
+                                    .fill(SoulTheme.accentSoft)
+                                    .frame(width: 46, height: 46)
 
-                    if index < samplePeople.count - 1 {
-                        Divider().overlay(SoulTheme.cardStroke)
+                                Text(String(person.name.prefix(1)))
+                                    .font(.system(size: 17, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(SoulTheme.accent)
+                            }
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(person.name)
+                                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(SoulTheme.primaryText)
+
+                                Text(localizedText(
+                                    "\(person.category.displayTitle) · 当前连接度 \(Int(person.strength * 100))",
+                                    "\(person.category.displayTitle) · Connection \(Int(person.strength * 100))"
+                                ))
+                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                    .foregroundStyle(SoulTheme.secondaryText)
+                            }
+
+                            Spacer()
+
+                            HStack(spacing: 4) {
+                                ForEach(0..<4, id: \.self) { strength in
+                                    Capsule()
+                                        .fill(Double(strength + 1) / 4 <= person.strength ? SoulTheme.energy : SoulTheme.subtleFill)
+                                        .frame(width: 4, height: CGFloat(9 + strength * 4))
+                                }
+                            }
+                            .frame(width: 30, height: 28, alignment: .bottom)
+                        }
+                        .padding(.vertical, 13)
+
+                        if index < radarPeople.count - 1 {
+                            Divider().overlay(SoulTheme.cardStroke)
+                        }
                     }
                 }
+                .padding(.horizontal, 16)
+                .background(SoulGlassCardBackground(accented: true))
             }
-            .padding(.horizontal, 16)
-            .background(SoulGlassCardBackground(accented: true))
         }
     }
 
@@ -218,12 +301,8 @@ struct IntegratedHomePage: View {
         .background(SoulVisorPanelBackground())
     }
 
-    private var samplePeople: [(String, String)] {
-        [
-            ("Wren", localizedText("知己 · 今日有互动", "Confidant · Active today")),
-            ("Owen", localizedText("好友 · 3 天前", "Friend · 3 days ago")),
-            ("Rhea", localizedText("朋友 · 1 周前", "Friend · 1 week ago"))
-        ]
+    private var radarPeople: [RelationshipPerson] {
+        Array(people.sorted { $0.strength > $1.strength }.prefix(3))
     }
 }
 
@@ -232,6 +311,9 @@ struct IntegratedProfilePage: View {
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
+    @State private var showingAchievements = false
+
+    var achievementProgress: AchievementProgress = .empty
 
     var body: some View {
         ZStack {
@@ -263,6 +345,11 @@ struct IntegratedProfilePage: View {
         .sheet(isPresented: $showingSettings) {
             SoulSettingsSheet()
                 .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingAchievements) {
+            AchievementsSheet(progress: achievementProgress)
+                .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -303,11 +390,11 @@ struct IntegratedProfilePage: View {
 
     private var statsBand: some View {
         HStack(spacing: 0) {
-            SoulStatItem(title: localizedText("复盘", "Reviews"), value: "03", icon: "text.bubble.fill")
+            SoulStatItem(title: localizedText("复盘", "Reviews"), value: String(format: "%02d", achievementProgress.reviewCount), icon: "text.bubble.fill")
             Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            SoulStatItem(title: localizedText("连接", "People"), value: "12", icon: "person.2.fill")
+            SoulStatItem(title: localizedText("连接", "People"), value: String(format: "%02d", achievementProgress.peopleCount), icon: "person.2.fill")
             Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            SoulStatItem(title: localizedText("连续", "Streak"), value: "07", icon: "bolt.fill")
+            SoulStatItem(title: localizedText("练习", "Practice"), value: String(format: "%02d", achievementProgress.practiceCount), icon: "bolt.fill")
         }
         .padding(.vertical, 16)
         .background(SoulGlassCardBackground(accented: true))
@@ -351,7 +438,12 @@ struct IntegratedProfilePage: View {
             SoulSectionHeader(title: localizedText("数据与安全", "Data & Security"), detail: "Vault")
 
             VStack(spacing: 0) {
-                SoulMenuRow(title: localizedText("成就徽章", "Achievements"), subtitle: localizedText("查看你的练习成果", "See your practice milestones"), icon: "seal.fill")
+                Button {
+                    showingAchievements = true
+                } label: {
+                    SoulMenuRow(title: localizedText("成就徽章", "Achievements"), subtitle: localizedText("查看你的练习成果", "See your practice milestones"), icon: "seal.fill")
+                }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 58).overlay(SoulTheme.cardStroke)
                 SoulMenuRow(title: localizedText("数据仓库", "Data Vault"), subtitle: localizedText("关系与复盘数据总览", "Overview of relationship and review data"), icon: "externaldrive.fill")
                 Divider().padding(.leading, 58).overlay(SoulTheme.cardStroke)
@@ -360,6 +452,107 @@ struct IntegratedProfilePage: View {
             .padding(.horizontal, 14)
             .background(SoulGlassCardBackground())
         }
+    }
+}
+
+private struct AchievementsSheet: View {
+    let progress: AchievementProgress
+    @Environment(\.dismiss) private var dismiss
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
+
+    var body: some View {
+        ZStack {
+            SoulBackground()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 20) {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(localizedText("成就徽章", "Achievements"))
+                                .font(.system(size: 27, weight: .heavy, design: .rounded))
+                                .foregroundStyle(SoulTheme.primaryText)
+
+                            Text(localizedText("每一次真实的连接，都值得被看见。", "Every honest connection deserves to be seen."))
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(SoulTheme.secondaryText)
+                        }
+
+                        Spacer()
+
+                        SoulIconButton(systemImage: "xmark") {
+                            dismiss()
+                        }
+                    }
+
+                    let achievements = SoulAchievement.all(progress: progress)
+
+                    HStack(spacing: 8) {
+                        Text("\(achievements.filter(\.isUnlocked).count)/\(achievements.count)")
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .foregroundStyle(SoulTheme.energy)
+
+                        Text(localizedText("已点亮", "unlocked"))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                    }
+
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(achievements) { achievement in
+                            AchievementBadgeCard(achievement: achievement)
+                        }
+                    }
+                }
+                .padding(20)
+                .padding(.bottom, 28)
+            }
+        }
+    }
+}
+
+private struct AchievementBadgeCard: View {
+    let achievement: SoulAchievement
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(achievement.isUnlocked ? SoulTheme.accentSoft : SoulTheme.subtleFill)
+                    .frame(width: 52, height: 52)
+
+                Image(systemName: achievement.systemImage)
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(achievement.isUnlocked ? SoulTheme.accent : SoulTheme.tertiaryText)
+                    .shadow(color: achievement.isUnlocked ? SoulTheme.energy.opacity(0.42) : .clear, radius: 7)
+
+                if !achievement.isUnlocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(SoulTheme.secondaryText)
+                        .frame(width: 20, height: 20)
+                        .background(SoulTheme.cardFill, in: Circle())
+                        .offset(x: 21, y: 21)
+                }
+            }
+
+            Text(achievement.title)
+                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                .foregroundStyle(achievement.isUnlocked ? SoulTheme.primaryText : SoulTheme.secondaryText)
+                .lineLimit(2)
+
+            Text(achievement.requirement)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(SoulTheme.secondaryText)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 154, alignment: .topLeading)
+        .padding(14)
+        .background(SoulGlassCardBackground(accented: achievement.isUnlocked))
+        .saturation(achievement.isUnlocked ? 1 : 0.08)
     }
 }
 

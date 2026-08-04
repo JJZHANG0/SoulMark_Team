@@ -5,6 +5,160 @@
 
 import SwiftUI
 
+enum FreeRelationshipPolicy {
+    static let maximumPeople = 5
+
+    static func canAddPerson(currentCount: Int) -> Bool {
+        currentCount < maximumPeople
+    }
+}
+
+struct DailySoulQuote: Equatable {
+    let chinese: String
+    let english: String
+
+    var text: String {
+        localizedText(chinese, english)
+    }
+
+    var shareText: String {
+        "\(text)\n\n— SoulMark"
+    }
+
+    static func quote(for date: Date = Date(), calendar: Calendar = .current) -> DailySoulQuote {
+        let day = calendar.ordinality(of: .day, in: .year, for: date) ?? 1
+        return quotes[(day - 1) % quotes.count]
+    }
+
+    private static let quotes: [DailySoulQuote] = [
+        DailySoulQuote(
+            chinese: "你不是不会社交，只是擅长把每次聊天都变成事后复盘。",
+            english: "You are not bad at socializing. You just turn every chat into a post-game review."
+        ),
+        DailySoulQuote(
+            chinese: "成年人的默契：消息看见了，情绪也看见了，就是没回。",
+            english: "Adult chemistry is seeing the message, seeing the feelings, and still not replying."
+        ),
+        DailySoulQuote(
+            chinese: "有些关系不是淡了，只是双方都在等对方先热情。",
+            english: "Some relationships are not fading. Both people are simply waiting for the other to care first."
+        ),
+        DailySoulQuote(
+            chinese: "沟通解决不了所有问题，但沉默通常会再送你几个。",
+            english: "Communication cannot solve everything, but silence is very good at creating more problems."
+        ),
+        DailySoulQuote(
+            chinese: "你以为自己在保持边界，对方可能以为你已经搬走了。",
+            english: "You may call it a boundary. They may think you have left the building."
+        ),
+        DailySoulQuote(
+            chinese: "真正的情绪稳定，有时只是终于想好这句话该怎么说。",
+            english: "Emotional stability sometimes means finally knowing how to say the difficult sentence."
+        )
+    ]
+}
+
+struct RelationshipLabelLayout: Equatable {
+    let horizontalDirection: Int
+}
+
+enum RelationshipLabelPlacement {
+    static func layout(node: CGPoint, center: CGPoint) -> RelationshipLabelLayout {
+        RelationshipLabelLayout(horizontalDirection: node.x >= center.x ? 1 : -1)
+    }
+}
+
+struct AchievementProgress: Equatable {
+    var peopleCount: Int
+    var practiceCount: Int
+    var reviewCount: Int
+    var relationshipCategoryCount: Int
+
+    static let empty = AchievementProgress(
+        peopleCount: 0,
+        practiceCount: 0,
+        reviewCount: 0,
+        relationshipCategoryCount: 0
+    )
+}
+
+struct SoulAchievement: Identifiable {
+    let id: String
+    let chineseTitle: String
+    let englishTitle: String
+    let chineseRequirement: String
+    let englishRequirement: String
+    let systemImage: String
+    let isUnlocked: Bool
+
+    var title: String {
+        localizedText(chineseTitle, englishTitle)
+    }
+
+    var requirement: String {
+        localizedText(chineseRequirement, englishRequirement)
+    }
+
+    static func all(progress: AchievementProgress) -> [SoulAchievement] {
+        [
+            SoulAchievement(
+                id: "first-connection",
+                chineseTitle: "初次连接",
+                englishTitle: "First Connection",
+                chineseRequirement: "在关系网中添加 1 个人",
+                englishRequirement: "Add 1 person to your map",
+                systemImage: "person.crop.circle.badge.plus",
+                isUnlocked: progress.peopleCount >= 1
+            ),
+            SoulAchievement(
+                id: "inner-circle",
+                chineseTitle: "五人小队",
+                englishTitle: "Inner Circle",
+                chineseRequirement: "在关系网中添加 5 个人",
+                englishRequirement: "Add 5 people to your map",
+                systemImage: "person.3.fill",
+                isUnlocked: progress.peopleCount >= 5
+            ),
+            SoulAchievement(
+                id: "first-practice",
+                chineseTitle: "第一次开口",
+                englishTitle: "First Practice",
+                chineseRequirement: "完成 1 次情景模拟",
+                englishRequirement: "Complete 1 simulation",
+                systemImage: "waveform.and.mic",
+                isUnlocked: progress.practiceCount >= 1
+            ),
+            SoulAchievement(
+                id: "reflection-starter",
+                chineseTitle: "复盘起点",
+                englishTitle: "Reflection Starter",
+                chineseRequirement: "完成 1 次沟通复盘",
+                englishRequirement: "Complete 1 conversation review",
+                systemImage: "text.bubble.fill",
+                isUnlocked: progress.reviewCount >= 1
+            ),
+            SoulAchievement(
+                id: "clear-voice",
+                chineseTitle: "表达渐清晰",
+                englishTitle: "Clear Voice",
+                chineseRequirement: "完成 3 次情景模拟",
+                englishRequirement: "Complete 3 simulations",
+                systemImage: "sparkles",
+                isUnlocked: progress.practiceCount >= 3
+            ),
+            SoulAchievement(
+                id: "relationship-explorer",
+                chineseTitle: "关系探索者",
+                englishTitle: "Relationship Explorer",
+                chineseRequirement: "使用 3 种不同关系类型",
+                englishRequirement: "Use 3 relationship categories",
+                systemImage: "point.3.connected.trianglepath.dotted",
+                isUnlocked: progress.relationshipCategoryCount >= 3
+            )
+        ]
+    }
+}
+
 enum RelationshipFilter: String, CaseIterable, Identifiable {
     case all
     case confidant
@@ -277,6 +431,24 @@ struct ScenarioParticipant: Identifiable, Equatable {
             symbol: "person.crop.circle.badge.questionmark",
             isCustom: true
         )
+    }
+
+    static var soul: ScenarioParticipant {
+        ScenarioParticipant(
+            id: "soul-ai",
+            name: "Soul",
+            note: localizedText("你的 AI 沟通陪练", "Your AI communication partner"),
+            relationshipLabel: localizedText("AI 陪练", "AI Coach"),
+            color: SoulTheme.accent,
+            symbol: "waveform.and.mic",
+            isCustom: false
+        )
+    }
+}
+
+extension Array where Element == ScenarioParticipant {
+    func withSoulFallback() -> [ScenarioParticipant] {
+        isEmpty ? [.soul] : self
     }
 }
 

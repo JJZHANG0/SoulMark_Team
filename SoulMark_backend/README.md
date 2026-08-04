@@ -17,13 +17,31 @@ Open the interactive API documentation at [http://localhost:8000/docs](http://lo
 
 ## Local Python Development
 
-Create and activate an isolated environment, install the project, and copy the documented configuration:
+Dependencies are frozen in `uv.lock` and `requirements.txt`. The recommended setup uses
+[uv](https://docs.astral.sh/uv/) so every teammate gets the same Python and package versions:
+
+```bash
+uv sync --all-extras --locked
+cp .env.example .env
+source .venv/bin/activate
+```
+
+Alternatively, with Python 3.12 already installed, create an isolated environment and install
+the hash-verified frozen requirements:
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+python -m pip install --require-hashes -r requirements.txt
+python -m pip install --no-deps -e .
 cp .env.example .env
+```
+
+When dependencies in `pyproject.toml` change, regenerate both frozen files and commit them:
+
+```bash
+uv lock
+uv export --locked --all-extras --no-emit-project --no-header --output-file requirements.txt
 ```
 
 Start PostgreSQL, then apply migrations and run the API:

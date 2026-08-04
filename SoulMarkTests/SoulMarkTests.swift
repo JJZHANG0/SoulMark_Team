@@ -215,4 +215,61 @@ struct SoulMarkTests {
         #expect(!session.matches("面试"))
     }
 
+    @Test func freeRelationshipPolicyStopsAtFivePeople() {
+        #expect(FreeRelationshipPolicy.canAddPerson(currentCount: 0))
+        #expect(FreeRelationshipPolicy.canAddPerson(currentCount: 4))
+        #expect(!FreeRelationshipPolicy.canAddPerson(currentCount: 5))
+        #expect(!FreeRelationshipPolicy.canAddPerson(currentCount: 6))
+    }
+
+    @Test func dailyQuoteIsStableForOneDayAndSharesWithBrandName() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let morning = Date(timeIntervalSince1970: 1_786_080_000)
+        let evening = morning.addingTimeInterval(60 * 60 * 12)
+
+        let morningQuote = DailySoulQuote.quote(for: morning, calendar: calendar)
+        let eveningQuote = DailySoulQuote.quote(for: evening, calendar: calendar)
+
+        #expect(morningQuote == eveningQuote)
+        #expect(morningQuote.shareText.contains("SoulMark"))
+        #expect(!morningQuote.chinese.isEmpty)
+        #expect(!morningQuote.english.isEmpty)
+    }
+
+    @Test func emptyScenarioParticipantListUsesSoulFallback() {
+        let participants = [ScenarioParticipant]().withSoulFallback()
+
+        #expect(participants.count == 1)
+        #expect(participants.first?.name == "Soul")
+        #expect(participants.first?.isCustom == false)
+    }
+
+    @Test func relationshipLabelsFaceAwayFromMapCenter() {
+        let center = CGPoint(x: 0.5, y: 0.5)
+        let right = RelationshipLabelPlacement.layout(node: CGPoint(x: 0.8, y: 0.5), center: center)
+        let left = RelationshipLabelPlacement.layout(node: CGPoint(x: 0.2, y: 0.5), center: center)
+
+        #expect(right.horizontalDirection == 1)
+        #expect(left.horizontalDirection == -1)
+    }
+
+    @Test func achievementsUnlockFromCurrentSessionProgress() {
+        let complete = AchievementProgress(
+            peopleCount: 5,
+            practiceCount: 3,
+            reviewCount: 1,
+            relationshipCategoryCount: 3
+        )
+        let empty = AchievementProgress(
+            peopleCount: 0,
+            practiceCount: 0,
+            reviewCount: 0,
+            relationshipCategoryCount: 0
+        )
+
+        #expect(SoulAchievement.all(progress: complete).allSatisfy { $0.isUnlocked })
+        #expect(SoulAchievement.all(progress: empty).allSatisfy { !$0.isUnlocked })
+    }
+
 }

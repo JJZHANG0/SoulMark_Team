@@ -6,21 +6,15 @@
 import SwiftUI
 
 struct ConversationReviewPage: View {
-    @State private var records: [ConversationReviewRecord] = [
-        .make(
-            title: localizedText("和 Wren 的情景模拟", "Simulation with Wren"),
-            source: .scenario,
-            transcript: localizedText("我想告诉你，我最近有点压力。希望下次我们可以提前说清楚时间，这样我会更安心。", "I want to tell you that I have been under some pressure lately. I hope next time we can clarify the timing earlier so I can feel more at ease.")
-        ),
-        .make(
-            title: localizedText("微信聊天复盘", "WeChat Review"),
-            source: .wechat,
-            transcript: localizedText("我昨天没有及时回复你，是因为我在赶项目。下次我会提前告诉你，不让你一直等。", "I did not reply in time yesterday because I was rushing a project. Next time I will tell you earlier so you are not left waiting.")
-        )
-    ]
+    @State private var records: [ConversationReviewRecord] = []
     @State private var isAddingRecord = false
     @State private var selectedSource: ReviewSource?
     @State private var searchText = ""
+    let onRecordCountChange: (Int) -> Void
+
+    init(onRecordCountChange: @escaping (Int) -> Void = { _ in }) {
+        self.onRecordCountChange = onRecordCountChange
+    }
 
     private var filteredRecords: [ConversationReviewRecord] {
         records.filter { $0.matches(source: selectedSource, query: searchText) }
@@ -67,6 +61,7 @@ struct ConversationReviewPage: View {
                                 record: record,
                                 onDelete: {
                                     records.removeAll { $0.id == record.id }
+                                    onRecordCountChange(records.count)
                                 }
                             )
                         }
@@ -87,6 +82,7 @@ struct ConversationReviewPage: View {
                     ),
                     at: 0
                 )
+                onRecordCountChange(records.count)
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)

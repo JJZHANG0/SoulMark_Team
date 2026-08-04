@@ -9,6 +9,7 @@ struct RelationshipHeader: View {
     let onBackHome: () -> Void
     let onAddPerson: () -> Void
     let onOpenScenario: () -> Void
+    let onOpenCategories: () -> Void
 
     var body: some View {
         SoulPageHeader(
@@ -18,6 +19,10 @@ struct RelationshipHeader: View {
         ) {
             HStack(spacing: 8) {
                 Menu {
+                    Button(action: onOpenCategories) {
+                        Label(localizedText("关系分类", "Relationship Categories"), systemImage: "line.3.horizontal.decrease.circle.fill")
+                    }
+
                     Button(action: onBackHome) {
                         Label(localizedText("返回首页", "Back Home"), systemImage: "house.fill")
                     }
@@ -82,6 +87,7 @@ struct RelationshipMapView: View {
     let onMovePerson: (RelationshipPerson.ID, CGPoint) -> Void
     let onOrganize: () -> Void
     let onSelect: (RelationshipPerson) -> Void
+    let onAddPerson: () -> Void
 
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
@@ -127,6 +133,20 @@ struct RelationshipMapView: View {
 
                     CenterProfile()
                         .position(centerPoint)
+
+                    if people.isEmpty {
+                        Button(action: onAddPerson) {
+                            Label(localizedText("添加第一个人", "Add Your First Person"), systemImage: "person.badge.plus")
+                                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                                .foregroundStyle(Color.white)
+                                .padding(.horizontal, 16)
+                                .frame(height: 42)
+                                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                                .shadow(color: SoulTheme.accent.opacity(0.25), radius: 10, x: 0, y: 6)
+                        }
+                        .buttonStyle(.plain)
+                        .position(x: centerPoint.x, y: centerPoint.y + 176)
+                    }
                 }
                 .frame(width: canvas.width, height: canvas.height)
                 .scaleEffect(scale)
@@ -137,17 +157,19 @@ struct RelationshipMapView: View {
             .simultaneousGesture(dragGesture)
             .simultaneousGesture(zoomGesture)
             .overlay(alignment: .topLeading) {
-                Button(action: onOrganize) {
-                    Label(localizedText("整理", "Organize"), systemImage: "wand.and.stars")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(SoulTheme.primaryText)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(SoulGlassCapsule())
+                if !people.isEmpty {
+                    Button(action: onOrganize) {
+                        Label(localizedText("整理", "Organize"), systemImage: "wand.and.stars")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(SoulTheme.primaryText)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(SoulGlassCapsule())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 8)
+                    .padding(.leading, 16)
                 }
-                .buttonStyle(.plain)
-                .padding(.top, 8)
-                .padding(.leading, 16)
             }
             .overlay(alignment: .topTrailing) {
                 MapControlHint(scale: scale)
@@ -299,7 +321,7 @@ private struct RelationshipNode: View {
                     .stroke(person.category.color.opacity(0.42), lineWidth: 1)
             }
         }
-        .position(point)
+        .position(x: point.x + CGFloat(labelLayout.horizontalDirection) * 46, y: point.y)
     }
 
     private var label: some View {
@@ -307,6 +329,8 @@ private struct RelationshipNode: View {
             Text(person.name)
                 .font(.system(size: 16, weight: .heavy, design: .rounded))
                 .foregroundStyle(SoulTheme.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
 
             Text(person.displayNote)
                 .font(.system(size: 10, weight: .medium))
@@ -321,7 +345,11 @@ private struct RelationshipNode: View {
     }
 
     private var shouldPutTextFirst: Bool {
-        point.x > centerPoint.x
+        labelLayout.horizontalDirection < 0
+    }
+
+    private var labelLayout: RelationshipLabelLayout {
+        RelationshipLabelPlacement.layout(node: point, center: centerPoint)
     }
 
     private var avatarSize: CGFloat {
@@ -520,6 +548,118 @@ struct RelationshipFilterBar: View {
         .background(.ultraThinMaterial, in: Capsule())
         .background(SoulTheme.cardFill.opacity(0.72), in: Capsule())
         .overlay(Capsule().stroke(SoulTheme.cardStroke, lineWidth: 1))
+    }
+}
+
+struct RelationshipCategoriesSheet: View {
+    @Binding var selectedFilter: RelationshipFilter
+    @Binding var selectedCustomCategory: RelationshipCategory?
+    let filters: [RelationshipFilter]
+    let customCategories: [RelationshipCategory]
+    let onAddRelationship: () -> Void
+    let onDeleteRelationship: (RelationshipCategory) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            SoulBackground()
+
+            VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(localizedText("关系分类", "Relationship Categories"))
+                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .foregroundStyle(SoulTheme.primaryText)
+
+                        Text(localizedText("筛选、添加或删除关系类型", "Filter, add, or remove relationship types"))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                    }
+
+                    Spacer()
+
+                    SoulIconButton(systemImage: "xmark") {
+                        dismiss()
+                    }
+                }
+
+                RelationshipFilterBar(
+                    selectedFilter: $selectedFilter,
+                    selectedCustomCategory: $selectedCustomCategory,
+                    filters: filters,
+                    customCategories: customCategories,
+                    onAddRelationship: onAddRelationship,
+                    onDeleteRelationship: onDeleteRelationship
+                )
+
+                Spacer(minLength: 0)
+            }
+            .padding(20)
+        }
+        .onChange(of: selectedFilter) { _, _ in
+            dismiss()
+        }
+        .onChange(of: selectedCustomCategory) { _, newValue in
+            if newValue != nil {
+                dismiss()
+            }
+        }
+    }
+}
+
+struct MembershipUpgradeSheet: View {
+    let currentPeopleCount: Int
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            SoulBackground()
+
+            VStack(spacing: 18) {
+                Image(systemName: "sparkles.rectangle.stack.fill")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(width: 74, height: 74)
+                    .background(SoulTheme.accent, in: Circle())
+                    .shadow(color: SoulTheme.accent.opacity(0.28), radius: 14, x: 0, y: 8)
+
+                VStack(spacing: 7) {
+                    Text(localizedText("解锁更多关系位置", "Unlock More Relationship Slots"))
+                        .font(.system(size: 23, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .multilineTextAlignment(.center)
+
+                    Text(localizedText(
+                        "免费版可添加 5 人。你已经使用 \(currentPeopleCount)/\(FreeRelationshipPolicy.maximumPeople) 个位置。",
+                        "The free plan includes 5 people. You are using \(currentPeopleCount)/\(FreeRelationshipPolicy.maximumPeople) slots."
+                    ))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(3)
+                }
+
+                Label(localizedText("会员功能将在后续版本开放", "Membership will arrive in a future version"), systemImage: "info.circle.fill")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(SoulTheme.energy)
+                    .padding(.horizontal, 12)
+                    .frame(height: 36)
+                    .background(SoulTheme.energySoft, in: RoundedRectangle(cornerRadius: 8))
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text(localizedText("我知道了", "Got It"))
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 48)
+                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(24)
+        }
     }
 }
 

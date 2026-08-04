@@ -39,7 +39,7 @@ struct ContentView: View {
     @State private var selectedFilter: RelationshipFilter = .all
     @State private var selectedCustomCategory: RelationshipCategory?
     @State private var selectedPerson: RelationshipPerson?
-    @State private var people = RelationshipSampleData.people
+    @State private var people: [RelationshipPerson] = []
     @State private var customCategories: [RelationshipCategory] = []
     @State private var isAddingPerson = false
     @State private var isAddingRelationship = false
@@ -47,6 +47,10 @@ struct ContentView: View {
     @State private var deletedCategories: Set<RelationshipCategory> = []
     @State private var graphLayoutRevision = UUID()
     @State private var scenarioFocusedPersonID: RelationshipPerson.ID?
+    @State private var showingRelationshipCategories = false
+    @State private var showingMembershipUpgrade = false
+    @State private var practiceCount = 0
+    @State private var reviewCount = 0
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
 
@@ -68,6 +72,15 @@ struct ContentView: View {
         return selectedFilter.filteredPeople(from: people)
     }
 
+    private var achievementProgress: AchievementProgress {
+        AchievementProgress(
+            peopleCount: people.count,
+            practiceCount: practiceCount,
+            reviewCount: reviewCount,
+            relationshipCategoryCount: Set(people.map(\.category)).count
+        )
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             currentPage
@@ -83,6 +96,7 @@ struct ContentView: View {
         switch selectedSection {
         case .home:
             IntegratedHomePage(
+                people: people,
                 onOpenRelationshipGraph: {
                     selectedSection = .relationshipGraph
                 },
@@ -98,12 +112,17 @@ struct ContentView: View {
         case .scenarioSimulation:
             ScenarioSimulationView(
                 relationshipPeople: people,
-                focusedPersonID: scenarioFocusedPersonID
+                focusedPersonID: scenarioFocusedPersonID,
+                onPracticeSubmitted: { _ in
+                    practiceCount += 1
+                }
             )
         case .journal:
-            ConversationReviewPage()
+            ConversationReviewPage { count in
+                reviewCount = count
+            }
         case .profile:
-            IntegratedProfilePage()
+            IntegratedProfilePage(achievementProgress: achievementProgress)
         }
     }
 
@@ -117,10 +136,13 @@ struct ContentView: View {
                         selectedSection = .home
                     },
                     onAddPerson: {
-                        isAddingPerson = true
+                        requestAddPerson()
                     },
                     onOpenScenario: {
                         selectedSection = .scenarioSimulation
+                    },
+                    onOpenCategories: {
+                        showingRelationshipCategories = true
                     }
                 )
 
@@ -146,32 +168,12 @@ struct ContentView: View {
                         withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
                             selectedPerson = person
                         }
-                    }
+                    },
+                    onAddPerson: requestAddPerson
                 )
                 .id(graphLayoutRevision)
                 .padding(.top, 8)
-                .padding(.bottom, 154)
-            }
-
-            RelationshipFilterBar(
-                selectedFilter: $selectedFilter,
-                selectedCustomCategory: $selectedCustomCategory,
-                filters: availableFilters,
-                customCategories: customCategories,
-                onAddRelationship: {
-                    isAddingRelationship = true
-                },
-                onDeleteRelationship: { category in
-                    pendingDeletedCategory = category
-                }
-            )
-            .padding(.horizontal, 20)
-            .padding(.bottom, 106)
-            .onChange(of: selectedFilter) { _, _ in
-                selectedPerson = nil
-            }
-            .onChange(of: selectedCustomCategory) { _, _ in
-                selectedPerson = nil
+                .padding(.bottom, 106)
             }
         }
         .ignoresSafeArea(edges: .bottom)
@@ -201,6 +203,29 @@ struct ContentView: View {
                 people.addPerson(name: name, note: note, category: category)
             }
             .presentationDetents([.height(430), .medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingMembershipUpgrade) {
+            MembershipUpgradeSheet(currentPeopleCount: people.count)
+                .presentationDetents([.height(430), .medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingRelationshipCategories) {
+            RelationshipCategoriesSheet(
+                selectedFilter: $selectedFilter,
+                selectedCustomCategory: $selectedCustomCategory,
+                filters: availableFilters,
+                customCategories: customCategories,
+                onAddRelationship: {
+                    showingRelationshipCategories = false
+                    isAddingRelationship = true
+                },
+                onDeleteRelationship: { category in
+                    showingRelationshipCategories = false
+                    pendingDeletedCategory = category
+                }
+            )
+            .presentationDetents([.height(250), .medium])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isAddingRelationship) {
@@ -250,6 +275,14 @@ struct ContentView: View {
             if pendingDeletedCategory != nil {
                 Text(localizedText("这个关系下的人会一起从关系图谱中移除。", "People under this relationship will also be removed from the map."))
             }
+        }
+    }
+
+    private func requestAddPerson() {
+        if FreeRelationshipPolicy.canAddPerson(currentCount: people.count) {
+            isAddingPerson = true
+        } else {
+            showingMembershipUpgrade = true
         }
     }
 }

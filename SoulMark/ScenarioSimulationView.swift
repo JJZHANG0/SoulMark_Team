@@ -6,6 +6,9 @@
 import SwiftUI
 
 struct ScenarioSimulationView: View {
+    let relationshipPeople: [RelationshipPerson]
+    let onPracticeSubmitted: (Int) -> Void
+
     @State private var participants: [ScenarioParticipant]
     @State private var selectedParticipantID: ScenarioParticipant.ID?
     @State private var isAddingParticipant = false
@@ -14,14 +17,21 @@ struct ScenarioSimulationView: View {
     @State private var selectedModeID = ScenarioMode.defaultModes[0].id
     @State private var recordingTimer = RecordingTimer()
     @State private var draftMessage = ""
-    @State private var conversation = ScenarioMessage.sample
+    @State private var conversation: [ScenarioMessage] = []
     @State private var conversationHistory: [ScenarioConversationSession] = []
     @State private var isShowingHistory = false
     @State private var isShowingParticipantPicker = false
     @State private var conversationScrollTarget = UUID()
+    @State private var isShowingGuidance = false
 
-    init(relationshipPeople: [RelationshipPerson], focusedPersonID: RelationshipPerson.ID? = nil) {
-        let initialParticipants = relationshipPeople.scenarioParticipants()
+    init(
+        relationshipPeople: [RelationshipPerson],
+        focusedPersonID: RelationshipPerson.ID? = nil,
+        onPracticeSubmitted: @escaping (Int) -> Void = { _ in }
+    ) {
+        self.relationshipPeople = relationshipPeople
+        self.onPracticeSubmitted = onPracticeSubmitted
+        let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
         let focusedID = focusedPersonID?.uuidString
         let selectedID = initialParticipants.contains { $0.id == focusedID } ? focusedID : initialParticipants.first?.id
@@ -42,6 +52,8 @@ struct ScenarioSimulationView: View {
 
             VStack(spacing: 0) {
                 ScenarioHeader(
+                    selectedModeID: $selectedModeID,
+                    modes: modes,
                     onShowHistory: {
                         isShowingHistory = true
                     },
@@ -52,42 +64,49 @@ struct ScenarioSimulationView: View {
                     },
                     onAddMode: {
                         isAddingMode = true
+                    },
+                    onShowGuidance: {
+                        isShowingGuidance = true
                     }
                 )
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 18) {
-                    ScenarioStage(participant: selectedParticipant)
+                VStack(spacing: 0) {
+                    Spacer(minLength: 8)
 
-                        partnerSelector
+                    SoulMascotFigure(height: 238, haloIntensity: 1.12)
 
-                        ScenarioControlCard(
-                            participant: selectedParticipant,
-                            selectedModeID: $selectedModeID,
-                            modes: modes,
-                            messages: conversation,
-                            scrollTarget: conversationScrollTarget,
-                            draftMessage: $draftMessage,
-                            recordingTimer: $recordingTimer,
-                            onAddMode: {
-                                isAddingMode = true
-                            },
-                            onNewConversation: startNewConversation,
-                            onCancelRecording: {
-                                recordingTimer.cancel()
-                            },
-                            onConfirmRecording: confirmRecording,
-                            onSend: sendMessage
-                        )
+                    VStack(spacing: 5) {
+                        Text(localizedText("准备与 AI 对话", "READY TO TALK WITH AI"))
+                            .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                            .foregroundStyle(SoulTheme.energy)
+
+                        Text(localizedText(
+                            "模拟 \(selectedParticipant.name) · \(selectedMode.displayTitle)",
+                            "As \(selectedParticipant.name) · \(selectedMode.displayTitle)"
+                        ))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SoulTheme.secondaryText)
                     }
-                    .padding(.horizontal, 18)
-                    .padding(.top, 8)
-                    .padding(.bottom, 126)
+
+                    if !conversation.isEmpty {
+                        MinimalScenarioTranscript(messages: conversation, scrollTarget: conversationScrollTarget)
+                            .frame(height: 126)
+                            .padding(.horizontal, 18)
+                            .padding(.top, 12)
+                    }
+
+                    Spacer(minLength: 12)
+
+                    voiceControl
+                        .padding(.bottom, 118)
                 }
             }
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             recordingTimer.tick()
+        }
+        .onChange(of: relationshipPeople) { _, _ in
+            syncRelationshipParticipants()
         }
         .sheet(isPresented: $isAddingParticipant) {
             AddScenarioParticipantSheet { name, note, relationshipLabel in
@@ -137,6 +156,65 @@ struct ScenarioSimulationView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $isShowingGuidance) {
+            ScenarioGuidanceSheet(mode: selectedMode)
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+    }
+
+    private var voiceControl: some View {
+        VStack(spacing: 11) {
+            if recordingTimer.isRunning {
+                Text(recordingTimer.displayText)
+                    .font(.system(size: 18, weight: .heavy, design: .monospaced))
+                    .foregroundStyle(SoulTheme.primaryText)
+
+                HStack(spacing: 26) {
+                    Button {
+                        recordingTimer.cancel()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 20, weight: .heavy))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 52, height: 52)
+                            .background(SoulTheme.danger, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        let seconds = recordingTimer.finish()
+                        confirmRecording(seconds: seconds)
+                    } label: {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 20, weight: .heavy))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 52, height: 52)
+                            .background(SoulTheme.success, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Button {
+                    recordingTimer.start()
+                } label: {
+                    VStack(spacing: 8) {
+                        Image(systemName: "waveform.and.mic")
+                            .font(.system(size: 25, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 72, height: 72)
+                            .background(SoulTheme.accent, in: Circle())
+                            .shadow(color: SoulTheme.accent.opacity(0.30), radius: 13, x: 0, y: 8)
+
+                        Text(localizedText("与 AI 说话", "Talk with AI"))
+                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            .foregroundStyle(SoulTheme.primaryText)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(height: 108)
     }
 
     private var partnerSelector: some View {
@@ -177,14 +255,16 @@ struct ScenarioSimulationView: View {
     }
 
     private var conversationSessions: [ScenarioConversationSession] {
-        [
+        let currentSession = conversation.isEmpty ? [] : [
             ScenarioConversationSession(
                 participantID: selectedParticipantID,
                 participantName: selectedParticipant.name,
                 date: Date(),
                 messages: conversation
             )
-        ] + conversationHistory
+        ]
+
+        return currentSession + conversationHistory
     }
 
     private func sendMessage() {
@@ -213,13 +293,32 @@ struct ScenarioSimulationView: View {
                 isUser: true
             )
         )
+        conversation.append(
+            ScenarioMessage(
+                speaker: selectedParticipant.name,
+                text: localizedText("我听到了。你可以继续说，我会陪你把这段话练清楚。", "I hear you. Keep going, and we will make these words clearer together."),
+                isUser: false
+            )
+        )
         conversationScrollTarget = UUID()
+        onPracticeSubmitted(seconds)
     }
 
     private func deleteCustomParticipant(_ participant: ScenarioParticipant) {
         participants.deleteCustomParticipant(participant.id)
+        participants = participants.withSoulFallback()
 
         if selectedParticipantID == participant.id {
+            selectedParticipantID = participants.first?.id
+            resetConversation()
+        }
+    }
+
+    private func syncRelationshipParticipants() {
+        let customParticipants = participants.filter(\.isCustom)
+        participants = (relationshipPeople.scenarioParticipants() + customParticipants).withSoulFallback()
+
+        if !participants.contains(where: { $0.id == selectedParticipantID }) {
             selectedParticipantID = participants.first?.id
             resetConversation()
         }
@@ -298,11 +397,14 @@ struct ScenarioSimulationView: View {
 }
 
 private struct ScenarioHeader: View {
+    @Binding var selectedModeID: ScenarioMode.ID
+    let modes: [ScenarioMode]
     let onShowHistory: () -> Void
     let onNewHeartTalk: () -> Void
     let onNewConversation: () -> Void
     let onChangeParticipant: () -> Void
     let onAddMode: () -> Void
+    let onShowGuidance: () -> Void
 
     var body: some View {
         SoulPageHeader(
@@ -326,6 +428,22 @@ private struct ScenarioHeader: View {
                         Label(localizedText("切换对象", "Switch Partner"), systemImage: "person.2.fill")
                     }
 
+                    Menu {
+                        ForEach(modes) { mode in
+                            Button {
+                                selectedModeID = mode.id
+                            } label: {
+                                Label(mode.displayTitle, systemImage: selectedModeID == mode.id ? "checkmark.circle.fill" : mode.systemImage)
+                            }
+                        }
+                    } label: {
+                        Label(localizedText("选择模式", "Choose Mode"), systemImage: "rectangle.3.group.fill")
+                    }
+
+                    Button(action: onShowGuidance) {
+                        Label(localizedText("完整指导", "Full Guidance"), systemImage: "lightbulb.max.fill")
+                    }
+
                     Button(action: onAddMode) {
                         Label(localizedText("自定义模式", "Custom Mode"), systemImage: "slider.horizontal.3")
                     }
@@ -343,6 +461,46 @@ private struct ScenarioHeader: View {
         .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 6)
+    }
+}
+
+private struct MinimalScenarioTranscript: View {
+    let messages: [ScenarioMessage]
+    let scrollTarget: UUID
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: 8) {
+                    ForEach(messages) { message in
+                        HStack {
+                            if message.isUser { Spacer(minLength: 44) }
+
+                            Text(message.text)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(message.isUser ? Color.white : SoulTheme.primaryText)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                                .background(
+                                    message.isUser ? SoulTheme.accent : SoulTheme.cardFill,
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+
+                            if !message.isUser { Spacer(minLength: 44) }
+                        }
+                    }
+
+                    Color.clear.frame(height: 1).id(scrollTarget)
+                }
+                .padding(10)
+            }
+            .background(SoulGlassCardBackground())
+            .onChange(of: scrollTarget) { _, newValue in
+                withAnimation(.easeOut(duration: 0.22)) {
+                    proxy.scrollTo(newValue, anchor: .bottom)
+                }
+            }
+        }
     }
 }
 
