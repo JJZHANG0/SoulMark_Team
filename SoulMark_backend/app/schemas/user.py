@@ -1,7 +1,15 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+
+class UserUpdate(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=100)
+    preferred_language: Literal["zh", "en"] | None = None
+    gender: Literal["male", "female", "unspecified"] | None = None
+    appearance: Literal["auto", "light", "dark"] | None = None
 
 
 class UserResponse(BaseModel):

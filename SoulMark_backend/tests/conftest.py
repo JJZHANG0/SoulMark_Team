@@ -40,3 +40,18 @@ async def client(application: FastAPI) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=application)
     async with AsyncClient(transport=transport, base_url="http://test") as test_client:
         yield test_client
+
+
+@pytest.fixture
+async def auth_headers(client: AsyncClient) -> dict[str, str]:
+    registration = {
+        "email": "profile@example.com",
+        "password": "StrongPass123!",
+        "display_name": "Profile Owner",
+    }
+    assert (await client.post("/api/v1/auth/register", json=registration)).status_code == 201
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": registration["email"], "password": registration["password"]},
+    )
+    return {"Authorization": f"Bearer {login.json()['access_token']}"}
