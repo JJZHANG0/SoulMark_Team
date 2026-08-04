@@ -1,2 +1,1 @@
 """SoulMark backend application package."""
-
