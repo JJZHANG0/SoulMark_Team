@@ -1,5 +1,4 @@
 .DS_Store
-.idea/
 .derivedData/
 DerivedData/
 *.xcuserstate
@@ -7,5 +6,3 @@ xcuserdata/
 *.xcbkptlist
 .worktrees/
 SoulMark_backend/uploads/
-*.sql
-*.dump
