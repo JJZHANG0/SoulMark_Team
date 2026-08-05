@@ -145,10 +145,6 @@ struct IntegratedHomePage: View {
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
-                Label(localizedText("今日毒鸡汤", "DAILY REALITY CHECK"), systemImage: "quote.opening")
-                    .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                    .foregroundStyle(SoulTheme.energy)
-
                 Spacer()
 
                 Button {
@@ -168,7 +164,7 @@ struct IntegratedHomePage: View {
                         .background(SoulTheme.accent, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(localizedText("分享今日毒鸡汤", "Share today's quote"))
+                .accessibilityLabel(localizedText("分享今日内容", "Share today's quote"))
             }
 
             Text(quote.text)

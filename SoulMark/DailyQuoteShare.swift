@@ -49,10 +49,6 @@ private struct DailyQuoteShareCard: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Label(localizedText("今日毒鸡汤", "DAILY REALITY CHECK"), systemImage: "quote.opening")
-                        .font(.system(size: 17, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color(red: 1.0, green: 0.56, blue: 0.76))
-
                     Spacer()
 
                     Text("SOULMARK")
