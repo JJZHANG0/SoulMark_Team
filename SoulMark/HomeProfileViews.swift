@@ -54,7 +54,6 @@ struct IntegratedHomePage: View {
                 .padding(.bottom, 126)
             }
         }
-        .id("\(genderTheme)-\(appearanceMode)")
         .sheet(isPresented: $showingSettings) {
             SoulSettingsSheet()
                 .presentationDetents([.large])
@@ -113,7 +112,7 @@ struct IntegratedHomePage: View {
                     .foregroundStyle(Color.white)
                     .padding(.horizontal, 16)
                     .frame(height: 44)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .shadow(color: SoulTheme.accent.opacity(0.35), radius: 12, x: 0, y: 7)
                 }
                 .buttonStyle(.plain)
@@ -137,7 +136,7 @@ struct IntegratedHomePage: View {
             .offset(x: 16, y: 20)
         }
         .frame(height: language == "en" ? 334 : 286)
-        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
     }
 
     private var dailyDose: some View {
@@ -220,7 +219,7 @@ struct IntegratedHomePage: View {
                             .font(.system(size: 18, weight: .bold))
                             .foregroundStyle(SoulTheme.accent)
                             .frame(width: 44, height: 44)
-                            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(localizedText("关系雷达还是空的", "Your relationship radar is empty"))
@@ -369,7 +368,6 @@ struct IntegratedProfilePage: View {
                 .padding(.bottom, 126)
             }
         }
-        .id("\(genderTheme)-\(appearanceMode)")
         .sheet(isPresented: $showingSettings) {
             SoulSettingsSheet()
                 .presentationDetents([.large])
@@ -437,7 +435,7 @@ struct IntegratedProfilePage: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(Color.white)
                     .frame(width: 44, height: 44)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(localizedText("个性化界面", "Personalize Interface"))
@@ -547,7 +545,7 @@ private struct AchievementBadgeCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(achievement.isUnlocked ? SoulTheme.accentSoft : SoulTheme.subtleFill)
                     .frame(width: 52, height: 52)
 
@@ -586,9 +584,7 @@ private struct AchievementBadgeCard: View {
 
 private struct SoulSettingsSheet: View {
     @EnvironmentObject private var session: AppSession
-    @AppStorage("soulMarkLanguage") private var language = "zh"
-    @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
-    @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
+    @Bindable private var preferences = SoulPreferencesStore.shared
     @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
     @Environment(\.dismiss) private var dismiss
 
@@ -600,10 +596,9 @@ private struct SoulSettingsSheet: View {
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 24) {
                         themePreview
-                            .id("\(genderTheme)-\(appearanceMode)")
 
                         SettingsGroup(title: localizedText("语言", "Language"), subtitle: localizedText("选择界面主要语言", "Choose the primary interface language")) {
-                            Picker(localizedText("语言", "Language"), selection: $language) {
+                            Picker(localizedText("语言", "Language"), selection: $preferences.language) {
                                 Text("中文").tag("zh")
                                 Text("English").tag("en")
                             }
@@ -616,24 +611,24 @@ private struct SoulSettingsSheet: View {
                                     title: localizedText("深空蓝", "Orbit Blue"),
                                     systemImage: "circle.hexagongrid.fill",
                                     color: Color(red: 0.04, green: 0.50, blue: 0.90),
-                                    isSelected: genderTheme == "male"
+                                    isSelected: preferences.genderTheme == "male"
                                 ) {
-                                    genderTheme = "male"
+                                    preferences.genderTheme = "male"
                                 }
 
                                 ThemeChoiceButton(
                                     title: localizedText("樱花粉", "Sakura Pink"),
                                     systemImage: "sparkle",
                                     color: Color(red: 0.94, green: 0.30, blue: 0.56),
-                                    isSelected: genderTheme == "female"
+                                    isSelected: preferences.genderTheme == "female"
                                 ) {
-                                    genderTheme = "female"
+                                    preferences.genderTheme = "female"
                                 }
                             }
                         }
 
                         SettingsGroup(title: localizedText("显示模式", "Appearance"), subtitle: localizedText("跟随时间，或固定日间与夜间", "Follow time, or keep day or night mode")) {
-                            Picker(localizedText("模式", "Mode"), selection: $appearanceMode) {
+                            Picker(localizedText("模式", "Mode"), selection: $preferences.appearanceMode) {
                                 Text(localizedText("自动", "Auto")).tag("auto")
                                 Text(localizedText("日间", "Day")).tag("day")
                                 Text(localizedText("夜间", "Night")).tag("night")
@@ -668,7 +663,7 @@ private struct SoulSettingsSheet: View {
                             }
                             .padding(.horizontal, 12)
                             .frame(height: 46)
-                            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+                            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
 
                         SettingsGroup(
@@ -685,7 +680,7 @@ private struct SoulSettingsSheet: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(.horizontal, 12)
                                     .frame(height: 46)
-                                    .background(SoulTheme.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                                    .background(SoulTheme.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
@@ -694,7 +689,6 @@ private struct SoulSettingsSheet: View {
                     .padding(.bottom, 24)
                 }
             }
-            .id("\(genderTheme)-\(appearanceMode)")
             .navigationTitle(localizedText("个性化", "Personalization"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -719,7 +713,7 @@ private struct SoulSettingsSheet: View {
 
                 Spacer()
 
-                Text(genderTheme == "male" ? localizedText("深空蓝信号", "Orbit Blue Signal") : localizedText("樱花粉信号", "Sakura Pink Signal"))
+                Text(preferences.genderTheme == "male" ? localizedText("深空蓝信号", "Orbit Blue Signal") : localizedText("樱花粉信号", "Sakura Pink Signal"))
                     .font(.system(size: 21, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
 
@@ -794,8 +788,8 @@ private struct ThemeChoiceButton: View {
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
             .frame(height: 46)
-            .background(isSelected ? color.opacity(0.12) : SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? color.opacity(0.48) : .clear, lineWidth: 1))
+            .background(isSelected ? color.opacity(0.12) : SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(isSelected ? color.opacity(0.48) : .clear, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -816,7 +810,7 @@ private struct SoulActionCard: View {
                         .font(.system(size: 19, weight: .bold))
                         .foregroundStyle(SoulTheme.accent)
                         .frame(width: 42, height: 42)
-                        .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                        .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     Spacer()
 
@@ -881,7 +875,7 @@ private struct SoulMenuRow: View {
                 .font(.system(size: 16, weight: .bold))
                 .foregroundStyle(SoulTheme.accent)
                 .frame(width: 38, height: 38)
-                .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)

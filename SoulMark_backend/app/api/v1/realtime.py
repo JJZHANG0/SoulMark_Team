@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
@@ -10,6 +11,8 @@ from app.ai.qwen import QwenRealtimeSession, decode_audio_delta
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
 from app.core.security import decode_access_token
+from app.db.session import async_session_factory
+from app.services.ai_memory import build_user_memory_context
 
 router = APIRouter(tags=["realtime"])
 logger = logging.getLogger(__name__)
@@ -29,7 +32,10 @@ class SessionFinished(Exception):
     pass
 
 
-def build_scenario_instructions(start: ScenarioRealtimeStart) -> str:
+def build_scenario_instructions(
+    start: ScenarioRealtimeStart,
+    memory_context: str = "",
+) -> str:
     response_language = "简体中文" if start.language == "zh" else "English"
     return (
         "你正在 SoulMark 的情景模拟中扮演一位对话对象。"
@@ -38,6 +44,9 @@ def build_scenario_instructions(start: ScenarioRealtimeStart) -> str:
         f"当前练习模式：{start.mode_title}。沟通目标：{start.mode_guidance or '自然地继续对话'}。"
         f"始终使用{response_language}，像真实语音通话一样自然、简洁，每次通常回答一到三句。"
         "保持角色一致，回应用户刚才说的话，不要自称语言模型，不要替真实人物作保证或预测。"
+        f"可用的 SoulMark 用户记忆如下：\n{memory_context or '暂无长期记忆。'}\n"
+        "只在相关时自然利用这些记忆，尤其优先考虑当前人物的关系、备注和事件时间线；"
+        "不要机械复述记忆库，也不要捏造未记录的经历。"
         "这是沟通练习；若出现自伤、伤害他人或紧急危险，立即停止角色扮演并建议联系当地紧急服务或可信任的人。"
     )
 
@@ -48,18 +57,17 @@ async def reject(websocket: WebSocket, code: str, message: str, close_code: int)
     await websocket.close(code=close_code)
 
 
-def is_authorized(websocket: WebSocket, settings: Settings) -> bool:
-    if settings.environment != "production":
-        return True
+def websocket_identity(
+    websocket: WebSocket, settings: Settings
+) -> tuple[bool, UUID | None]:
     authorization = websocket.headers.get("authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
-        return False
+        return (settings.environment != "production", None)
     try:
-        decode_access_token(token)
+        return True, decode_access_token(token)
     except AppError:
-        return False
-    return True
+        return False, None
 
 
 async def receive_start(websocket: WebSocket) -> ScenarioRealtimeStart:
@@ -183,7 +191,8 @@ async def send_transcript(
 @router.websocket("/realtime/scenario")
 async def scenario_realtime(websocket: WebSocket) -> None:
     settings = get_settings()
-    if not is_authorized(websocket, settings):
+    authorized, owner_id = websocket_identity(websocket, settings)
+    if not authorized:
         await reject(websocket, "not_authenticated", "Authentication is required.", 4401)
         return
     if not settings.qwen_api_key:
@@ -199,9 +208,17 @@ async def scenario_realtime(websocket: WebSocket) -> None:
     qwen: QwenRealtimeSession | None = None
     try:
         start = await receive_start(websocket)
+        memory_context = ""
+        if owner_id is not None:
+            async with async_session_factory() as session:
+                memory_context = await build_user_memory_context(
+                    session,
+                    owner_id,
+                    focus_contact_name=start.participant_name,
+                )
         qwen = await QwenRealtimeSession.connect(
             settings,
-            instructions=build_scenario_instructions(start),
+            instructions=build_scenario_instructions(start, memory_context),
         )
         await websocket.send_json(
             {

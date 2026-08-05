@@ -31,6 +31,7 @@ class ReviewCreate(BaseModel):
     score: int = Field(ge=0, le=100)
     reason: str = Field(min_length=1, max_length=4000)
     advice: str = Field(min_length=1, max_length=4000)
+    detailed_advice: str = Field(default="暂无详细建议。", min_length=1, max_length=20_000)
 
 
 class ReviewResponse(ReviewCreate):
@@ -39,6 +40,21 @@ class ReviewResponse(ReviewCreate):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReviewAnalysisRequest(BaseModel):
+    source: Literal["scenario", "wechat", "manual"]
+    transcript: str = Field(min_length=1, max_length=100_000)
+    language: Literal["zh", "en"] = "zh"
+
+
+class ReviewAnalysisResponse(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    score: int = Field(ge=0, le=100)
+    reason: str = Field(min_length=1, max_length=4000)
+    brief_advice: str = Field(min_length=1, max_length=4000)
+    detailed_advice: str = Field(min_length=1, max_length=20_000)
+    transcript: str | None = Field(default=None, max_length=100_000)
 
 
 class DashboardStats(BaseModel):

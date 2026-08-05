@@ -12,12 +12,14 @@ from app.db.session import get_db
 from app.main import create_app
 from app.models import (  # noqa: F401
     Contact,
+    ContactEvent,
     ConversationReview,
     PhoneVerificationCode,
     PracticeSession,
     User,
 )
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage
+from app.services.event_image_storage import EventImageStorage, get_event_image_storage
 
 
 @pytest.fixture
@@ -41,6 +43,10 @@ async def application(tmp_path: Path) -> AsyncIterator[FastAPI]:
     test_app.dependency_overrides[get_avatar_storage] = lambda: AvatarStorage(
         tmp_path / "avatars",
         5 * 1024 * 1024,
+    )
+    test_app.dependency_overrides[get_event_image_storage] = lambda: EventImageStorage(
+        tmp_path / "events",
+        7 * 1024 * 1024,
     )
     yield test_app
     test_app.dependency_overrides.clear()

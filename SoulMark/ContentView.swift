@@ -5,7 +5,7 @@
 
 import SwiftUI
 
-enum AppSection {
+enum AppSection: Hashable, CaseIterable {
     case home
     case relationshipGraph
     case scenarioSimulation
@@ -13,7 +13,7 @@ enum AppSection {
     case profile
 
     var title: String {
-        let isEnglish = UserDefaults.standard.string(forKey: "soulMarkLanguage") == "en"
+        let isEnglish = SoulPreferencesStore.shared.language == "en"
         return switch self {
         case .home: isEnglish ? "Home" : "首页"
         case .relationshipGraph: isEnglish ? "Map" : "图谱"
@@ -53,8 +53,6 @@ struct ContentView: View {
     @State private var practiceCount = 0
     @State private var reviewCount = 0
     @State private var relationshipErrorMessage: String?
-    @AppStorage("soulMarkLanguage") private var language = "zh"
-    @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
 
     private var availableCategories: [RelationshipCategory] {
         RelationshipCategory.builtIns.filter { !deletedCategories.contains($0) } + customCategories
@@ -84,12 +82,16 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            currentPage
-
-            AppTabBar(selectedSection: $selectedSection)
+        TabView(selection: $selectedSection) {
+            ForEach(AppSection.allCases, id: \.self) { section in
+                page(for: section)
+                    .tag(section)
+                    .tabItem {
+                        Label(section.title, systemImage: section.systemImage)
+                    }
+            }
         }
-        .ignoresSafeArea(edges: .bottom)
+        .tint(SoulTheme.accent)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
         .task {
             if let syncedPeople = await session.loadContacts() {
@@ -103,8 +105,8 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private var currentPage: some View {
-        switch selectedSection {
+    private func page(for section: AppSection) -> some View {
+        switch section {
         case .home:
             IntegratedHomePage(
                 userID: session.user?.id,
@@ -153,14 +155,8 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 RelationshipHeader(
-                    onBackHome: {
-                        selectedSection = .home
-                    },
                     onAddPerson: {
                         requestAddPerson()
-                    },
-                    onOpenScenario: {
-                        selectedSection = .scenarioSimulation
                     },
                     onOpenCategories: {
                         showingRelationshipCategories = true
@@ -257,8 +253,11 @@ struct ContentView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isAddingPerson) {
-            AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData in
-                people.addPerson(name: name, note: note, category: category)
+            AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData, informationFields in
+                if case .custom = category, !customCategories.contains(category) {
+                    customCategories.append(category)
+                }
+                people.addPerson(name: name, note: note, category: category, informationFields: informationFields)
                 guard let localPerson = people.last else { return }
                 Task {
                     if let remotePerson = await session.createContact(localPerson),
@@ -279,7 +278,7 @@ struct ContentView: View {
                     }
                 }
             }
-            .presentationDetents([.medium, .large])
+            .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingMembershipUpgrade) {

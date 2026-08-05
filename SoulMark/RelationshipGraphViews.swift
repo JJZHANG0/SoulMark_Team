@@ -5,6 +5,7 @@
 
 import PhotosUI
 import SwiftUI
+import UIKit
 
 enum RelationshipOwnerDisplayName {
     static func resolve(_ displayName: String?, language: String? = nil) -> String {
@@ -16,9 +17,7 @@ enum RelationshipOwnerDisplayName {
 }
 
 struct RelationshipHeader: View {
-    let onBackHome: () -> Void
     let onAddPerson: () -> Void
-    let onOpenScenario: () -> Void
     let onOpenCategories: () -> Void
 
     var body: some View {
@@ -28,28 +27,20 @@ struct RelationshipHeader: View {
             subtitle: localizedText("看见每一段关系正在靠近，还是远离。", "See which relationships are moving closer and which are drifting away.")
         ) {
             HStack(spacing: 8) {
-                Menu {
-                    Button(action: onOpenCategories) {
-                        Label(localizedText("关系分类", "Relationship Categories"), systemImage: "line.3.horizontal.decrease.circle.fill")
-                    }
-
-                    Button(action: onBackHome) {
-                        Label(localizedText("返回首页", "Back Home"), systemImage: "house.fill")
-                    }
-
-                    Button(action: onOpenScenario) {
-                        Label(localizedText("开始模拟", "Start Simulation"), systemImage: "figure.wave")
-                    }
+                Button {
+                    onOpenCategories()
                 } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 18, weight: .bold))
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 17, weight: .bold))
                         .foregroundStyle(SoulTheme.primaryText)
                         .frame(width: 42, height: 42)
                         .background(SoulTheme.cardFill, in: Circle())
                         .overlay(Circle().stroke(SoulTheme.cardStroke, lineWidth: 1))
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(localizedText("关系分类", "Relationship Categories"))
 
-                SoulIconButton(systemImage: "person.badge.plus", isEmphasized: true, action: onAddPerson)
+                SoulIconButton(systemImage: "person.badge.plus", action: onAddPerson)
             }
         }
         .padding(.horizontal, 18)
@@ -152,7 +143,7 @@ struct RelationshipMapView: View {
                                 .foregroundStyle(Color.white)
                                 .padding(.horizontal, 16)
                                 .frame(height: 42)
-                                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                                 .shadow(color: SoulTheme.accent.opacity(0.25), radius: 10, x: 0, y: 6)
                         }
                         .buttonStyle(.plain)
@@ -329,11 +320,11 @@ private struct RelationshipNode: View {
         .padding(6)
         .background(
             isSelected ? SoulTheme.cardFill : Color.clear,
-            in: RoundedRectangle(cornerRadius: 8)
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
         .overlay {
             if isSelected {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(person.category.color.opacity(0.42), lineWidth: 1)
             }
         }
@@ -643,7 +634,7 @@ struct MembershipUpgradeSheet: View {
                     .foregroundStyle(SoulTheme.energy)
                     .padding(.horizontal, 12)
                     .frame(height: 36)
-                    .background(SoulTheme.energySoft, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.energySoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 Button {
                     dismiss()
@@ -653,7 +644,7 @@ struct MembershipUpgradeSheet: View {
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
                         .frame(height: 48)
-                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -670,13 +661,19 @@ struct RelationshipDetailSheet: View {
     let onStartScenario: () -> Void
     let onAvatarChange: (Data) -> Void
     let onAvatarDelete: () -> Void
+    @EnvironmentObject private var session: AppSession
     @State private var pendingCategory: RelationshipCategory?
     @State private var isConfirmingDeletePerson = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var photoErrorMessage: String?
+    @State private var timelineEvents: [ContactTimelineEvent] = []
+    @State private var isAddingTimelineEvent = false
+    @State private var selectedTimelineEvent: ContactTimelineEvent?
+    @State private var timelineErrorMessage: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                     ZStack(alignment: .bottomTrailing) {
@@ -776,7 +773,7 @@ struct RelationshipDetailSheet: View {
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
 
@@ -788,14 +785,47 @@ struct RelationshipDetailSheet: View {
                     .foregroundStyle(SoulTheme.danger)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(SoulTheme.danger.opacity(0.14), in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.danger.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
 
-            Spacer()
+            ContactTimelineSection(
+                events: timelineEvents,
+                onAdd: { isAddingTimelineEvent = true },
+                onSelect: { selectedTimelineEvent = $0 }
+            )
+
+            }
+            .padding(24)
         }
-        .padding(24)
         .background(SoulTheme.pageGradient)
+        .task {
+            do {
+                timelineEvents = try await session.loadContactEvents(contactID: person.id)
+            } catch {
+                timelineErrorMessage = error.localizedDescription
+            }
+        }
+        .sheet(isPresented: $isAddingTimelineEvent) {
+            AddContactTimelineEventSheet { title, details, occurredAt, imageData in
+                let event = try await session.createContactEvent(
+                    contactID: person.id,
+                    title: title,
+                    details: details,
+                    occurredAt: occurredAt,
+                    imageData: imageData
+                )
+                timelineEvents.append(event)
+                timelineEvents.sort { $0.occurredAt > $1.occurredAt }
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedTimelineEvent) { event in
+            ContactTimelineEventDetail(event: event)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .onChange(of: selectedPhotoItem) { _, item in
             guard let item else { return }
             Task {
@@ -822,6 +852,17 @@ struct RelationshipDetailSheet: View {
             Button(localizedText("知道了", "OK")) { photoErrorMessage = nil }
         } message: {
             Text(photoErrorMessage ?? "")
+        }
+        .alert(
+            localizedText("事件时间线暂时不可用", "Timeline Unavailable"),
+            isPresented: Binding(
+                get: { timelineErrorMessage != nil },
+                set: { if !$0 { timelineErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { timelineErrorMessage = nil }
+        } message: {
+            Text(timelineErrorMessage ?? "")
         }
         .confirmationDialog(
             localizedText("确认更改关系？", "Confirm relationship change?"),
@@ -862,6 +903,376 @@ struct RelationshipDetailSheet: View {
     }
 }
 
+private struct ContactTimelineSection: View {
+    let events: [ContactTimelineEvent]
+    let onAdd: () -> Void
+    let onSelect: (ContactTimelineEvent) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(localizedText("事件时间线", "Event Timeline"))
+                        .font(.system(size: 19, weight: .bold))
+                        .foregroundStyle(SoulTheme.primaryText)
+                    Text(
+                        localizedText(
+                            "记录你们之间真正发生过的事情",
+                            "Remember what actually happened between you"
+                        )
+                    )
+                    .font(.system(size: 12))
+                    .foregroundStyle(SoulTheme.secondaryText)
+                }
+
+                Spacer()
+
+                Button(action: onAdd) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 36, height: 36)
+                        .background(SoulTheme.accent, in: Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            if events.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundStyle(SoulTheme.accent)
+                    Text(localizedText("还没有记录事件", "No events yet"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(SoulTheme.secondaryText)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+                .background(SoulGlassCardBackground())
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
+                        Button {
+                            onSelect(event)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(spacing: 0) {
+                                    Circle()
+                                        .fill(SoulTheme.accent)
+                                        .frame(width: 10, height: 10)
+                                    if index < events.count - 1 {
+                                        Rectangle()
+                                            .fill(SoulTheme.cardStroke)
+                                            .frame(width: 2)
+                                            .frame(minHeight: 48)
+                                    }
+                                }
+                                .padding(.top, 5)
+
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(
+                                        event.occurredAt.formatted(
+                                            date: .abbreviated,
+                                            time: .shortened
+                                        )
+                                    )
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(SoulTheme.secondaryText)
+
+                                    Text(event.title)
+                                        .font(.system(size: 16, weight: .semibold))
+                                        .foregroundStyle(SoulTheme.primaryText)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(SoulTheme.tertiaryText)
+                                    .padding(.top, 13)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(16)
+                .background(SoulGlassCardBackground())
+            }
+        }
+        .padding(.top, 4)
+    }
+}
+
+private struct ContactTimelineEventDetail: View {
+    let event: ContactTimelineEvent
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Text(event.title)
+                        .font(.system(size: 29, weight: .bold, design: .rounded))
+                        .foregroundStyle(SoulTheme.primaryText)
+
+                    Label(
+                        event.occurredAt.formatted(date: .long, time: .shortened),
+                        systemImage: "calendar"
+                    )
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(SoulTheme.accent)
+
+                    if let imageURL = event.imageURL,
+                       let url = BackendURLResolver.mediaURL(imageURL) {
+                        AsyncImage(url: url) { phase in
+                            if case .success(let image) = phase {
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                            } else {
+                                ProgressView()
+                                    .frame(maxWidth: .infinity, minHeight: 180)
+                            }
+                        }
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: SoulTheme.containerCornerRadius,
+                                style: .continuous
+                            )
+                        )
+                    }
+
+                    Text(event.details)
+                        .font(.system(size: 16))
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .lineSpacing(5)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(18)
+                        .background(SoulGlassCardBackground())
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("事件详情", "Event Details"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(localizedText("完成", "Done")) { dismiss() }
+                }
+            }
+        }
+    }
+}
+
+private struct AddContactTimelineEventSheet: View {
+    let onSave: (String, String, Date, Data?) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var title = ""
+    @State private var details = ""
+    @State private var occurredAt = Date()
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var imageData: Data?
+    @State private var previewImage: UIImage?
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    private var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 16) {
+                    TimelineFormRow(title: localizedText("标题", "Title"), icon: "textformat") {
+                        TextField(
+                            localizedText("发生了什么？", "What happened?"),
+                            text: $title
+                        )
+                        .textFieldStyle(.plain)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizedText("具体时间", "Date and Time"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        DatePicker(
+                            "",
+                            selection: $occurredAt,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(15)
+                        .background(SoulGlassCardBackground())
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizedText("事件详情", "Details"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        TextEditor(text: $details)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 170)
+                            .padding(12)
+                            .background(SoulGlassCardBackground())
+                    }
+
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        VStack(spacing: 10) {
+                            if let previewImage {
+                                Image(uiImage: previewImage)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: 210)
+                                    .clipShape(
+                                        RoundedRectangle(
+                                            cornerRadius: SoulTheme.controlCornerRadius,
+                                            style: .continuous
+                                        )
+                                    )
+                                Label(localizedText("更换图片", "Change Photo"), systemImage: "photo")
+                            } else {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.system(size: 28, weight: .medium))
+                                    .foregroundStyle(SoulTheme.accent)
+                                Text(localizedText("附加图片", "Attach Photo"))
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(20)
+                        .background(SoulGlassCardBackground())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Task {
+                            isSaving = true
+                            do {
+                                try await onSave(title, details, occurredAt, imageData)
+                                dismiss()
+                            } catch {
+                                isSaving = false
+                                errorMessage = error.localizedDescription
+                            }
+                        }
+                    } label: {
+                        if isSaving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(localizedText("保存事件", "Save Event"))
+                        }
+                    }
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        canSave ? SoulTheme.accent : Color.gray.opacity(0.35),
+                        in: RoundedRectangle(
+                            cornerRadius: SoulTheme.controlCornerRadius,
+                            style: .continuous
+                        )
+                    )
+                    .disabled(!canSave || isSaving)
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("添加事件", "Add Event"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localizedText("取消", "Cancel")) { dismiss() }
+                        .disabled(isSaving)
+                }
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self),
+                          let image = UIImage(data: data) else {
+                        throw ContactAvatarImageProcessor.ProcessingError.invalidImage
+                    }
+                    let longestSide = max(image.size.width, image.size.height)
+                    let scale = min(1, 1800 / longestSide)
+                    let size = CGSize(
+                        width: image.size.width * scale,
+                        height: image.size.height * scale
+                    )
+                    let renderer = UIGraphicsImageRenderer(size: size)
+                    let normalized = renderer.image { _ in
+                        image.draw(in: CGRect(origin: .zero, size: size))
+                    }
+                    guard let encoded = normalized.jpegData(compressionQuality: 0.82) else {
+                        throw ContactAvatarImageProcessor.ProcessingError.encodingFailed
+                    }
+                    imageData = encoded
+                    previewImage = normalized
+                } catch {
+                    errorMessage = localizedText(
+                        "无法读取这张图片，请选择另一张。",
+                        "This photo could not be read. Choose another one."
+                    )
+                }
+            }
+        }
+        .interactiveDismissDisabled(isSaving)
+        .alert(
+            localizedText("无法保存", "Could Not Save"),
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+}
+
+private struct TimelineFormRow<Content: View>: View {
+    let title: String
+    let icon: String
+    let content: Content
+
+    init(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.icon = icon
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(SoulTheme.secondaryText)
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundStyle(SoulTheme.accent)
+                content
+            }
+            .padding(.horizontal, 15)
+            .frame(height: 52)
+            .background(SoulGlassCardBackground(cornerRadius: SoulTheme.controlCornerRadius))
+        }
+    }
+}
+
 private struct RelationshipMetric: View {
     let title: String
     let value: String
@@ -880,13 +1291,13 @@ private struct RelationshipMetric: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
 struct AddPersonSheet: View {
     let availableCategories: [RelationshipCategory]
-    let onAdd: (String, String, RelationshipCategory, Data?) -> Void
+    let onAdd: (String, String, RelationshipCategory, Data?, [ContactInformationField]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
@@ -895,10 +1306,12 @@ struct AddPersonSheet: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var avatarData: Data?
     @State private var photoErrorMessage: String?
+    @State private var informationFields = ContactInformationField.defaults
+    @State private var isAddingCustomRelationship = false
 
     init(
         availableCategories: [RelationshipCategory],
-        onAdd: @escaping (String, String, RelationshipCategory, Data?) -> Void
+        onAdd: @escaping (String, String, RelationshipCategory, Data?, [ContactInformationField]) -> Void
     ) {
         self.availableCategories = availableCategories
         self.onAdd = onAdd
@@ -906,116 +1319,60 @@ struct AddPersonSheet: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Text(localizedText("添加人物", "Add Person"))
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(SoulTheme.primaryText)
-
-                Spacer()
-
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(SoulTheme.primaryText)
-                        .frame(width: 34, height: 34)
-                        .background(SoulTheme.cardFill, in: Circle())
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                TextField(localizedText("名字", "Name"), text: $name)
-                    .textFieldStyle(.roundedBorder)
-
-                TextField(localizedText("一句关系备注", "One-line relationship note"), text: $note)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            HStack(spacing: 14) {
-                ContactAvatarView(
-                    avatarPath: nil,
-                    color: selectedCategory.color,
-                    symbol: avatarData == nil ? "person.fill" : "checkmark",
-                    size: 58
-                )
-                .overlay {
-                    if let avatarData, let image = UIImage(data: avatarData) {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .clipShape(Circle())
-                    }
+        NavigationStack {
+            Form {
+                Section {
+                    avatarEditor
+                        .frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 10, leading: 0, bottom: 12, trailing: 0))
                 }
 
-                VStack(alignment: .leading, spacing: 5) {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Label(
-                            avatarData == nil
-                                ? localizedText("添加头像（可跳过）", "Add photo (optional)")
-                                : localizedText("更换头像", "Change photo"),
-                            systemImage: "photo.on.rectangle"
-                        )
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(SoulTheme.accent)
-                    }
+                Section(localizedText("基本信息", "Basic Information")) {
+                    TextField(localizedText("名字", "Name"), text: $name)
+                        .textContentType(.name)
 
-                    if avatarData != nil {
-                        Button(localizedText("移除已选头像", "Remove selected photo")) {
-                            avatarData = nil
-                            selectedPhotoItem = nil
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(SoulTheme.secondaryText)
-                    }
+                    TextField(localizedText("关系备注", "Relationship Note"), text: $note, axis: .vertical)
+                        .lineLimit(2...4)
                 }
-            }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text(localizedText("选择关系", "Choose Relationship"))
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(SoulTheme.primaryText)
+                Section(localizedText("选择关系", "Choose Relationship")) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            customRelationshipButton
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(availableCategories) { category in
-                            Button {
-                                selectedCategory = category
-                            } label: {
-                                Text(category.shortTitle)
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(selectedCategory == category ? SoulTheme.primaryText : category.color)
-                                    .padding(.horizontal, 14)
-                                    .frame(height: 40)
-                                    .background(
-                                        Capsule()
-                                            .fill(selectedCategory == category ? category.color.opacity(0.24) : category.color.opacity(0.12))
-                                    )
+                            ForEach(availableCategories) { category in
+                                relationshipButton(category)
                             }
-                            .buttonStyle(.plain)
                         }
+                        .padding(.vertical, 2)
                     }
                 }
-            }
 
-            Button {
-                onAdd(name, note, selectedCategory, avatarData)
-                dismiss()
-            } label: {
-                Label(localizedText("添加到图谱", "Add to Map"), systemImage: "person.badge.plus")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+                ContactInformationEditor(fields: $informationFields)
             }
-            .disabled(!canSubmit)
+            .scrollContentBackground(.hidden)
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("添加人物", "Add Person"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localizedText("取消", "Cancel")) { dismiss() }
+                }
 
-            Spacer()
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(localizedText("添加", "Add")) { submit() }
+                        .fontWeight(.semibold)
+                        .disabled(!canSubmit)
+                }
+            }
         }
-        .padding(24)
-        .background(SoulTheme.pageGradient)
+        .sheet(isPresented: $isAddingCustomRelationship) {
+            AddRelationshipSheet { relationshipName in
+                selectedCategory = .custom(relationshipName)
+            }
+            .presentationDetents([.height(260)])
+        }
         .onChange(of: selectedPhotoItem) { _, item in
             guard let item else { return }
             Task {
@@ -1046,8 +1403,155 @@ struct AddPersonSheet: View {
         }
     }
 
+    private var avatarEditor: some View {
+        VStack(spacing: 9) {
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                ContactAvatarView(
+                    avatarPath: nil,
+                    color: selectedCategory.color,
+                    symbol: avatarData == nil ? "person.fill" : "checkmark",
+                    size: 88
+                )
+                .overlay {
+                    if let avatarData, let image = UIImage(data: avatarData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .clipShape(Circle())
+                    }
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(SoulTheme.accent, in: Circle())
+                        .overlay(Circle().stroke(SoulTheme.cardFill, lineWidth: 2))
+                }
+            }
+            .buttonStyle(.plain)
+
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                Text(avatarData == nil
+                    ? localizedText("添加头像", "Add Photo")
+                    : localizedText("更换头像", "Change Photo"))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(SoulTheme.accent)
+            }
+
+            if avatarData != nil {
+                Button(localizedText("移除头像", "Remove Photo"), role: .destructive) {
+                    avatarData = nil
+                    selectedPhotoItem = nil
+                }
+                .font(.system(size: 13))
+            }
+        }
+    }
+
+    private var customRelationshipButton: some View {
+        Button {
+            isAddingCustomRelationship = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(SoulTheme.accent)
+                .frame(width: 38)
+                .frame(height: 38)
+                .background(SoulTheme.accent.opacity(0.10), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(localizedText("自定义关系", "Custom Relationship"))
+    }
+
+    private func relationshipButton(_ category: RelationshipCategory) -> some View {
+        Button {
+            selectedCategory = category
+        } label: {
+            Text(category.shortTitle)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(selectedCategory == category ? SoulTheme.primaryText : category.color)
+                .padding(.horizontal, 14)
+                .frame(height: 38)
+                .background(
+                    Capsule().fill(
+                        selectedCategory == category
+                            ? category.color.opacity(0.24)
+                            : category.color.opacity(0.12)
+                    )
+                )
+        }
+        .buttonStyle(.plain)
+    }
+
     private var canSubmit: Bool {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func submit() {
+        onAdd(
+            name,
+            note,
+            selectedCategory,
+            avatarData,
+            informationFields.filter {
+                !$0.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }
+        )
+        dismiss()
+    }
+}
+
+private struct ContactInformationEditor: View {
+    @Binding var fields: [ContactInformationField]
+    @State private var newLabel = ""
+    @State private var isAddingField = false
+
+    var body: some View {
+        Section {
+            ForEach($fields) { $field in
+                HStack(spacing: 10) {
+                    Text(field.label)
+                        .foregroundStyle(SoulTheme.secondaryText)
+                        .frame(width: 72, alignment: .leading)
+
+                    TextField(field.placeholder, text: $field.value)
+                        .multilineTextAlignment(.trailing)
+
+                    Button(role: .destructive) {
+                        fields.removeAll { $0.id == field.id }
+                    } label: {
+                        Image(systemName: "minus.circle.fill")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(localizedText("删除\(field.label)", "Remove \(field.label)"))
+                }
+            }
+
+            if isAddingField {
+                HStack {
+                    TextField(localizedText("字段名称", "Field name"), text: $newLabel)
+
+                    Button(localizedText("添加", "Add")) {
+                        let label = newLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+                        guard !label.isEmpty else { return }
+                        fields.append(ContactInformationField(label: label))
+                        newLabel = ""
+                        isAddingField = false
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(newLabel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } else {
+                Button {
+                    isAddingField = true
+                } label: {
+                    Label(localizedText("添加字段", "Add Field"), systemImage: "plus.circle.fill")
+                }
+            }
+        } header: {
+            Text(localizedText("相关信息", "Information"))
+        }
     }
 }
 
@@ -1089,7 +1593,7 @@ struct AddRelationshipSheet: View {
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.22), in: RoundedRectangle(cornerRadius: 8))
+                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.22), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .disabled(!canSubmit)
 

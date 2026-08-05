@@ -4,9 +4,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.models.contact import Contact
+from app.models.contact import Contact, ContactEvent
 from app.schemas.contact import ContactCreate, ContactUpdate
+from app.schemas.contact_event import ContactEventCreate
 from app.services.avatar_storage import AvatarStorage
+from app.services.event_image_storage import EventImageStorage
 
 FREE_CONTACT_LIMIT = 5
 
@@ -77,10 +79,22 @@ async def delete_contact(
     owner_id: UUID,
     contact_id: UUID,
     avatar_storage: AvatarStorage | None = None,
+    event_image_storage: EventImageStorage | None = None,
 ) -> None:
     contact = await get_owned_contact(session, owner_id, contact_id)
     if avatar_storage is not None:
         avatar_storage.delete(contact.avatar_url)
+    if event_image_storage is not None:
+        image_urls = (
+            await session.scalars(
+                select(ContactEvent.image_url).where(
+                    ContactEvent.owner_id == owner_id,
+                    ContactEvent.contact_id == contact_id,
+                )
+            )
+        ).all()
+        for image_url in image_urls:
+            event_image_storage.delete(image_url)
     await session.delete(contact)
     await session.commit()
 
@@ -111,3 +125,83 @@ async def delete_contact_avatar(
     await session.refresh(contact)
     avatar_storage.delete(previous_url)
     return contact
+
+
+async def list_contact_events(
+    session: AsyncSession, owner_id: UUID, contact_id: UUID
+) -> list[ContactEvent]:
+    await get_owned_contact(session, owner_id, contact_id)
+    result = await session.scalars(
+        select(ContactEvent)
+        .where(
+            ContactEvent.owner_id == owner_id,
+            ContactEvent.contact_id == contact_id,
+        )
+        .order_by(ContactEvent.occurred_at.desc())
+    )
+    return list(result.all())
+
+
+async def create_contact_event(
+    session: AsyncSession,
+    owner_id: UUID,
+    contact_id: UUID,
+    payload: ContactEventCreate,
+) -> ContactEvent:
+    await get_owned_contact(session, owner_id, contact_id)
+    event = ContactEvent(
+        owner_id=owner_id,
+        contact_id=contact_id,
+        **payload.model_dump(),
+    )
+    session.add(event)
+    await session.commit()
+    await session.refresh(event)
+    return event
+
+
+async def get_owned_contact_event(
+    session: AsyncSession,
+    owner_id: UUID,
+    contact_id: UUID,
+    event_id: UUID,
+) -> ContactEvent:
+    event = await session.scalar(
+        select(ContactEvent).where(
+            ContactEvent.id == event_id,
+            ContactEvent.contact_id == contact_id,
+            ContactEvent.owner_id == owner_id,
+        )
+    )
+    if event is None:
+        raise AppError("contact_event_not_found", "Contact event not found.", 404)
+    return event
+
+
+async def update_contact_event_image(
+    session: AsyncSession,
+    event: ContactEvent,
+    storage: EventImageStorage,
+    content: bytes,
+    content_type: str | None,
+) -> ContactEvent:
+    previous_url = event.image_url
+    event.image_url = storage.save(content, content_type)
+    await session.commit()
+    await session.refresh(event)
+    storage.delete(previous_url)
+    return event
+
+
+async def delete_contact_event(
+    session: AsyncSession,
+    owner_id: UUID,
+    contact_id: UUID,
+    event_id: UUID,
+    storage: EventImageStorage,
+) -> None:
+    event = await get_owned_contact_event(session, owner_id, contact_id, event_id)
+    image_url = event.image_url
+    await session.delete(event)
+    await session.commit()
+    storage.delete(image_url)

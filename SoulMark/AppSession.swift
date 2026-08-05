@@ -132,6 +132,7 @@ struct RemoteContact: Codable {
 
     var relationshipPerson: RelationshipPerson {
         let category = RelationshipCategory.fromAPIValue(relationshipLabel)
+        let storedDetails = ContactMemoryStorage.decode(memory)
         return RelationshipPerson(
             id: id,
             name: name,
@@ -141,9 +142,32 @@ struct RemoteContact: Codable {
             position: CGPoint(x: positionX, y: positionY),
             avatarColors: [category.color.opacity(0.86), Color.white.opacity(0.52)],
             symbol: symbol,
-            memory: memory ?? localizedText("这段连接已经同步到你的关系图谱。", "This connection is synced to your map."),
-            avatarURL: avatarURL
+            memory: storedDetails.memory,
+            avatarURL: avatarURL,
+            informationFields: storedDetails.fields
         )
+    }
+}
+
+private enum ContactMemoryStorage {
+    private static let marker = "\n__SOULMARK_CONTACT_INFO__:"
+
+    static func encode(memory: String, fields: [ContactInformationField]) -> String {
+        guard !fields.isEmpty,
+              let data = try? JSONEncoder().encode(fields) else { return memory }
+        return memory + marker + data.base64EncodedString()
+    }
+
+    static func decode(_ storedMemory: String?) -> (memory: String, fields: [ContactInformationField]) {
+        let fallback = localizedText("这段连接已经同步到你的关系图谱。", "This connection is synced to your map.")
+        guard let storedMemory,
+              let range = storedMemory.range(of: marker, options: .backwards) else {
+            return (storedMemory ?? fallback, [])
+        }
+        let encoded = String(storedMemory[range.upperBound...])
+        let fields = Data(base64Encoded: encoded)
+            .flatMap { try? JSONDecoder().decode([ContactInformationField].self, from: $0) } ?? []
+        return (String(storedMemory[..<range.lowerBound]), fields)
     }
 }
 
@@ -172,7 +196,51 @@ private struct ContactPayload: Encodable {
         positionX = person.position.x
         positionY = person.position.y
         symbol = person.symbol
-        memory = person.memory
+        memory = ContactMemoryStorage.encode(memory: person.memory, fields: person.informationFields)
+    }
+}
+
+private struct ContactEventPayload: Encodable {
+    let title: String
+    let details: String
+    let occurredAt: String
+
+    enum CodingKeys: String, CodingKey {
+        case title, details
+        case occurredAt = "occurred_at"
+    }
+
+    init(title: String, details: String, occurredAt: Date) {
+        self.title = title
+        self.details = details
+        self.occurredAt = ISO8601DateFormatter().string(from: occurredAt)
+    }
+}
+
+private struct RemoteContactEvent: Decodable {
+    let id: UUID
+    let contactID: UUID
+    let title: String
+    let details: String
+    let occurredAt: Date
+    let imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, details
+        case contactID = "contact_id"
+        case occurredAt = "occurred_at"
+        case imageURL = "image_url"
+    }
+
+    var timelineEvent: ContactTimelineEvent {
+        ContactTimelineEvent(
+            id: id,
+            contactID: contactID,
+            title: title,
+            details: details,
+            occurredAt: occurredAt,
+            imageURL: imageURL
+        )
     }
 }
 
@@ -205,6 +273,33 @@ private struct ReviewPayload: Encodable {
     let score: Int
     let reason: String
     let advice: String
+    let detailedAdvice: String
+
+    enum CodingKeys: String, CodingKey {
+        case title, source, transcript, score, reason, advice
+        case detailedAdvice = "detailed_advice"
+    }
+}
+
+private struct ReviewAnalysisPayload: Encodable {
+    let source: String
+    let transcript: String
+    let language: String
+}
+
+private struct ReviewAnalysisDTO: Decodable {
+    let title: String
+    let score: Int
+    let reason: String
+    let briefAdvice: String
+    let detailedAdvice: String
+    let transcript: String?
+
+    enum CodingKeys: String, CodingKey {
+        case title, score, reason, transcript
+        case briefAdvice = "brief_advice"
+        case detailedAdvice = "detailed_advice"
+    }
 }
 
 struct RemoteReview: Decodable {
@@ -215,10 +310,12 @@ struct RemoteReview: Decodable {
     let score: Int
     let reason: String
     let advice: String
+    let detailedAdvice: String
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
         case id, title, source, transcript, score, reason, advice
+        case detailedAdvice = "detailed_advice"
         case createdAt = "created_at"
     }
 
@@ -232,7 +329,8 @@ struct RemoteReview: Decodable {
             transcript: transcript,
             score: score,
             reason: reason,
-            advice: advice
+            advice: advice,
+            detailedAdvice: detailedAdvice
         )
     }
 }
@@ -389,6 +487,78 @@ private final class SoulAPIClient {
         )
     }
 
+    func contactEvents(token: String, contactID: UUID) async throws -> [RemoteContactEvent] {
+        try await request(
+            path: "/api/v1/contacts/\(contactID.uuidString)/events",
+            token: token
+        )
+    }
+
+    func createContactEvent(
+        token: String,
+        contactID: UUID,
+        title: String,
+        details: String,
+        occurredAt: Date
+    ) async throws -> RemoteContactEvent {
+        try await request(
+            path: "/api/v1/contacts/\(contactID.uuidString)/events",
+            method: "POST",
+            token: token,
+            body: ContactEventPayload(
+                title: title,
+                details: details,
+                occurredAt: occurredAt
+            )
+        )
+    }
+
+    func uploadContactEventImage(
+        token: String,
+        contactID: UUID,
+        eventID: UUID,
+        imageData: Data
+    ) async throws -> RemoteContactEvent {
+        guard let url = BackendURLResolver.apiURL(
+            "/api/v1/contacts/\(contactID.uuidString)/events/\(eventID.uuidString)/image"
+        ) else {
+            throw SoulAPIError.invalidResponse
+        }
+        let boundary = "SoulMark-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"event.jpg\"\r\n"
+                .data(using: .utf8)!
+        )
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.timeoutInterval = 60
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+        return try await perform(request)
+    }
+
+    func deleteContactEvent(
+        token: String,
+        contactID: UUID,
+        eventID: UUID
+    ) async throws {
+        try await requestVoid(
+            path: "/api/v1/contacts/\(contactID.uuidString)/events/\(eventID.uuidString)",
+            method: "DELETE",
+            token: token
+        )
+    }
+
     func stats(token: String) async throws -> DashboardStatsDTO {
         try await request(path: "/api/v1/stats", token: token)
     }
@@ -417,8 +587,8 @@ private final class SoulAPIClient {
         )
     }
 
-    func saveReview(token: String, record: ConversationReviewRecord) async throws {
-        let _: RemoteReview = try await request(
+    func saveReview(token: String, record: ConversationReviewRecord) async throws -> RemoteReview {
+        try await request(
             path: "/api/v1/reviews",
             method: "POST",
             token: token,
@@ -428,13 +598,84 @@ private final class SoulAPIClient {
                 transcript: record.transcript,
                 score: record.score,
                 reason: record.reason,
-                advice: record.advice
+                advice: record.advice,
+                detailedAdvice: record.detailedAdvice
             )
         )
     }
 
+    func analyzeReview(
+        token: String,
+        source: ReviewSource,
+        transcript: String,
+        language: String
+    ) async throws -> ReviewAnalysisDTO {
+        try await request(
+            path: "/api/v1/reviews/analyze",
+            method: "POST",
+            token: token,
+            body: ReviewAnalysisPayload(
+                source: source.rawValue,
+                transcript: transcript,
+                language: language
+            ),
+            timeoutInterval: 90
+        )
+    }
+
+    func analyzeReviewMedia(
+        token: String,
+        source: ReviewSource,
+        data: Data,
+        filename: String,
+        mimeType: String,
+        language: String
+    ) async throws -> ReviewAnalysisDTO {
+        guard let url = BackendURLResolver.apiURL("/api/v1/reviews/analyze-media") else {
+            throw SoulAPIError.invalidResponse
+        }
+        let boundary = "SoulMark-\(UUID().uuidString)"
+        var body = Data()
+
+        func appendField(_ name: String, _ value: String) {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+            body.append("\(value)\r\n".data(using: .utf8)!)
+        }
+
+        appendField("source", source.rawValue)
+        appendField("language", language)
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n"
+                .data(using: .utf8)!
+        )
+        body.append("Content-Type: \(mimeType)\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.timeoutInterval = 180
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+        return try await perform(request)
+    }
+
     func reviews(token: String) async throws -> [RemoteReview] {
         try await request(path: "/api/v1/reviews", token: token)
+    }
+
+    func deleteReview(token: String, id: UUID) async throws {
+        try await requestVoid(
+            path: "/api/v1/reviews/\(id.uuidString)",
+            method: "DELETE",
+            token: token
+        )
     }
 
     private func request<Response: Decodable>(
@@ -465,17 +706,25 @@ private final class SoulAPIClient {
         path: String,
         method: String,
         token: String? = nil,
-        body: Body
+        body: Body,
+        timeoutInterval: TimeInterval = 15
     ) async throws -> Response {
         let bodyData = try JSONEncoder().encode(body)
-        return try await request(path: path, method: method, token: token, bodyData: bodyData)
+        return try await request(
+            path: path,
+            method: method,
+            token: token,
+            bodyData: bodyData,
+            timeoutInterval: timeoutInterval
+        )
     }
 
     private func request<Response: Decodable>(
         path: String,
         method: String,
         token: String?,
-        bodyData: Data?
+        bodyData: Data?,
+        timeoutInterval: TimeInterval = 15
     ) async throws -> Response {
         let base = UserDefaults.standard.string(forKey: "soulMarkBackendURL")
             ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
@@ -486,7 +735,7 @@ private final class SoulAPIClient {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.httpBody = bodyData
-        request.timeoutInterval = 15
+        request.timeoutInterval = timeoutInterval
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -714,9 +963,11 @@ final class AppSession: ObservableObject {
                 appearance: appearance,
                 goal: goal
             )
-            UserDefaults.standard.set(language, forKey: "soulMarkLanguage")
-            UserDefaults.standard.set(gender, forKey: "soulMarkGenderTheme")
-            UserDefaults.standard.set(appearance == "light" ? "day" : appearance == "dark" ? "night" : "auto", forKey: "soulMarkAppearanceMode")
+            SoulPreferencesStore.shared.apply(
+                language: language,
+                genderTheme: gender,
+                appearanceMode: appearance == "light" ? "day" : appearance == "dark" ? "night" : "auto"
+            )
             applyUser(updated)
         } catch {
             errorMessage = error.localizedDescription
@@ -771,6 +1022,56 @@ final class AppSession: ObservableObject {
         return try? await api.deleteContactAvatar(token: token, id: contactID).relationshipPerson
     }
 
+    func loadContactEvents(contactID: UUID) async throws -> [ContactTimelineEvent] {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.contactEvents(token: token, contactID: contactID)
+            .map(\.timelineEvent)
+    }
+
+    func createContactEvent(
+        contactID: UUID,
+        title: String,
+        details: String,
+        occurredAt: Date,
+        imageData: Data?
+    ) async throws -> ContactTimelineEvent {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        var remote = try await api.createContactEvent(
+            token: token,
+            contactID: contactID,
+            title: title,
+            details: details,
+            occurredAt: occurredAt
+        )
+        if let imageData {
+            do {
+                remote = try await api.uploadContactEventImage(
+                    token: token,
+                    contactID: contactID,
+                    eventID: remote.id,
+                    imageData: imageData
+                )
+            } catch {
+                try? await api.deleteContactEvent(
+                    token: token,
+                    contactID: contactID,
+                    eventID: remote.id
+                )
+                throw error
+            }
+        }
+        return remote.timelineEvent
+    }
+
+    func deleteContactEvent(contactID: UUID, eventID: UUID) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.deleteContactEvent(
+            token: token,
+            contactID: contactID,
+            eventID: eventID
+        )
+    }
+
     func loadStats() async -> DashboardStatsDTO? {
         guard let token = tokenStore.read() else { return nil }
         return try? await api.stats(token: token)
@@ -797,9 +1098,64 @@ final class AppSession: ObservableObject {
         )
     }
 
-    func recordReview(_ record: ConversationReviewRecord) async {
-        guard let token = tokenStore.read() else { return }
-        try? await api.saveReview(token: token, record: record)
+    func recordReview(_ record: ConversationReviewRecord) async throws -> ConversationReviewRecord {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        guard let saved = try await api.saveReview(token: token, record: record).record else {
+            throw SoulAPIError.invalidResponse
+        }
+        return saved
+    }
+
+    func analyzeReview(
+        title: String,
+        source: ReviewSource,
+        transcript: String,
+        language: String,
+        media: ReviewMediaAttachment? = nil
+    ) async throws -> ConversationReviewRecord {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let analysis: ReviewAnalysisDTO
+        if let media {
+            analysis = try await api.analyzeReviewMedia(
+                token: token,
+                source: source,
+                data: media.data,
+                filename: media.filename,
+                mimeType: media.mimeType,
+                language: language
+            )
+        } else {
+            analysis = try await api.analyzeReview(
+                token: token,
+                source: source,
+                transcript: transcript,
+                language: language
+            )
+        }
+        let suppliedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let analyzedTranscript = analysis.transcript?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let suppliedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let finalTranscript = analyzedTranscript?.isEmpty == false
+            ? analyzedTranscript ?? suppliedTranscript
+            : suppliedTranscript
+        return ConversationReviewRecord(
+            title: suppliedTitle.isEmpty
+                ? localizedText("未命名复盘", "Untitled Review")
+                : suppliedTitle,
+            source: source,
+            date: Date(),
+            transcript: finalTranscript,
+            score: analysis.score,
+            reason: analysis.reason,
+            advice: analysis.briefAdvice,
+            detailedAdvice: analysis.detailedAdvice
+        )
+    }
+
+    func deleteReview(_ id: UUID) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.deleteReview(token: token, id: id)
     }
 
     func loadReviews() async -> [ConversationReviewRecord]? {

@@ -319,6 +319,7 @@ struct RelationshipPerson: Identifiable, Equatable {
     let symbol: String
     let memory: String
     var avatarURL: String? = nil
+    var informationFields: [ContactInformationField] = []
 
     static func == (lhs: RelationshipPerson, rhs: RelationshipPerson) -> Bool {
         lhs.id == rhs.id
@@ -363,6 +364,30 @@ struct RelationshipPerson: Identifiable, Equatable {
         default: memory
         }
     }
+}
+
+struct ContactInformationField: Identifiable, Codable, Equatable {
+    var id: UUID = UUID()
+    var label: String
+    var value: String = ""
+    var placeholder: String = ""
+
+    static var defaults: [ContactInformationField] {
+        [
+            .init(label: localizedText("生日", "Birthday"), placeholder: localizedText("选择或输入生日", "Enter birthday")),
+            .init(label: localizedText("性别", "Gender"), placeholder: localizedText("输入性别", "Enter gender")),
+            .init(label: localizedText("年龄", "Age"), placeholder: localizedText("输入年龄", "Enter age"))
+        ]
+    }
+}
+
+struct ContactTimelineEvent: Identifiable, Equatable {
+    let id: UUID
+    let contactID: UUID
+    let title: String
+    let details: String
+    let occurredAt: Date
+    let imageURL: String?
 }
 
 struct ScenarioParticipant: Identifiable, Equatable {
@@ -583,6 +608,7 @@ struct ConversationReviewRecord: Identifiable, Equatable {
     let score: Int
     let reason: String
     let advice: String
+    let detailedAdvice: String
 
     static func make(title: String, source: ReviewSource, transcript: String, date: Date = Date()) -> ConversationReviewRecord {
         let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -598,7 +624,11 @@ struct ConversationReviewRecord: Identifiable, Equatable {
             transcript: trimmedTranscript,
             score: score,
             reason: localizedText("分数主要来自表达清晰度、是否说明感受、是否提出下一步行动。", "The score mainly reflects clarity, whether feelings were explained, and whether a next step was proposed."),
-            advice: score >= 85 ? localizedText("整体表达较完整，可以继续练习更自然的语气。", "The message is mostly complete. Keep practicing a more natural tone.") : localizedText("建议补充你的感受和具体需求，让对方更容易回应。", "Add your feelings and specific needs so the other person can respond more easily.")
+            advice: score >= 85 ? localizedText("整体表达较完整，可以继续练习更自然的语气。", "The message is mostly complete. Keep practicing a more natural tone.") : localizedText("建议补充你的感受和具体需求，让对方更容易回应。", "Add your feelings and specific needs so the other person can respond more easily."),
+            detailedAdvice: localizedText(
+                "尝试先描述事实，再说出自己的感受与具体需要，最后提出一个对方容易回应的请求。",
+                "Describe the facts first, name your feelings and needs, then make a request the other person can answer."
+            )
         )
     }
 
@@ -703,7 +733,7 @@ extension Array where Element == RelationshipPerson {
         }
     }
 
-    mutating func addPerson(name: String, note: String, category: RelationshipCategory) {
+    mutating func addPerson(name: String, note: String, category: RelationshipCategory, informationFields: [ContactInformationField] = []) {
         let nextIndex = count
         let angle = (Double(nextIndex) * 0.73).truncatingRemainder(dividingBy: Double.pi * 2)
         let radiusX = 0.34
@@ -722,7 +752,8 @@ extension Array where Element == RelationshipPerson {
                 position: position,
                 avatarColors: [category.color.opacity(0.86), Color.white.opacity(0.52)],
                 symbol: "person.fill",
-                memory: localizedText("这是你刚刚添加到关系图谱中的人。", "This is someone you just added to the relationship map.")
+                memory: localizedText("这是你刚刚添加到关系图谱中的人。", "This is someone you just added to the relationship map."),
+                informationFields: informationFields
             )
         )
     }

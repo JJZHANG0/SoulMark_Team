@@ -180,6 +180,48 @@ async def test_avatar_upload_rejects_oversized_file(
     assert response.json()["error"]["code"] == "avatar_too_large"
 
 
+async def test_contact_event_timeline_is_persistent_and_owner_scoped(
+    client: AsyncClient,
+) -> None:
+    owner_headers = await create_headers(client, "timeline@example.com", "Timeline Owner")
+    other_headers = await create_headers(client, "outsider@example.com", "Outsider")
+    contact = await client.post(
+        "/api/v1/contacts",
+        headers=owner_headers,
+        json=CONTACT_PAYLOAD,
+    )
+    contact_id = contact.json()["id"]
+
+    created = await client.post(
+        f"/api/v1/contacts/{contact_id}/events",
+        headers=owner_headers,
+        json={
+            "title": "第一次表白",
+            "details": "我向她说明了自己的感受。",
+            "occurred_at": "2025-02-14T12:30:00Z",
+        },
+    )
+
+    assert created.status_code == 201
+    uploaded = await client.post(
+        f"/api/v1/contacts/{contact_id}/events/{created.json()['id']}/image",
+        headers=owner_headers,
+        files={"file": ("event.png", PNG_BYTES, "image/png")},
+    )
+    assert uploaded.status_code == 200
+    assert uploaded.json()["image_url"].startswith("/media/events/")
+    listed = await client.get(
+        f"/api/v1/contacts/{contact_id}/events",
+        headers=owner_headers,
+    )
+    assert listed.json()[0]["title"] == "第一次表白"
+    hidden = await client.get(
+        f"/api/v1/contacts/{contact_id}/events",
+        headers=other_headers,
+    )
+    assert hidden.status_code == 404
+
+
 async def test_other_user_cannot_manage_contact_avatar(client: AsyncClient) -> None:
     owner_headers = await create_headers(client, "avatar-owner@example.com", "Owner")
     other_headers = await create_headers(client, "avatar-other@example.com", "Other")

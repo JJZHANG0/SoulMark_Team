@@ -258,7 +258,7 @@ struct AuthenticationView: View {
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
         }
         .buttonStyle(.plain)
@@ -301,7 +301,7 @@ struct AuthenticationView: View {
                     .font(.system(size: 12, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.accent)
                     .frame(width: 86, height: 54)
-                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(phoneNumber.count != 11 || session.isWorking)
@@ -325,7 +325,7 @@ struct AuthenticationView: View {
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!canSubmit || session.isWorking)
@@ -349,7 +349,7 @@ struct AuthenticationView: View {
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Color(red: 0.10, green: 0.66, blue: 0.34), in: RoundedRectangle(cornerRadius: 8))
+            .background(Color(red: 0.10, green: 0.66, blue: 0.34), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -377,8 +377,8 @@ private struct AuthField: View {
         }
         .padding(.horizontal, 15)
         .frame(height: 54)
-        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoulTheme.cardStroke, lineWidth: 1))
+        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(SoulTheme.cardStroke, lineWidth: 1))
     }
 }
 
@@ -399,8 +399,8 @@ private struct AuthSecureField: View {
         }
         .padding(.horizontal, 15)
         .frame(height: 54)
-        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(SoulTheme.cardStroke, lineWidth: 1))
+        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(SoulTheme.cardStroke, lineWidth: 1))
     }
 }
 
@@ -524,7 +524,7 @@ struct SoulOnboardingView: View {
                 .pickerStyle(.segmented)
             }
             .padding(16)
-            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 8))
+            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
     }
 
@@ -600,7 +600,7 @@ struct SoulOnboardingView: View {
                 .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 54)
-                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isWorking)
@@ -665,8 +665,8 @@ private struct OnboardingChoice: View {
             }
             .frame(maxWidth: .infinity, minHeight: 130, alignment: .leading)
             .padding(16)
-            .background(isSelected ? tint.opacity(0.14) : SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(isSelected ? tint : SoulTheme.cardStroke, lineWidth: isSelected ? 2 : 1))
+            .background(isSelected ? tint.opacity(0.14) : SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(isSelected ? tint : SoulTheme.cardStroke, lineWidth: isSelected ? 2 : 1))
         }
         .buttonStyle(.plain)
     }
@@ -685,7 +685,7 @@ private struct GoalChoice: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(selection == id ? Color.white : SoulTheme.accent)
                     .frame(width: 40, height: 40)
-                    .background(selection == id ? SoulTheme.accent : SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                    .background(selection == id ? SoulTheme.accent : SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 Text(title)
                     .font(.system(size: 15, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
@@ -694,8 +694,8 @@ private struct GoalChoice: View {
                     .foregroundStyle(selection == id ? SoulTheme.energy : SoulTheme.tertiaryText)
             }
             .padding(13)
-            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(selection == id ? SoulTheme.accent.opacity(0.7) : SoulTheme.cardStroke, lineWidth: 1))
+            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(selection == id ? SoulTheme.accent.opacity(0.7) : SoulTheme.cardStroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

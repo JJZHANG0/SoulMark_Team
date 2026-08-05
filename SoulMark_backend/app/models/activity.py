@@ -45,4 +45,5 @@ class ConversationReview(Base):
     score: Mapped[int] = mapped_column(Integer)
     reason: Mapped[str] = mapped_column(Text)
     advice: Mapped[str] = mapped_column(Text)
+    detailed_advice: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

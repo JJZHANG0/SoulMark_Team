@@ -79,9 +79,17 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `SOULMARK_JWT_ACCESS_TOKEN_MINUTES`: access-token lifetime, default 43200 (30 days).
 - `SOULMARK_QWEN_API_KEY`: Model Studio API key. Keep this only in the backend `.env` or secret store.
 - `SOULMARK_QWEN_REALTIME_MODEL`: realtime model, default `qwen3.5-omni-plus-realtime`.
+- `SOULMARK_QWEN_REVIEW_MODEL`: conversation review model, default `qwen3.7-plus`.
+- `SOULMARK_QWEN_REVIEW_AUDIO_MODEL`: review transcription model, default
+  `qwen3-asr-flash`.
+- `SOULMARK_QWEN_HTTP_API_URL`: DashScope HTTP endpoint, default
+  `https://dashscope.aliyuncs.com/api/v1`.
+- `SOULMARK_REVIEW_MEDIA_MAX_BYTES`: maximum review image/audio upload size, default 7 MB.
 - `SOULMARK_QWEN_VOICE`: generated voice, default `Ethan`.
 - `SOULMARK_AVATAR_UPLOAD_DIR`: local avatar directory, default `uploads/avatars`.
 - `SOULMARK_AVATAR_MAX_BYTES`: maximum source image size, default 5 MB.
+- `SOULMARK_EVENT_IMAGE_UPLOAD_DIR`: contact-event image directory, default `uploads/events`.
+- `SOULMARK_EVENT_IMAGE_MAX_BYTES`: maximum event image size, default 7 MB.
 - `SOULMARK_SMS_PROVIDER`: `development`, `aliyun`, or `pnvs`.
 - `SOULMARK_ALIYUN_ACCESS_KEY_ID` / `SOULMARK_ALIYUN_ACCESS_KEY_SECRET`: credentials used by
   Aliyun SMS or PNVS.
@@ -113,7 +121,13 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `DELETE /api/v1/practices/{practice_id}`
 - `GET /api/v1/reviews`
 - `POST /api/v1/reviews`
+- `POST /api/v1/reviews/analyze`
+- `POST /api/v1/reviews/analyze-media`
 - `DELETE /api/v1/reviews/{review_id}`
+- `GET /api/v1/contacts/{contact_id}/events`
+- `POST /api/v1/contacts/{contact_id}/events`
+- `POST /api/v1/contacts/{contact_id}/events/{event_id}/image`
+- `DELETE /api/v1/contacts/{contact_id}/events/{event_id}`
 - `GET /api/v1/stats`
 - `WS /api/v1/realtime/scenario`
 
