@@ -22,6 +22,7 @@ async def test_register_and_login_return_safe_user_and_token(client: AsyncClient
     assert logged_in.status_code == 200
     assert logged_in.json()["token_type"] == "bearer"
     assert logged_in.json()["access_token"]
+    assert logged_in.json()["expires_in_seconds"] == 30 * 24 * 60 * 60
 
 
 async def test_duplicate_email_returns_stable_conflict(client: AsyncClient) -> None:

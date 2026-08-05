@@ -9,9 +9,29 @@ import SwiftUI
 
 @main
 struct SoulMarkApp: App {
+    @StateObject private var session = AppSession()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                switch session.route {
+                case .launch:
+                    SoulLaunchView()
+                case .authentication:
+                    AuthenticationView()
+                case .onboarding:
+                    SoulOnboardingView()
+                case .main:
+                    ContentView()
+                }
+            }
+            .environmentObject(session)
+            .preferredColorScheme(isSoulNightMode() ? .dark : .light)
+            .task {
+                if session.route == .launch {
+                    await session.bootstrap()
+                }
+            }
         }
     }
 }

@@ -7,7 +7,7 @@ import SwiftUI
 
 struct ScenarioSimulationView: View {
     let relationshipPeople: [RelationshipPerson]
-    let onPracticeSubmitted: (Int) -> Void
+    let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
 
     @State private var participants: [ScenarioParticipant]
     @State private var selectedParticipantID: ScenarioParticipant.ID?
@@ -15,7 +15,6 @@ struct ScenarioSimulationView: View {
     @State private var isAddingMode = false
     @State private var modes = ScenarioMode.defaultModes
     @State private var selectedModeID = ScenarioMode.defaultModes[0].id
-    @State private var recordingTimer = RecordingTimer()
     @State private var draftMessage = ""
     @State private var conversation: [ScenarioMessage] = []
     @State private var conversationHistory: [ScenarioConversationSession] = []
@@ -23,11 +22,14 @@ struct ScenarioSimulationView: View {
     @State private var isShowingParticipantPicker = false
     @State private var conversationScrollTarget = UUID()
     @State private var isShowingGuidance = false
+    @StateObject private var voiceCall = RealtimeVoiceCallManager()
+    @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
+    @AppStorage("soulMarkLanguage") private var language = "zh"
 
     init(
         relationshipPeople: [RelationshipPerson],
         focusedPersonID: RelationshipPerson.ID? = nil,
-        onPracticeSubmitted: @escaping (Int) -> Void = { _ in }
+        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in }
     ) {
         self.relationshipPeople = relationshipPeople
         self.onPracticeSubmitted = onPracticeSubmitted
@@ -73,7 +75,11 @@ struct ScenarioSimulationView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 8)
 
-                    SoulMascotFigure(height: 238, haloIntensity: 1.12)
+                    SoulMascotFigure(
+                        height: voiceCall.phase.isActive || !conversation.isEmpty ? 175 : 238,
+                        haloIntensity: 1.12
+                    )
+                    .animation(.easeInOut(duration: 0.24), value: voiceCall.phase.isActive)
 
                     VStack(spacing: 5) {
                         Text(localizedText("准备与 AI 对话", "READY TO TALK WITH AI"))
@@ -90,7 +96,7 @@ struct ScenarioSimulationView: View {
 
                     if !conversation.isEmpty {
                         MinimalScenarioTranscript(messages: conversation, scrollTarget: conversationScrollTarget)
-                            .frame(height: 126)
+                            .frame(height: 110)
                             .padding(.horizontal, 18)
                             .padding(.top, 12)
                     }
@@ -102,11 +108,25 @@ struct ScenarioSimulationView: View {
                 }
             }
         }
-        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
-            recordingTimer.tick()
-        }
         .onChange(of: relationshipPeople) { _, _ in
             syncRelationshipParticipants()
+        }
+        .onChange(of: voiceCall.latestTranscript) { _, event in
+            guard let event else { return }
+            conversation.append(
+                ScenarioMessage(
+                    speaker: event.role == .user ? localizedText("你", "You") : selectedParticipant.name,
+                    text: event.text,
+                    isUser: event.role == .user
+                )
+            )
+            conversationScrollTarget = UUID()
+        }
+        .onChange(of: selectedModeID) { _, _ in
+            endVoiceCall(reportPractice: false)
+        }
+        .onDisappear {
+            endVoiceCall(reportPractice: false)
         }
         .sheet(isPresented: $isAddingParticipant) {
             AddScenarioParticipantSheet { name, note, relationshipLabel in
@@ -165,56 +185,99 @@ struct ScenarioSimulationView: View {
 
     private var voiceControl: some View {
         VStack(spacing: 11) {
-            if recordingTimer.isRunning {
-                Text(recordingTimer.displayText)
+            if voiceCall.phase.isActive {
+                HStack(spacing: 8) {
+                    Circle()
+                        .fill(voiceCall.phase == .speaking ? SoulTheme.energy : SoulTheme.success)
+                        .frame(width: 8, height: 8)
+
+                    Text(voiceCall.phase.title)
+                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.secondaryText)
+                }
+
+                Text(voiceCall.durationText)
                     .font(.system(size: 18, weight: .heavy, design: .monospaced))
                     .foregroundStyle(SoulTheme.primaryText)
 
-                HStack(spacing: 26) {
+                if !voiceCall.assistantDraft.isEmpty {
+                    Text(voiceCall.assistantDraft)
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SoulTheme.secondaryText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: 250)
+                }
+
+                HStack(spacing: 24) {
                     Button {
-                        recordingTimer.cancel()
+                        voiceCall.toggleMute()
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 20, weight: .heavy))
-                            .foregroundStyle(Color.white)
+                        Image(systemName: voiceCall.isMuted ? "mic.slash.fill" : "mic.fill")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundStyle(SoulTheme.primaryText)
                             .frame(width: 52, height: 52)
-                            .background(SoulTheme.danger, in: Circle())
+                            .background(SoulTheme.cardFill, in: Circle())
+                            .overlay(Circle().stroke(SoulTheme.cardStroke, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(localizedText("静音", "Mute"))
 
                     Button {
-                        let seconds = recordingTimer.finish()
-                        confirmRecording(seconds: seconds)
+                        endVoiceCall()
                     } label: {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 20, weight: .heavy))
+                        Image(systemName: "phone.down.fill")
+                            .font(.system(size: 19, weight: .heavy))
                             .foregroundStyle(Color.white)
-                            .frame(width: 52, height: 52)
-                            .background(SoulTheme.success, in: Circle())
+                            .frame(width: 58, height: 58)
+                            .background(SoulTheme.danger, in: Circle())
+                            .shadow(color: SoulTheme.danger.opacity(0.28), radius: 12, x: 0, y: 7)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(localizedText("结束通话", "End call"))
                 }
             } else {
                 Button {
-                    recordingTimer.start()
+                    Task {
+                        await voiceCall.start(
+                            participant: selectedParticipant,
+                            mode: selectedMode,
+                            backendURL: backendURL,
+                            language: language
+                        )
+                    }
                 } label: {
                     VStack(spacing: 8) {
-                        Image(systemName: "waveform.and.mic")
+                        Image(systemName: voiceCall.phase == .connecting ? "ellipsis" : "phone.fill")
                             .font(.system(size: 25, weight: .bold))
                             .foregroundStyle(Color.white)
                             .frame(width: 72, height: 72)
                             .background(SoulTheme.accent, in: Circle())
                             .shadow(color: SoulTheme.accent.opacity(0.30), radius: 13, x: 0, y: 8)
 
-                        Text(localizedText("与 AI 说话", "Talk with AI"))
+                        Text(localizedText("呼叫 Soul", "Call Soul"))
                             .font(.system(size: 14, weight: .heavy, design: .rounded))
                             .foregroundStyle(SoulTheme.primaryText)
                     }
                 }
                 .buttonStyle(.plain)
+
+                if let error = voiceCall.errorMessage {
+                    Button {
+                        voiceCall.clearError()
+                    } label: {
+                        Label(error, systemImage: "exclamationmark.circle.fill")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.danger)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.center)
+                            .frame(maxWidth: 280)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         }
-        .frame(height: 108)
+        .frame(minHeight: 108)
     }
 
     private var partnerSelector: some View {
@@ -283,25 +346,17 @@ struct ScenarioSimulationView: View {
         conversationScrollTarget = UUID()
     }
 
-    private func confirmRecording(seconds: Int) {
-        guard seconds > 0 else { return }
-
-        conversation.append(
-            ScenarioMessage(
-                speaker: localizedText("你", "You"),
-                text: localizedText("已提交一段 \(seconds) 秒的语音给 AI。", "Submitted a \(seconds)-second voice message to AI."),
-                isUser: true
+    private func endVoiceCall(reportPractice: Bool = true) {
+        let seconds = voiceCall.end()
+        if reportPractice, seconds > 0 {
+            onPracticeSubmitted(
+                seconds,
+                selectedParticipant.name,
+                selectedMode.displayTitle,
+                selectedMode.displayGuidance,
+                conversation
             )
-        )
-        conversation.append(
-            ScenarioMessage(
-                speaker: selectedParticipant.name,
-                text: localizedText("我听到了。你可以继续说，我会陪你把这段话练清楚。", "I hear you. Keep going, and we will make these words clearer together."),
-                isUser: false
-            )
-        )
-        conversationScrollTarget = UUID()
-        onPracticeSubmitted(seconds)
+        }
     }
 
     private func deleteCustomParticipant(_ participant: ScenarioParticipant) {
@@ -354,7 +409,7 @@ struct ScenarioSimulationView: View {
             ScenarioMessage(speaker: "AI", text: localizedText("心对话已开启。你可以先说最真实的感受，不需要一次说完。", "Heart talk is open. Start with the most honest feeling; you do not need to say everything at once."), isUser: false)
         ]
         draftMessage = ""
-        recordingTimer.cancel()
+        endVoiceCall(reportPractice: false)
         conversationScrollTarget = UUID()
     }
 
@@ -368,7 +423,7 @@ struct ScenarioSimulationView: View {
         }
         conversation = session.messages
         draftMessage = ""
-        recordingTimer.cancel()
+        endVoiceCall(reportPractice: false)
         conversationHistory.removeAll { $0.id == session.id }
         isShowingHistory = false
         conversationScrollTarget = UUID()
@@ -377,7 +432,7 @@ struct ScenarioSimulationView: View {
     private func resetConversation() {
         conversation = []
         draftMessage = ""
-        recordingTimer.cancel()
+        endVoiceCall(reportPractice: false)
         conversationScrollTarget = UUID()
     }
 

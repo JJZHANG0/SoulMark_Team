@@ -10,6 +10,8 @@ class UserUpdate(BaseModel):
     preferred_language: Literal["zh", "en"] | None = None
     gender: Literal["male", "female", "unspecified"] | None = None
     appearance: Literal["auto", "light", "dark"] | None = None
+    communication_goal: str | None = Field(default=None, max_length=80)
+    onboarding_completed: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -19,6 +21,9 @@ class UserResponse(BaseModel):
     preferred_language: str
     gender: str | None
     appearance: str
+    communication_goal: str | None
+    onboarding_completed: bool
+    onboarding_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

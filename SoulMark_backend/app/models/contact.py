@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,6 +24,10 @@ class Contact(Base):
     relationship_label: Mapped[str] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     strength: Mapped[int] = mapped_column(Integer, default=50)
+    position_x: Mapped[float] = mapped_column(Float, default=0.5)
+    position_y: Mapped[float] = mapped_column(Float, default=0.5)
+    symbol: Mapped[str] = mapped_column(String(80), default="person.fill")
+    memory: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(

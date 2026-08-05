@@ -274,6 +274,15 @@ enum RelationshipCategory: Identifiable, Equatable, Hashable {
         }
     }
 
+    var apiValue: String { id }
+
+    static func fromAPIValue(_ value: String) -> RelationshipCategory {
+        if let builtIn = builtIns.first(where: { $0.id == value }) {
+            return builtIn
+        }
+        return .custom(value.hasPrefix("custom-") ? String(value.dropFirst(7)) : value)
+    }
+
     var displayTitle: String {
         switch self {
         case .confidant: localizedText("知己", "Confidant")
@@ -345,7 +354,7 @@ enum RelationshipCategory: Identifiable, Equatable, Hashable {
 }
 
 struct RelationshipPerson: Identifiable, Equatable {
-    let id = UUID()
+    var id: UUID = UUID()
     let name: String
     let note: String
     var category: RelationshipCategory
@@ -610,7 +619,7 @@ enum ReviewSource: String, CaseIterable, Identifiable {
 }
 
 struct ConversationReviewRecord: Identifiable, Equatable {
-    let id = UUID()
+    var id: UUID = UUID()
     let title: String
     let source: ReviewSource
     let date: Date

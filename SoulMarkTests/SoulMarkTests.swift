@@ -12,6 +12,14 @@ import Foundation
 
 struct SoulMarkTests {
 
+    @Test func realtimeVoiceURLUsesWebSocketSchemeAndGatewayPath() throws {
+        let local = try RealtimeVoiceServiceConfiguration.websocketURL(from: "http://192.168.1.20:8000")
+        let production = try RealtimeVoiceServiceConfiguration.websocketURL(from: "https://api.soulmark.app")
+
+        #expect(local.absoluteString == "ws://192.168.1.20:8000/api/v1/realtime/scenario")
+        #expect(production.absoluteString == "wss://api.soulmark.app/api/v1/realtime/scenario")
+    }
+
     @Test func relationshipFiltersReturnExpectedPeople() async throws {
         let people = RelationshipSampleData.people
 

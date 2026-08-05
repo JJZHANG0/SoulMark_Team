@@ -35,6 +35,7 @@ enum AppSection {
 }
 
 struct ContentView: View {
+    @EnvironmentObject private var session: AppSession
     @State private var selectedSection: AppSection = .home
     @State private var selectedFilter: RelationshipFilter = .all
     @State private var selectedCustomCategory: RelationshipCategory?
@@ -89,6 +90,15 @@ struct ContentView: View {
         }
         .ignoresSafeArea(edges: .bottom)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
+        .task {
+            if let syncedPeople = await session.loadContacts() {
+                people = syncedPeople
+            }
+            if let stats = await session.loadStats() {
+                practiceCount = stats.practicesCount
+                reviewCount = stats.reviewsCount
+            }
+        }
     }
 
     @ViewBuilder
@@ -113,8 +123,17 @@ struct ContentView: View {
             ScenarioSimulationView(
                 relationshipPeople: people,
                 focusedPersonID: scenarioFocusedPersonID,
-                onPracticeSubmitted: { _ in
+                onPracticeSubmitted: { duration, participant, mode, guidance, messages in
                     practiceCount += 1
+                    Task {
+                        await session.recordPractice(
+                            duration: duration,
+                            participant: participant,
+                            mode: mode,
+                            guidance: guidance,
+                            messages: messages
+                        )
+                    }
                 }
             )
         case .journal:
@@ -154,6 +173,9 @@ struct ContentView: View {
                         if selectedPerson?.id == id {
                             selectedPerson = people.first { $0.id == id }
                         }
+                        if let updated = people.first(where: { $0.id == id }) {
+                            Task { await session.updateContact(updated) }
+                        }
                     },
                     onOrganize: {
                         withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
@@ -163,6 +185,8 @@ struct ContentView: View {
                                 self.selectedPerson = people.first { $0.id == selectedPerson.id }
                             }
                         }
+                        let organizedPeople = people
+                        Task { await session.updateContacts(organizedPeople) }
                     },
                     onSelect: { person in
                         withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
@@ -184,10 +208,14 @@ struct ContentView: View {
                 onCategoryChange: { category in
                     people.updateRelationship(for: person.id, to: category)
                     selectedPerson = people.first { $0.id == person.id }
+                    if let updated = selectedPerson {
+                        Task { await session.updateContact(updated) }
+                    }
                 },
                 onDeletePerson: {
                     people.deletePerson(person.id)
                     selectedPerson = nil
+                    Task { await session.deleteContact(person.id) }
                 },
                 onStartScenario: {
                     scenarioFocusedPersonID = person.id
@@ -201,6 +229,13 @@ struct ContentView: View {
         .sheet(isPresented: $isAddingPerson) {
             AddPersonSheet(availableCategories: availableCategories) { name, note, category in
                 people.addPerson(name: name, note: note, category: category)
+                guard let localPerson = people.last else { return }
+                Task {
+                    if let remotePerson = await session.createContact(localPerson),
+                       let index = people.firstIndex(where: { $0.id == localPerson.id }) {
+                        people[index] = remotePerson
+                    }
+                }
             }
             .presentationDetents([.height(430), .medium])
             .presentationDragIndicator(.visible)
@@ -250,6 +285,9 @@ struct ContentView: View {
         ) {
             if let pendingDeletedCategory {
                 Button(localizedText("删除\(pendingDeletedCategory.displayTitle)", "Delete \(pendingDeletedCategory.displayTitle)"), role: .destructive) {
+                    let removedIDs = people
+                        .filter { $0.category == pendingDeletedCategory }
+                        .map(\.id)
                     people.deleteRelationship(pendingDeletedCategory)
                     if customCategories.contains(pendingDeletedCategory) {
                         customCategories.removeAll { $0 == pendingDeletedCategory }
@@ -265,6 +303,11 @@ struct ContentView: View {
                     }
                     selectedPerson = nil
                     self.pendingDeletedCategory = nil
+                    Task {
+                        for id in removedIDs {
+                            await session.deleteContact(id)
+                        }
+                    }
                 }
             }
 

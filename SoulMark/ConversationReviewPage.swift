@@ -6,6 +6,7 @@
 import SwiftUI
 
 struct ConversationReviewPage: View {
+    @EnvironmentObject private var session: AppSession
     @State private var records: [ConversationReviewRecord] = []
     @State private var isAddingRecord = false
     @State private var selectedSource: ReviewSource?
@@ -74,18 +75,23 @@ struct ConversationReviewPage: View {
         }
         .sheet(isPresented: $isAddingRecord) {
             AddReviewRecordSheet { title, source, transcript in
-                records.insert(
-                    ConversationReviewRecord.make(
-                        title: title,
-                        source: source,
-                        transcript: transcript
-                    ),
-                    at: 0
+                let record = ConversationReviewRecord.make(
+                    title: title,
+                    source: source,
+                    transcript: transcript
                 )
+                records.insert(record, at: 0)
                 onRecordCountChange(records.count)
+                Task { await session.recordReview(record) }
             }
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+        }
+        .task {
+            if let syncedRecords = await session.loadReviews() {
+                records = syncedRecords
+                onRecordCountChange(records.count)
+            }
         }
     }
 }

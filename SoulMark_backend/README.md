@@ -1,6 +1,8 @@
 # SoulMark Backend
 
-FastAPI and PostgreSQL backend foundation for SoulMark. The current API includes health checks, email authentication, authenticated profile management, and relationship-contact CRUD with a five-contact free limit.
+FastAPI and PostgreSQL backend for SoulMark. It includes health checks, 30-day email sessions,
+onboarding and profile settings, relationship contacts, practices, reviews, dashboard statistics,
+and a secure realtime voice relay for scenario practice.
 
 ## Requirements
 
@@ -48,8 +50,12 @@ Start PostgreSQL, then apply migrations and run the API:
 
 ```bash
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+The `0.0.0.0` bind makes the development server reachable from an iPhone on the same Wi-Fi.
+Set the app's Voice Service address to the Mac's local address, such as
+`http://192.168.1.10:8000`. Use HTTPS/WSS for deployed environments.
 
 ## Verification
 
@@ -70,7 +76,10 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `SOULMARK_DATABASE_URL`: PostgreSQL SQLAlchemy URL using the Psycopg driver.
 - `SOULMARK_JWT_SECRET`: long random signing secret that is never committed.
 - `SOULMARK_ENVIRONMENT`: `development`, `test`, or `production`.
-- `SOULMARK_JWT_ACCESS_TOKEN_MINUTES`: access-token lifetime, default 30.
+- `SOULMARK_JWT_ACCESS_TOKEN_MINUTES`: access-token lifetime, default 43200 (30 days).
+- `SOULMARK_QWEN_API_KEY`: Model Studio API key. Keep this only in the backend `.env` or secret store.
+- `SOULMARK_QWEN_REALTIME_MODEL`: realtime model, default `qwen3.5-omni-plus-realtime`.
+- `SOULMARK_QWEN_VOICE`: generated voice, default `Ethan`.
 
 ## Current API
 
@@ -85,7 +94,30 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `GET /api/v1/contacts/{contact_id}`
 - `PATCH /api/v1/contacts/{contact_id}`
 - `DELETE /api/v1/contacts/{contact_id}`
+- `GET /api/v1/practices`
+- `POST /api/v1/practices`
+- `DELETE /api/v1/practices/{practice_id}`
+- `GET /api/v1/reviews`
+- `POST /api/v1/reviews`
+- `DELETE /api/v1/reviews/{review_id}`
+- `GET /api/v1/stats`
+- `WS /api/v1/realtime/scenario`
+
+## Realtime Voice
+
+The iOS app connects to `/api/v1/realtime/scenario`, sends a `session.start` JSON event, then
+streams signed 16-bit mono PCM as binary WebSocket messages. Input is 16 kHz and server audio is
+24 kHz. Server JSON events carry final user transcripts, streaming/final assistant transcripts,
+call state, and safe error information.
+
+During development the WebSocket is available without a login token so a phone on the same local
+network can reach the Mac. Production requires a valid SoulMark Bearer token. The Qwen API key is
+never sent to the app. Raw audio is relayed transiently and is not retained by this endpoint.
+
+Scenario replies are simulations for communication practice and must not be treated as statements
+or predictions from the real person being represented.
 
 ## Next Modules
 
-Conversation history, AI scenario simulation, reviews, achievements, subscriptions, uploads, and push notifications should be added as separate modules while keeping the same API/service/database boundaries.
+Subscriptions, uploads, push notifications, password recovery, email verification, and account
+deletion should be added as separate modules while keeping the same API/service/database boundaries.

@@ -21,6 +21,11 @@ class User(Base):
     preferred_language: Mapped[str] = mapped_column(String(5), default="zh")
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
     appearance: Mapped[str] = mapped_column(String(20), default="auto")
+    communication_goal: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    onboarding_completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(

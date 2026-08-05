@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
@@ -27,4 +28,8 @@ async def login(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> TokenResponse:
     user = await authenticate_user(session, str(payload.email), payload.password)
-    return TokenResponse(access_token=create_access_token(user.id))
+    settings = get_settings()
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        expires_in_seconds=settings.jwt_access_token_minutes * 60,
+    )

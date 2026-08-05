@@ -307,6 +307,7 @@ struct IntegratedHomePage: View {
 }
 
 struct IntegratedProfilePage: View {
+    @EnvironmentObject private var session: AppSession
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
@@ -363,7 +364,7 @@ struct IntegratedProfilePage: View {
 
                 Spacer()
 
-                Text("Yang Zirui")
+                Text(session.user?.displayName ?? "Soul User")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
 
@@ -557,9 +558,11 @@ private struct AchievementBadgeCard: View {
 }
 
 private struct SoulSettingsSheet: View {
+    @EnvironmentObject private var session: AppSession
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
+    @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -609,6 +612,55 @@ private struct SoulSettingsSheet: View {
                                 Text(localizedText("夜间", "Night")).tag("night")
                             }
                             .pickerStyle(.segmented)
+                        }
+
+                        SettingsGroup(
+                            title: localizedText("语音服务", "Voice Service"),
+                            subtitle: localizedText("真机调试时填写运行 SoulMark 后端的电脑地址", "For device testing, enter the Mac address running the SoulMark backend")
+                        ) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "server.rack")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(SoulTheme.accent)
+
+                                TextField("http://192.168.1.10:8000", text: $backendURL)
+                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .keyboardType(.URL)
+
+                                Button {
+                                    backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
+                                } label: {
+                                    Image(systemName: "arrow.counterclockwise")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(SoulTheme.secondaryText)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(localizedText("恢复默认地址", "Restore default address"))
+                            }
+                            .padding(.horizontal, 12)
+                            .frame(height: 46)
+                            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+                        }
+
+                        SettingsGroup(
+                            title: localizedText("账户", "Account"),
+                            subtitle: session.user?.email ?? localizedText("当前 Soul 身份", "Current Soul identity")
+                        ) {
+                            Button {
+                                dismiss()
+                                session.signOut()
+                            } label: {
+                                Label(localizedText("退出登录", "Sign Out"), systemImage: "rectangle.portrait.and.arrow.right")
+                                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(SoulTheme.danger)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 12)
+                                    .frame(height: 46)
+                                    .background(SoulTheme.danger.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(18)
