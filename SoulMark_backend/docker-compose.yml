@@ -11,12 +11,14 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - soulmark_postgres_data:/var/lib/postgresql/data
 
   api:
     build: .
+    env_file:
+      - .env
     environment:
       SOULMARK_ENVIRONMENT: development
       SOULMARK_DATABASE_URL: postgresql+psycopg://soulmark:soulmark_local@db:5432/soulmark
@@ -26,7 +28,9 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      - soulmark_avatar_uploads:/app/uploads
 
 volumes:
   soulmark_postgres_data:
-
+  soulmark_avatar_uploads:

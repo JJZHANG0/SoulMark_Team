@@ -7,3 +7,5 @@ xcuserdata/
 *.xcbkptlist
 .worktrees/
 SoulMark_backend/uploads/
+*.sql
+*.dump

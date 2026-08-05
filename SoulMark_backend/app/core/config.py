@@ -2,6 +2,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,11 +24,38 @@ class Settings(BaseSettings):
     avatar_upload_dir: Path = Path("uploads/avatars")
     avatar_max_bytes: int = 5 * 1024 * 1024
 
+    # 微信开放平台移动应用配置。
+    wechat_app_id: str = "REPLACE_ME_WECHAT_APP_ID"
+    wechat_app_secret: str = "REPLACE_ME_WECHAT_APP_SECRET"
+
+    # development 仅供显式的本地测试；生产环境禁止使用固定验证码。
+    sms_provider: Literal["development", "aliyun", "pnvs"] = "development"
+    sms_development_code: str = "123456"
+    sms_code_ttl_seconds: int = 300
+    sms_resend_interval_seconds: int = 60
+    sms_max_attempts: int = 5
+
+    # 阿里云短信与号码认证（PNVS）配置。
+    aliyun_access_key_id: str = "REPLACE_ME_ALIYUN_ACCESS_KEY_ID"
+    aliyun_access_key_secret: str = "REPLACE_ME_ALIYUN_ACCESS_KEY_SECRET"
+    aliyun_sms_sign_name: str = "REPLACE_ME_SMS_SIGN_NAME"
+    aliyun_sms_template_code: str = "REPLACE_ME_SMS_TEMPLATE_CODE"
+    pnvs_sign_name: str = "REPLACE_ME_PNVS_SIGN_NAME"
+    pnvs_template_code: str = "100001"
+    pnvs_scheme_name: str = ""
+    pnvs_code_length: int = 6
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="SOULMARK_",
         extra="ignore",
     )
+
+    @model_validator(mode="after")
+    def reject_insecure_production_sms(self) -> "Settings":
+        if self.environment == "production" and self.sms_provider == "development":
+            raise ValueError("production must use the aliyun or pnvs SMS provider")
+        return self
 
 
 @lru_cache

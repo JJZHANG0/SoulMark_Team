@@ -4,7 +4,9 @@ import SwiftUI
 
 struct AppUser: Codable, Equatable {
     let id: UUID
-    let email: String
+    let email: String?
+    let phoneNumber: String?
+    let hasWeChat: Bool
     var displayName: String
     var preferredLanguage: String
     var gender: String?
@@ -14,6 +16,8 @@ struct AppUser: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, email, gender, appearance
+        case phoneNumber = "phone_number"
+        case hasWeChat = "has_wechat"
         case displayName = "display_name"
         case preferredLanguage = "preferred_language"
         case communicationGoal = "communication_goal"
@@ -34,6 +38,32 @@ private struct AuthTokenResponse: Decodable {
 private struct LoginPayload: Encodable {
     let email: String
     let password: String
+}
+
+private struct PhonePayload: Encodable {
+    let phoneNumber: String
+
+    enum CodingKeys: String, CodingKey {
+        case phoneNumber = "phone_number"
+    }
+}
+
+private struct PhoneLoginPayload: Encodable {
+    let phoneNumber: String
+    let code: String
+
+    enum CodingKeys: String, CodingKey {
+        case phoneNumber = "phone_number"
+        case code
+    }
+}
+
+private struct WeChatLoginPayload: Encodable {
+    let code: String
+}
+
+private struct MessageResponse: Decodable {
+    let message: String
 }
 
 private struct RegisterPayload: Encodable {
@@ -209,6 +239,7 @@ struct RemoteReview: Decodable {
 
 enum SoulAPIError: LocalizedError {
     case invalidResponse
+    case incompatibleBackend(Int)
     case server(String)
     case offline
 
@@ -216,6 +247,11 @@ enum SoulAPIError: LocalizedError {
         switch self {
         case .invalidResponse:
             localizedText("服务返回的数据无法识别。", "The service returned an invalid response.")
+        case .incompatibleBackend(let statusCode):
+            localizedText(
+                "当前连接的后端与 SoulMark 不兼容（HTTP \(statusCode)）。请启动本项目的 SoulMark_backend，并执行数据库迁移。",
+                "The connected backend is incompatible with SoulMark (HTTP \(statusCode)). Start this project's SoulMark_backend and apply its database migrations."
+            )
         case .server(let message):
             message
         case .offline:
@@ -245,6 +281,30 @@ private final class SoulAPIClient {
             path: "/api/v1/auth/login",
             method: "POST",
             body: LoginPayload(email: email, password: password)
+        )
+    }
+
+    func sendPhoneCode(phoneNumber: String) async throws {
+        let _: MessageResponse = try await request(
+            path: "/api/v1/auth/phone/code",
+            method: "POST",
+            body: PhonePayload(phoneNumber: phoneNumber)
+        )
+    }
+
+    func login(phoneNumber: String, code: String) async throws -> AuthTokenResponse {
+        try await request(
+            path: "/api/v1/auth/phone/login",
+            method: "POST",
+            body: PhoneLoginPayload(phoneNumber: phoneNumber, code: code)
+        )
+    }
+
+    func login(weChatCode: String) async throws -> AuthTokenResponse {
+        try await request(
+            path: "/api/v1/auth/wechat/login",
+            method: "POST",
+            body: WeChatLoginPayload(code: weChatCode)
         )
     }
 
@@ -474,7 +534,10 @@ private final class SoulAPIClient {
             }
             return try decoder.decode(Response.self, from: data)
         } catch {
-            throw SoulAPIError.invalidResponse
+#if DEBUG
+            print("SoulMark response decoding failed for \(request.url?.path ?? "unknown path"): \(error)")
+#endif
+            throw SoulAPIError.incompatibleBackend(http.statusCode)
         }
     }
 }
@@ -591,6 +654,41 @@ final class AppSession: ObservableObject {
             try await self.api.register(email: email, password: password, displayName: displayName)
             try await self.authenticate(email: email, password: password)
         }
+    }
+
+    @discardableResult
+    func sendPhoneCode(_ phoneNumber: String) async -> Bool {
+        isWorking = true
+        errorMessage = nil
+        defer { isWorking = false }
+        do {
+            try await api.sendPhoneCode(phoneNumber: phoneNumber)
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    func login(phoneNumber: String, code: String) async {
+        await performAuth {
+            let response = try await self.api.login(phoneNumber: phoneNumber, code: code)
+            try await self.accept(response)
+        }
+    }
+
+    func login(weChatAuthorizationCode: String) async {
+        await performAuth {
+            let response = try await self.api.login(weChatCode: weChatAuthorizationCode)
+            try await self.accept(response)
+        }
+    }
+
+    func reportWeChatSDKNotConfigured() {
+        errorMessage = localizedText(
+            "微信登录后端已接入；请先配置微信开放平台 SDK，再发起客户端授权。",
+            "The WeChat backend is ready. Configure the WeChat Open Platform SDK before requesting authorization."
+        )
     }
 
     func finishOnboarding(
@@ -721,6 +819,10 @@ final class AppSession: ObservableObject {
 
     private func authenticate(email: String, password: String) async throws {
         let response = try await api.login(email: email, password: password)
+        try await accept(response)
+    }
+
+    private func accept(_ response: AuthTokenResponse) async throws {
         tokenStore.save(response.accessToken)
         UserDefaults.standard.set(
             Date().addingTimeInterval(TimeInterval(response.expiresInSeconds)),

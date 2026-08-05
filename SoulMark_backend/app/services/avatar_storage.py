@@ -10,7 +10,7 @@ from app.core.errors import AppError
 
 
 class AvatarStorage:
-    allowed_content_types = {"image/jpeg", "image/png", "image/heic", "image/heif"}
+    allowed_content_types = {"image/jpeg", "image/png"}
 
     def __init__(self, directory: Path, max_bytes: int) -> None:
         self.directory = directory.resolve()

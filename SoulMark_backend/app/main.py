@@ -27,9 +27,9 @@ def create_app() -> FastAPI:
     application.include_router(realtime_router, prefix="/api/v1")
     settings.avatar_upload_dir.mkdir(parents=True, exist_ok=True)
     application.mount(
-        "/media",
-        StaticFiles(directory=settings.avatar_upload_dir.parent),
-        name="media",
+        "/media/avatars",
+        StaticFiles(directory=settings.avatar_upload_dir),
+        name="contact-avatars",
     )
 
     @application.get("/health", tags=["health"])

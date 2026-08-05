@@ -10,7 +10,13 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
-from app.models import Contact, ConversationReview, PracticeSession, User  # noqa: F401
+from app.models import (  # noqa: F401
+    Contact,
+    ConversationReview,
+    PhoneVerificationCode,
+    PracticeSession,
+    User,
+)
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage
 
 

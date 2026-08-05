@@ -91,7 +91,12 @@ def test_production_realtime_requires_bearer_token(monkeypatch: Any) -> None:
     monkeypatch.setattr(
         realtime_api,
         "get_settings",
-        lambda: Settings(environment="production", qwen_api_key="test-key"),
+        lambda: Settings(
+            _env_file=None,
+            environment="production",
+            sms_provider="pnvs",
+            qwen_api_key="test-key",
+        ),
     )
 
     with TestClient(create_app()) as client:

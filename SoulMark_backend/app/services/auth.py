@@ -43,7 +43,11 @@ async def register_user(session: AsyncSession, payload: RegisterRequest) -> User
 
 async def authenticate_user(session: AsyncSession, email: str, password: str) -> User:
     user = await session.scalar(select(User).where(User.email == normalize_email(email)))
-    if user is None or not verify_password(password, user.password_hash):
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(password, user.password_hash)
+    ):
         raise AppError("invalid_credentials", "The email or password is incorrect.", 401)
     if not user.is_active:
         raise AppError("inactive_user", "This account is inactive.", 401)

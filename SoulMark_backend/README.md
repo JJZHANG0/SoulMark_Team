@@ -1,8 +1,8 @@
 # SoulMark Backend
 
-FastAPI and PostgreSQL backend for SoulMark. It includes health checks, 30-day email sessions,
-onboarding and profile settings, relationship contacts, practices, reviews, dashboard statistics,
-and a secure realtime voice relay for scenario practice.
+FastAPI and PostgreSQL backend for SoulMark. It includes health checks, 30-day email, phone-code,
+and WeChat sessions, onboarding and profile settings, relationship contacts, practices, reviews,
+dashboard statistics, and a secure realtime voice relay for scenario practice.
 
 ## Requirements
 
@@ -82,6 +82,13 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `SOULMARK_QWEN_VOICE`: generated voice, default `Ethan`.
 - `SOULMARK_AVATAR_UPLOAD_DIR`: local avatar directory, default `uploads/avatars`.
 - `SOULMARK_AVATAR_MAX_BYTES`: maximum source image size, default 5 MB.
+- `SOULMARK_SMS_PROVIDER`: `development`, `aliyun`, or `pnvs`.
+- `SOULMARK_ALIYUN_ACCESS_KEY_ID` / `SOULMARK_ALIYUN_ACCESS_KEY_SECRET`: credentials used by
+  Aliyun SMS or PNVS.
+- `SOULMARK_PNVS_SIGN_NAME` / `SOULMARK_PNVS_TEMPLATE_CODE`: Aliyun phone-number verification
+  settings.
+- `SOULMARK_WECHAT_APP_ID` / `SOULMARK_WECHAT_APP_SECRET`: WeChat Open Platform mobile-app
+  credentials.
 
 ## Current API
 
@@ -89,6 +96,9 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `GET /health/ready`
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
+- `POST /api/v1/auth/phone/code`
+- `POST /api/v1/auth/phone/login`
+- `POST /api/v1/auth/wechat/login`
 - `GET /api/v1/users/me`
 - `PATCH /api/v1/users/me`
 - `GET /api/v1/contacts`
@@ -107,6 +117,18 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `GET /api/v1/stats`
 - `WS /api/v1/realtime/scenario`
 
+## Phone and WeChat Authentication
+
+`SOULMARK_SMS_PROVIDER=development` does not send a real text message and accepts the fixed code
+from `SOULMARK_SMS_DEVELOPMENT_CODE` (default `123456`). It is intended only for automated/local
+testing, and the backend rejects this provider when `SOULMARK_ENVIRONMENT=production`.
+Production can use standard Aliyun SMS (`aliyun`) or Aliyun Phone Number Verification Service
+(`pnvs`). Code expiry, resend throttling, and maximum verification attempts are configurable in
+`.env.example`.
+
+The WeChat API endpoint is complete, but the iOS client still requires a registered WeChat Open
+Platform mobile app and its SDK to obtain the authorization code. Secrets stay on the backend.
+
 ## Realtime Voice
 
 The iOS app connects to `/api/v1/realtime/scenario`, sends a `session.start` JSON event, then
@@ -123,11 +145,12 @@ or predictions from the real person being represented.
 
 ## Contact Avatars
 
-The avatar upload endpoint accepts JPEG, PNG, HEIC, and HEIF images. Images are validated,
-orientation-corrected, cropped by the iOS client, resized to at most 1024 pixels, and stored as
-normalized JPEG files. Development files are served under `/media/avatars/` and the local upload
-directory is intentionally ignored by Git. Use durable object storage behind the storage service
-for a production deployment with more than one backend instance.
+The iOS client crops selected photos to a square, resizes them to at most 1024 pixels, and uploads
+normalized JPEG data. The backend also accepts PNG uploads, validates image contents, enforces the
+configured size limit, and stores normalized JPEG files. Development files are served under
+`/media/avatars/`, while Docker Compose keeps them in the persistent `soulmark_avatar_uploads`
+volume. Use durable object storage behind the storage service for a production deployment with
+more than one backend instance.
 
 ## Next Modules
 

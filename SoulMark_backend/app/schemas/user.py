@@ -16,7 +16,9 @@ class UserUpdate(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
-    email: EmailStr
+    email: EmailStr | None
+    phone_number: str | None
+    has_wechat: bool
     display_name: str
     preferred_language: str
     gender: str | None

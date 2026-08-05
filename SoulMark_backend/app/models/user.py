@@ -15,8 +15,17 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(320), unique=True, index=True, nullable=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(
+        String(20), unique=True, index=True, nullable=True
+    )
+    wechat_openid: Mapped[str | None] = mapped_column(
+        String(128), unique=True, index=True, nullable=True
+    )
+    wechat_unionid: Mapped[str | None] = mapped_column(
+        String(128), unique=True, index=True, nullable=True
+    )
     display_name: Mapped[str] = mapped_column(String(100))
     preferred_language: Mapped[str] = mapped_column(String(5), default="zh")
     gender: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -31,3 +40,7 @@ class User(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
     )
+
+    @property
+    def has_wechat(self) -> bool:
+        return self.wechat_openid is not None

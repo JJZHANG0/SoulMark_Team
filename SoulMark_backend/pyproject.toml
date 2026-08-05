@@ -9,6 +9,8 @@ description = "Backend API for SoulMark"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.14,<2.0",
+    "alibabacloud-dypnsapi20170525>=2.0,<3.0",
+    "alibabacloud-dysmsapi20170525>=4.5,<5.0",
     "certifi>=2025.1.31",
     "email-validator>=2.2,<3.0",
     "fastapi>=0.115,<1.0",
@@ -51,3 +53,11 @@ select = ["E", "F", "I", "UP", "B", "ASYNC"]
 python_version = "3.12"
 strict = true
 plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "alibabacloud_dypnsapi20170525.*",
+    "alibabacloud_dysmsapi20170525.*",
+    "alibabacloud_tea_openapi.*",
+]
+ignore_missing_imports = true

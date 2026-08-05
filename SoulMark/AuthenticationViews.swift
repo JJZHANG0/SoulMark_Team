@@ -57,23 +57,33 @@ struct SoulLaunchView: View {
 
 struct AuthenticationView: View {
     @EnvironmentObject private var session: AppSession
-    @State private var isRegistering = false
+    @State private var mode: AuthenticationMode = .email
     @State private var displayName = ""
     @State private var email = ""
     @State private var password = ""
     @State private var passwordConfirmation = ""
+    @State private var phoneNumber = ""
+    @State private var verificationCode = ""
+    @State private var phoneCodeSent = false
     @FocusState private var focusedField: Field?
 
+    private enum AuthenticationMode: Hashable {
+        case email, phone, register
+    }
+
     private enum Field {
-        case name, email, password, confirmation
+        case name, email, password, confirmation, phone, code
     }
 
     private var canSubmit: Bool {
         let validEmail = email.contains("@") && email.contains(".")
         let validPassword = password.count >= 8
-        if isRegistering {
+        if mode == .register {
             return !displayName.trimmingCharacters(in: .whitespaces).isEmpty
                 && validEmail && validPassword && password == passwordConfirmation
+        }
+        if mode == .phone {
+            return phoneNumber.count == 11 && verificationCode.count == 6 && phoneCodeSent
         }
         return validEmail && validPassword
     }
@@ -105,6 +115,14 @@ struct AuthenticationView: View {
         } message: {
             Text(session.errorMessage ?? "")
         }
+        .onChange(of: phoneNumber) {
+            phoneNumber = String(phoneNumber.filter(\.isNumber).prefix(11))
+            phoneCodeSent = false
+            verificationCode = ""
+        }
+        .onChange(of: verificationCode) {
+            verificationCode = String(verificationCode.filter(\.isNumber).prefix(6))
+        }
     }
 
     private var brandHeader: some View {
@@ -134,90 +152,29 @@ struct AuthenticationView: View {
     }
 
     private var modeControl: some View {
-        Picker("", selection: $isRegistering) {
-            Text(localizedText("登录", "Sign In")).tag(false)
-            Text(localizedText("创建身份", "Create ID")).tag(true)
+        Picker("", selection: $mode) {
+            Text(localizedText("邮箱登录", "Email")).tag(AuthenticationMode.email)
+            Text(localizedText("手机登录", "Phone")).tag(AuthenticationMode.phone)
+            Text(localizedText("创建身份", "Create")).tag(AuthenticationMode.register)
         }
         .pickerStyle(.segmented)
-        .onChange(of: isRegistering) {
+        .onChange(of: mode) {
             session.errorMessage = nil
-            focusedField = isRegistering ? .name : .email
+            focusedField = switch mode {
+            case .email: .email
+            case .phone: .phone
+            case .register: .name
+            }
         }
     }
 
     private var form: some View {
         VStack(spacing: 14) {
-            if isRegistering {
-                AuthField(
-                    title: localizedText("你的名字", "Your name"),
-                    systemImage: "person.fill",
-                    text: $displayName,
-                    contentType: .name
-                )
-                .focused($focusedField, equals: .name)
-                .transition(.move(edge: .top).combined(with: .opacity))
+            if mode == .phone {
+                phoneForm
+            } else {
+                emailForm
             }
-
-            AuthField(
-                title: localizedText("邮箱", "Email"),
-                systemImage: "at",
-                text: $email,
-                contentType: .emailAddress,
-                keyboardType: .emailAddress
-            )
-            .focused($focusedField, equals: .email)
-
-            AuthSecureField(
-                title: localizedText("密码 · 至少 8 位", "Password · 8+ characters"),
-                text: $password,
-                contentType: isRegistering ? .newPassword : .password
-            )
-            .focused($focusedField, equals: .password)
-
-            if isRegistering {
-                AuthSecureField(
-                    title: localizedText("再次输入密码", "Confirm password"),
-                    text: $passwordConfirmation,
-                    contentType: .newPassword
-                )
-                .focused($focusedField, equals: .confirmation)
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            Button {
-                focusedField = nil
-                Task {
-                    if isRegistering {
-                        await session.register(
-                            displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
-                            email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-                            password: password
-                        )
-                    } else {
-                        await session.login(
-                            email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
-                            password: password
-                        )
-                    }
-                }
-            } label: {
-                HStack(spacing: 10) {
-                    if session.isWorking {
-                        ProgressView().tint(.white)
-                    } else {
-                        Image(systemName: isRegistering ? "person.badge.plus" : "arrow.right")
-                    }
-                    Text(isRegistering ? localizedText("创建 Soul 身份", "Create Soul ID") : localizedText("进入 SoulMark", "Enter SoulMark"))
-                }
-                .font(.system(size: 16, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
-                .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canSubmit || session.isWorking)
 
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill")
@@ -228,7 +185,173 @@ struct AuthenticationView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 4)
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.9), value: isRegistering)
+        .animation(.spring(response: 0.32, dampingFraction: 0.9), value: mode)
+    }
+
+    @ViewBuilder
+    private var emailForm: some View {
+        if mode == .register {
+            AuthField(
+                title: localizedText("你的名字", "Your name"),
+                systemImage: "person.fill",
+                text: $displayName,
+                contentType: .name
+            )
+            .focused($focusedField, equals: .name)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+
+        AuthField(
+            title: localizedText("邮箱", "Email"),
+            systemImage: "at",
+            text: $email,
+            contentType: .emailAddress,
+            keyboardType: .emailAddress
+        )
+        .focused($focusedField, equals: .email)
+
+        AuthSecureField(
+            title: localizedText("密码 · 至少 8 位", "Password · 8+ characters"),
+            text: $password,
+            contentType: mode == .register ? .newPassword : .password
+        )
+        .focused($focusedField, equals: .password)
+
+        if mode == .register {
+            AuthSecureField(
+                title: localizedText("再次输入密码", "Confirm password"),
+                text: $passwordConfirmation,
+                contentType: .newPassword
+            )
+            .focused($focusedField, equals: .confirmation)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+
+        Button {
+            focusedField = nil
+            Task {
+                if mode == .register {
+                    await session.register(
+                        displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
+                        email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                        password: password
+                    )
+                } else {
+                    await session.login(
+                        email: email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+                        password: password
+                    )
+                }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                if session.isWorking {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: mode == .register ? "person.badge.plus" : "arrow.right")
+                }
+                Text(mode == .register
+                    ? localizedText("创建 Soul 身份", "Create Soul ID")
+                    : localizedText("进入 SoulMark", "Enter SoulMark"))
+            }
+            .font(.system(size: 16, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+            .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSubmit || session.isWorking)
+    }
+
+    @ViewBuilder
+    private var phoneForm: some View {
+        AuthField(
+            title: localizedText("11 位手机号", "11-digit phone number"),
+            systemImage: "phone.fill",
+            text: $phoneNumber,
+            contentType: .telephoneNumber,
+            keyboardType: .phonePad
+        )
+        .focused($focusedField, equals: .phone)
+
+        HStack(spacing: 10) {
+            AuthField(
+                title: localizedText("6 位验证码", "6-digit code"),
+                systemImage: "number",
+                text: $verificationCode,
+                contentType: .oneTimeCode,
+                keyboardType: .numberPad
+            )
+            .focused($focusedField, equals: .code)
+
+            Button {
+                focusedField = nil
+                Task {
+                    if await session.sendPhoneCode(phoneNumber) {
+                        phoneCodeSent = true
+                        focusedField = .code
+                    }
+                }
+            } label: {
+                Text(phoneCodeSent
+                    ? localizedText("重新发送", "Resend")
+                    : localizedText("获取验证码", "Send code"))
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundStyle(SoulTheme.accent)
+                    .frame(width: 86, height: 54)
+                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+            }
+            .buttonStyle(.plain)
+            .disabled(phoneNumber.count != 11 || session.isWorking)
+        }
+
+        Button {
+            focusedField = nil
+            Task {
+                await session.login(phoneNumber: phoneNumber, code: verificationCode)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                if session.isWorking {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: "checkmark.shield.fill")
+                }
+                Text(localizedText("验证并登录", "Verify and sign in"))
+            }
+            .font(.system(size: 16, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSubmit || session.isWorking)
+
+        HStack(spacing: 12) {
+            Rectangle().fill(SoulTheme.cardStroke).frame(height: 1)
+            Text(localizedText("其他方式", "OR"))
+                .font(.system(size: 9, weight: .heavy, design: .monospaced))
+                .foregroundStyle(SoulTheme.tertiaryText)
+            Rectangle().fill(SoulTheme.cardStroke).frame(height: 1)
+        }
+
+        Button {
+            session.reportWeChatSDKNotConfigured()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "message.fill")
+                Text(localizedText("使用微信登录", "Continue with WeChat"))
+            }
+            .font(.system(size: 15, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Color(red: 0.10, green: 0.66, blue: 0.34), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
     }
 }
 
