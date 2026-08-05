@@ -230,19 +230,65 @@ struct SoulMarkTests {
         #expect(!FreeRelationshipPolicy.canAddPerson(currentCount: 6))
     }
 
-    @Test func dailyQuoteIsStableForOneDayAndSharesWithBrandName() {
+    @Test func dailyQuoteCatalogContainsFiveHundredSourcedQuotes() throws {
+        let quotes = try DailyQuoteCatalog.load()
+
+        #expect(quotes.count == 500)
+        #expect(quotes.allSatisfy {
+            !$0.chinese.isEmpty && !$0.english.isEmpty && !$0.source.isEmpty
+        })
+    }
+
+    @Test func dailyQuoteIsStableForOneUserAndLocalDay() {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let morning = Date(timeIntervalSince1970: 1_786_080_000)
         let evening = morning.addingTimeInterval(60 * 60 * 12)
+        let userID = UUID(uuidString: "B973B3E4-2D43-4C17-8AAE-93024A6C91E5")!
 
-        let morningQuote = DailySoulQuote.quote(for: morning, calendar: calendar)
-        let eveningQuote = DailySoulQuote.quote(for: evening, calendar: calendar)
+        let morningQuote = DailyQuoteCatalog.quote(userID: userID, date: morning, calendar: calendar)
+        let eveningQuote = DailyQuoteCatalog.quote(userID: userID, date: evening, calendar: calendar)
 
         #expect(morningQuote == eveningQuote)
         #expect(morningQuote.shareText.contains("SoulMark"))
+        #expect(morningQuote.shareText.contains(morningQuote.source))
         #expect(!morningQuote.chinese.isEmpty)
         #expect(!morningQuote.english.isEmpty)
+    }
+
+    @Test func dailyQuoteIndexUsesUserAndDateDeterministically() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let firstDay = Date(timeIntervalSince1970: 1_786_080_000)
+        let nextDay = calendar.date(byAdding: .day, value: 1, to: firstDay)!
+        let firstUser = UUID(uuidString: "B973B3E4-2D43-4C17-8AAE-93024A6C91E5")!
+        let secondUser = UUID(uuidString: "2A28D741-72E5-47E4-8E51-DC18E489906A")!
+
+        let firstIndex = DailyQuoteCatalog.index(
+            userID: firstUser,
+            date: firstDay,
+            calendar: calendar,
+            count: 500
+        )
+
+        #expect(firstIndex == DailyQuoteCatalog.index(
+            userID: firstUser,
+            date: firstDay,
+            calendar: calendar,
+            count: 500
+        ))
+        #expect(firstIndex != DailyQuoteCatalog.index(
+            userID: firstUser,
+            date: nextDay,
+            calendar: calendar,
+            count: 500
+        ))
+        #expect(firstIndex != DailyQuoteCatalog.index(
+            userID: secondUser,
+            date: firstDay,
+            calendar: calendar,
+            count: 500
+        ))
     }
 
     @Test func emptyScenarioParticipantListUsesSoulFallback() {

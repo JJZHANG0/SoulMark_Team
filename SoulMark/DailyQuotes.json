@@ -1,0 +1,3002 @@
+[
+  {
+    "id": 1,
+    "english": "A journey of a thousand miles begins with a single step.",
+    "chinese": "千里之行，始于足下。",
+    "source": "Laozi, Tao Te Ching (traditional translation)"
+  },
+  {
+    "id": 2,
+    "english": "Fall seven times, stand up eight.",
+    "chinese": "跌倒七次，也要第八次站起来。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 3,
+    "english": "This too shall pass.",
+    "chinese": "这一切终将过去。",
+    "source": "Persian saying"
+  },
+  {
+    "id": 4,
+    "english": "No matter how long the winter, spring is sure to follow.",
+    "chinese": "无论冬天多么漫长，春天终会到来。",
+    "source": "English proverb"
+  },
+  {
+    "id": 5,
+    "english": "Smooth seas do not make skillful sailors.",
+    "chinese": "平静的海面，练不出真正的水手。",
+    "source": "Traditional proverb"
+  },
+  {
+    "id": 6,
+    "english": "The best time to plant a tree was twenty years ago. The second best time is now.",
+    "chinese": "种树最好的时间是二十年前，其次就是现在。",
+    "source": "Modern proverb, often described as Chinese"
+  },
+  {
+    "id": 7,
+    "english": "A rising tide lifts all boats.",
+    "chinese": "水涨众船高。",
+    "source": "English-language saying"
+  },
+  {
+    "id": 8,
+    "english": "Where there is life, there is hope.",
+    "chinese": "只要生命还在，希望就还在。",
+    "source": "Ancient Roman proverb"
+  },
+  {
+    "id": 9,
+    "english": "Better late than never.",
+    "chinese": "迟做总比不做好。",
+    "source": "English proverb"
+  },
+  {
+    "id": 10,
+    "english": "After rain comes fair weather.",
+    "chinese": "雨过终会天晴。",
+    "source": "Traditional proverb"
+  },
+  {
+    "id": 11,
+    "english": "A problem shared is a problem halved.",
+    "chinese": "烦恼有人分担，就会减轻一半。",
+    "source": "English proverb"
+  },
+  {
+    "id": 12,
+    "english": "Two heads are better than one.",
+    "chinese": "三个臭皮匠，胜过一个诸葛亮。",
+    "source": "English proverb"
+  },
+  {
+    "id": 13,
+    "english": "Measure twice, cut once.",
+    "chinese": "三思而后行。",
+    "source": "Craftsman's proverb"
+  },
+  {
+    "id": 14,
+    "english": "The darkest hour is just before dawn.",
+    "chinese": "黎明前往往最黑暗。",
+    "source": "English proverb"
+  },
+  {
+    "id": 15,
+    "english": "Little strokes fell great oaks.",
+    "chinese": "滴水不断，也能穿石；小斧不停，也能伐倒大树。",
+    "source": "English proverb"
+  },
+  {
+    "id": 16,
+    "english": "Many hands make light work.",
+    "chinese": "众人拾柴火焰高。",
+    "source": "English proverb"
+  },
+  {
+    "id": 17,
+    "english": "A calm sea never made a good sailor.",
+    "chinese": "风平浪静，造就不了优秀的水手。",
+    "source": "Traditional maritime saying"
+  },
+  {
+    "id": 18,
+    "english": "When one door closes, another opens.",
+    "chinese": "一扇门关上时，另一扇门会打开。",
+    "source": "Traditional saying"
+  },
+  {
+    "id": 19,
+    "english": "Every cloud has a silver lining.",
+    "chinese": "乌云背后总有一线光明。",
+    "source": "English proverb"
+  },
+  {
+    "id": 20,
+    "english": "Fortune favors the brave.",
+    "chinese": "幸运偏爱勇敢的人。",
+    "source": "Latin proverb"
+  },
+  {
+    "id": 21,
+    "english": "He who asks is a fool for five minutes; he who does not ask remains a fool forever.",
+    "chinese": "肯问的人只糊涂五分钟；不问的人会糊涂一辈子。",
+    "source": "Often presented as a Chinese proverb"
+  },
+  {
+    "id": 22,
+    "english": "A bird does not sing because it has an answer; it sings because it has a song.",
+    "chinese": "鸟儿歌唱，不是因为已有答案，而是因为心中有歌。",
+    "source": "Often attributed as a Chinese proverb"
+  },
+  {
+    "id": 23,
+    "english": "The bamboo that bends is stronger than the oak that resists.",
+    "chinese": "懂得弯曲的竹子，比一味硬撑的橡树更坚韧。",
+    "source": "Japanese saying"
+  },
+  {
+    "id": 24,
+    "english": "Even monkeys fall from trees.",
+    "chinese": "再熟练的人也会失手。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 25,
+    "english": "Vision without action is a daydream; action without vision is a nightmare.",
+    "chinese": "只有理想没有行动，是白日梦；只有行动没有方向，是噩梦。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 26,
+    "english": "The reputation of a thousand years may be determined by one hour.",
+    "chinese": "千年声誉，也可能由一小时决定。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 27,
+    "english": "The nail that sticks out gets hammered down.",
+    "chinese": "出头的钉子容易挨锤。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 28,
+    "english": "A single arrow is easily broken, but not ten in a bundle.",
+    "chinese": "一支箭容易折断，十支箭捆在一起就很难折断。",
+    "source": "Japanese proverb"
+  },
+  {
+    "id": 29,
+    "english": "The frog in the well knows nothing of the great ocean.",
+    "chinese": "井底之蛙，不知大海。",
+    "source": "East Asian proverb"
+  },
+  {
+    "id": 30,
+    "english": "If you understand everything, you must be misinformed.",
+    "chinese": "若你觉得一切都完全明白，可能只是知道得还不够。",
+    "source": "Japanese saying"
+  },
+  {
+    "id": 31,
+    "english": "A society grows great when old people plant trees whose shade they know they shall never sit in.",
+    "chinese": "老人种下明知自己无法乘凉的树，社会才真正走向伟大。",
+    "source": "Greek proverb, traditional attribution"
+  },
+  {
+    "id": 32,
+    "english": "Know thyself.",
+    "chinese": "认识你自己。",
+    "source": "Ancient Greek maxim"
+  },
+  {
+    "id": 33,
+    "english": "The beginning is half of the whole.",
+    "chinese": "良好的开始，等于成功的一半。",
+    "source": "Ancient Greek proverb"
+  },
+  {
+    "id": 34,
+    "english": "Character is destiny.",
+    "chinese": "性格决定命运。",
+    "source": "Ancient Greek saying, associated with Heraclitus"
+  },
+  {
+    "id": 35,
+    "english": "Patience is bitter, but its fruit is sweet.",
+    "chinese": "耐心或许苦涩，但它结出的果实甘甜。",
+    "source": "Often attributed to Aristotle"
+  },
+  {
+    "id": 36,
+    "english": "The fox knows many things, but the hedgehog knows one big thing.",
+    "chinese": "狐狸知道许多事，刺猬只知道一件大事。",
+    "source": "Ancient Greek fragment, Archilochus"
+  },
+  {
+    "id": 37,
+    "english": "One hand cannot clap.",
+    "chinese": "孤掌难鸣。",
+    "source": "Middle Eastern proverb"
+  },
+  {
+    "id": 38,
+    "english": "Trust in God, but tie your camel.",
+    "chinese": "信任上天，也要拴好骆驼。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 39,
+    "english": "He who has health has hope; he who has hope has everything.",
+    "chinese": "拥有健康，就拥有希望；拥有希望，就拥有一切。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 40,
+    "english": "The wound of words is worse than the wound of swords.",
+    "chinese": "言语造成的伤口，有时比刀剑更深。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 41,
+    "english": "Dawn does not come twice to awaken a person.",
+    "chinese": "黎明不会来两次叫醒同一个人。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 42,
+    "english": "A book is a garden carried in the pocket.",
+    "chinese": "书，是装进口袋里的花园。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 43,
+    "english": "Ask the experienced rather than the learned.",
+    "chinese": "遇事多问有经验的人，不只问有学问的人。",
+    "source": "Arabic proverb"
+  },
+  {
+    "id": 44,
+    "english": "He who wants a rose must respect the thorn.",
+    "chinese": "想要玫瑰，也要尊重它的刺。",
+    "source": "Persian proverb"
+  },
+  {
+    "id": 45,
+    "english": "Little by little, the bird builds its nest.",
+    "chinese": "一点一点，鸟儿筑起自己的巢。",
+    "source": "French proverb"
+  },
+  {
+    "id": 46,
+    "english": "To understand all is to forgive all.",
+    "chinese": "真正理解之后，便更容易宽容。",
+    "source": "French proverb"
+  },
+  {
+    "id": 47,
+    "english": "The appetite comes with eating.",
+    "chinese": "开始行动以后，动力会随之而来。",
+    "source": "French proverb"
+  },
+  {
+    "id": 48,
+    "english": "Everyone is the architect of their own fortune.",
+    "chinese": "每个人都是自己命运的建筑师。",
+    "source": "French proverb"
+  },
+  {
+    "id": 49,
+    "english": "After the game, the king and the pawn go into the same box.",
+    "chinese": "棋局结束后，国王和小兵都回到同一个盒子。",
+    "source": "Italian proverb"
+  },
+  {
+    "id": 50,
+    "english": "Who goes slowly goes safely and goes far.",
+    "chinese": "走得稳，才走得远。",
+    "source": "Italian proverb"
+  },
+  {
+    "id": 51,
+    "english": "Between saying and doing, many a pair of shoes is worn out.",
+    "chinese": "从说到做，常常要走很长的路。",
+    "source": "Italian proverb"
+  },
+  {
+    "id": 52,
+    "english": "Hope is the last thing ever lost.",
+    "chinese": "希望，是最后才会失去的东西。",
+    "source": "Italian proverb"
+  },
+  {
+    "id": 53,
+    "english": "A closed mouth catches no flies.",
+    "chinese": "少说无益的话，能避开许多麻烦。",
+    "source": "Italian proverb"
+  },
+  {
+    "id": 54,
+    "english": "There is no road too long to the person who advances deliberately.",
+    "chinese": "对坚定前行的人来说，没有路会长得无法走完。",
+    "source": "Traditional European saying"
+  },
+  {
+    "id": 55,
+    "english": "Tomorrow is another day.",
+    "chinese": "明天又是新的一天。",
+    "source": "Traditional saying; popularized by Gone with the Wind"
+  },
+  {
+    "id": 56,
+    "english": "Shared joy is double joy; shared sorrow is half sorrow.",
+    "chinese": "快乐分享会加倍，忧愁分享会减半。",
+    "source": "Swedish proverb"
+  },
+  {
+    "id": 57,
+    "english": "There is no bad weather, only bad clothing.",
+    "chinese": "没有坏天气，只有不合适的衣服。",
+    "source": "Scandinavian saying"
+  },
+  {
+    "id": 58,
+    "english": "Fear less, hope more; eat less, chew more.",
+    "chinese": "少些恐惧，多些希望；少些贪多，多些细品。",
+    "source": "Swedish proverb"
+  },
+  {
+    "id": 59,
+    "english": "Those who wish to sing always find a song.",
+    "chinese": "真想歌唱的人，总能找到自己的歌。",
+    "source": "Swedish proverb"
+  },
+  {
+    "id": 60,
+    "english": "A smooth road never made a skillful driver.",
+    "chinese": "太平坦的路，练不出高明的驾驶者。",
+    "source": "Traditional proverb"
+  },
+  {
+    "id": 61,
+    "english": "Do not look where you fell, but where you slipped.",
+    "chinese": "别只盯着跌倒的地方，要找到真正让你失足的原因。",
+    "source": "African proverb"
+  },
+  {
+    "id": 62,
+    "english": "If you want to go fast, go alone; if you want to go far, go together.",
+    "chinese": "想走得快，就独自前行；想走得远，就结伴同行。",
+    "source": "African proverb"
+  },
+  {
+    "id": 63,
+    "english": "However long the night, the dawn will break.",
+    "chinese": "黑夜无论多长，黎明终会到来。",
+    "source": "African proverb"
+  },
+  {
+    "id": 64,
+    "english": "Wisdom is like a baobab tree; no one individual can embrace it.",
+    "chinese": "智慧像猴面包树，一个人无法独自环抱。",
+    "source": "African proverb"
+  },
+  {
+    "id": 65,
+    "english": "When there is no enemy within, the enemies outside cannot hurt you.",
+    "chinese": "当内心不再与自己为敌，外界便很难击垮你。",
+    "source": "African proverb"
+  },
+  {
+    "id": 66,
+    "english": "A little hope each day can fill the rivers to overflowing.",
+    "chinese": "每天积攒一点希望，终能汇成满溢的河流。",
+    "source": "African-style proverb, common modern rendering"
+  },
+  {
+    "id": 67,
+    "english": "Rain does not fall on one roof alone.",
+    "chinese": "雨不会只落在一家的屋顶上。",
+    "source": "African proverb"
+  },
+  {
+    "id": 68,
+    "english": "A wise person never knows all; only fools know everything.",
+    "chinese": "智者从不认为自己无所不知，只有愚者才如此确信。",
+    "source": "African proverb"
+  },
+  {
+    "id": 69,
+    "english": "The sun does not forget a village just because it is small.",
+    "chinese": "村庄虽小，太阳也不会忘记照耀它。",
+    "source": "African proverb"
+  },
+  {
+    "id": 70,
+    "english": "If you heal the leg of a person, do not be surprised if they use it to run away.",
+    "chinese": "帮助别人之后，也要允许对方选择自己的道路。",
+    "source": "African proverb"
+  },
+  {
+    "id": 71,
+    "english": "A person who moves a mountain begins by carrying away small stones.",
+    "chinese": "移山的人，也是从搬走小石头开始。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 72,
+    "english": "Learning is a treasure that will follow its owner everywhere.",
+    "chinese": "学问是随身而行的珍宝。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 73,
+    "english": "Teachers open the door; you enter by yourself.",
+    "chinese": "师父领进门，修行在个人。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 74,
+    "english": "Be not afraid of growing slowly; be afraid only of standing still.",
+    "chinese": "不怕慢，只怕站。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 75,
+    "english": "A wise person adapts to circumstances as water shapes itself to the vessel.",
+    "chinese": "智者顺势而变，如水随器成形。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 76,
+    "english": "The best memory is not as good as a worn-out pen.",
+    "chinese": "好记性不如烂笔头。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 77,
+    "english": "One generation plants the trees; another gets the shade.",
+    "chinese": "前人栽树，后人乘凉。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 78,
+    "english": "A gem is not polished without rubbing, nor a person perfected without trials.",
+    "chinese": "玉不琢，不成器；人不经磨炼，难以成熟。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 79,
+    "english": "The palest ink is better than the best memory.",
+    "chinese": "最淡的墨水，也胜过最强的记忆。",
+    "source": "Chinese proverb"
+  },
+  {
+    "id": 80,
+    "english": "A bad workman blames his tools.",
+    "chinese": "拙匠常怪工具差。",
+    "source": "English proverb"
+  },
+  {
+    "id": 81,
+    "english": "Actions speak louder than words.",
+    "chinese": "行动胜于空谈。",
+    "source": "English proverb"
+  },
+  {
+    "id": 82,
+    "english": "All good things must come to an end.",
+    "chinese": "再美好的事，也终有结束的时候。",
+    "source": "English proverb"
+  },
+  {
+    "id": 83,
+    "english": "An ounce of prevention is worth a pound of cure.",
+    "chinese": "一分预防，胜过十分补救。",
+    "source": "English proverb"
+  },
+  {
+    "id": 84,
+    "english": "Don't count your chickens before they hatch.",
+    "chinese": "事情未成之前，不要过早乐观。",
+    "source": "English proverb"
+  },
+  {
+    "id": 85,
+    "english": "Don't put all your eggs in one basket.",
+    "chinese": "不要把所有鸡蛋放在同一个篮子里。",
+    "source": "English proverb"
+  },
+  {
+    "id": 86,
+    "english": "If it isn't broken, don't fix it.",
+    "chinese": "没有坏，就别乱修。",
+    "source": "Modern English saying"
+  },
+  {
+    "id": 87,
+    "english": "Make hay while the sun shines.",
+    "chinese": "趁着晴天晒草；把握当下的好时机。",
+    "source": "English proverb"
+  },
+  {
+    "id": 88,
+    "english": "Necessity is the mother of invention.",
+    "chinese": "需要是发明之母。",
+    "source": "English proverb"
+  },
+  {
+    "id": 89,
+    "english": "Practice makes perfect.",
+    "chinese": "熟能生巧。",
+    "source": "English proverb"
+  },
+  {
+    "id": 90,
+    "english": "The early bird catches the worm.",
+    "chinese": "早起的鸟儿有虫吃。",
+    "source": "English proverb"
+  },
+  {
+    "id": 91,
+    "english": "The grass is always greener on the other side.",
+    "chinese": "别人的草地看起来总是更绿。",
+    "source": "English proverb"
+  },
+  {
+    "id": 92,
+    "english": "Where there's a will, there's a way.",
+    "chinese": "有志者，事竟成。",
+    "source": "English proverb"
+  },
+  {
+    "id": 93,
+    "english": "You reap what you sow.",
+    "chinese": "种什么因，得什么果。",
+    "source": "Biblical proverb / common saying"
+  },
+  {
+    "id": 94,
+    "english": "Live and let live.",
+    "chinese": "自己好好生活，也让别人按自己的方式生活。",
+    "source": "English saying"
+  },
+  {
+    "id": 95,
+    "english": "Let sleeping dogs lie.",
+    "chinese": "别去招惹已经平息的麻烦。",
+    "source": "English proverb"
+  },
+  {
+    "id": 96,
+    "english": "One good turn deserves another.",
+    "chinese": "善意值得用善意回应。",
+    "source": "English proverb"
+  },
+  {
+    "id": 97,
+    "english": "Honesty is the best policy.",
+    "chinese": "诚实是最好的处世原则。",
+    "source": "English proverb"
+  },
+  {
+    "id": 98,
+    "english": "Look before you leap.",
+    "chinese": "三思而后行。",
+    "source": "English proverb"
+  },
+  {
+    "id": 99,
+    "english": "Hope for the best; prepare for the worst.",
+    "chinese": "抱最好的希望，做最坏的准备。",
+    "source": "English proverb"
+  },
+  {
+    "id": 100,
+    "english": "A watched pot never boils.",
+    "chinese": "越焦急等待，时间越显得漫长。",
+    "source": "English proverb"
+  },
+  {
+    "id": 101,
+    "english": "Waste not, want not.",
+    "chinese": "不浪费，便不匮乏。",
+    "source": "English proverb"
+  },
+  {
+    "id": 102,
+    "english": "You cannot make an omelet without breaking eggs.",
+    "chinese": "想做成事情，就要接受必要的代价。",
+    "source": "French proverb"
+  },
+  {
+    "id": 103,
+    "english": "The proof of the pudding is in the eating.",
+    "chinese": "好不好，要经实践检验。",
+    "source": "English proverb"
+  },
+  {
+    "id": 104,
+    "english": "Hope is the thing with feathers.",
+    "chinese": "希望，是那有羽毛的东西。",
+    "source": "Emily Dickinson, poem 'Hope is the thing with feathers'"
+  },
+  {
+    "id": 105,
+    "english": "Forever is composed of nows.",
+    "chinese": "永恒，是由一个个当下组成的。",
+    "source": "Emily Dickinson, poem"
+  },
+  {
+    "id": 106,
+    "english": "If I can stop one heart from breaking, I shall not live in vain.",
+    "chinese": "若我能使一颗心免于破碎，我便不算虚度此生。",
+    "source": "Emily Dickinson, poem 'If I can stop one heart from breaking'"
+  },
+  {
+    "id": 107,
+    "english": "I dwell in Possibility.",
+    "chinese": "我栖居于可能之中。",
+    "source": "Emily Dickinson, poem 'I dwell in Possibility'"
+  },
+  {
+    "id": 108,
+    "english": "The heart wants what it wants.",
+    "chinese": "心所渴望的，自有它的理由。",
+    "source": "Emily Dickinson, letter"
+  },
+  {
+    "id": 109,
+    "english": "I am the master of my fate; I am the captain of my soul.",
+    "chinese": "我是自己命运的主人，也是自己灵魂的船长。",
+    "source": "William Ernest Henley, poem 'Invictus'"
+  },
+  {
+    "id": 110,
+    "english": "My head is bloody, but unbowed.",
+    "chinese": "即使头破血流，我也绝不低头。",
+    "source": "William Ernest Henley, poem 'Invictus'"
+  },
+  {
+    "id": 111,
+    "english": "To strive, to seek, to find, and not to yield.",
+    "chinese": "去奋斗，去探索，去发现，永不屈服。",
+    "source": "Alfred, Lord Tennyson, poem 'Ulysses'"
+  },
+  {
+    "id": 112,
+    "english": "Come, my friends, 'tis not too late to seek a newer world.",
+    "chinese": "来吧，朋友们，追寻新世界永远不算太迟。",
+    "source": "Alfred, Lord Tennyson, poem 'Ulysses'"
+  },
+  {
+    "id": 113,
+    "english": "'Tis better to have loved and lost than never to have loved at all.",
+    "chinese": "爱过而失去，也胜过从未爱过。",
+    "source": "Alfred, Lord Tennyson, 'In Memoriam A.H.H.'"
+  },
+  {
+    "id": 114,
+    "english": "The old order changeth, yielding place to new.",
+    "chinese": "旧秩序终会改变，为新事物让路。",
+    "source": "Alfred, Lord Tennyson, 'Idylls of the King'"
+  },
+  {
+    "id": 115,
+    "english": "I have promises to keep, and miles to go before I sleep.",
+    "chinese": "我还有承诺要履行，睡去之前还有很长的路。",
+    "source": "Robert Frost, poem 'Stopping by Woods on a Snowy Evening'"
+  },
+  {
+    "id": 116,
+    "english": "The best way out is always through.",
+    "chinese": "走出困境最好的方式，就是穿过它。",
+    "source": "Robert Frost, poem 'A Servant to Servants'"
+  },
+  {
+    "id": 117,
+    "english": "Two roads diverged in a wood, and I took the one less traveled by.",
+    "chinese": "林中两条路分岔，我选择了人迹更少的那一条。",
+    "source": "Robert Frost, poem 'The Road Not Taken'"
+  },
+  {
+    "id": 118,
+    "english": "Nothing gold can stay.",
+    "chinese": "再珍贵的金色时光，也无法永远停留。",
+    "source": "Robert Frost, poem 'Nothing Gold Can Stay'"
+  },
+  {
+    "id": 119,
+    "english": "In three words I can sum up everything I've learned about life: it goes on.",
+    "chinese": "用三个词概括我对人生的理解：它会继续。",
+    "source": "Robert Frost, commonly attributed remark"
+  },
+  {
+    "id": 120,
+    "english": "Do I dare disturb the universe?",
+    "chinese": "我是否敢去撼动这个世界？",
+    "source": "T. S. Eliot, poem 'The Love Song of J. Alfred Prufrock'"
+  },
+  {
+    "id": 121,
+    "english": "There is only the trying. The rest is not our business.",
+    "chinese": "我们能做的只有尽力，其余并非我们所能掌控。",
+    "source": "T. S. Eliot, 'Four Quartets'"
+  },
+  {
+    "id": 122,
+    "english": "For us, there is only the trying.",
+    "chinese": "对我们而言，最重要的只有尝试。",
+    "source": "T. S. Eliot, 'Four Quartets'"
+  },
+  {
+    "id": 123,
+    "english": "We shall not cease from exploration.",
+    "chinese": "我们不会停止探索。",
+    "source": "T. S. Eliot, 'Four Quartets'"
+  },
+  {
+    "id": 124,
+    "english": "This is the way the world ends: not with a bang but a whimper.",
+    "chinese": "世界就这样结束：不是轰然一响，而是一声呜咽。",
+    "source": "T. S. Eliot, poem 'The Hollow Men'"
+  },
+  {
+    "id": 125,
+    "english": "Let everything happen to you: beauty and terror.",
+    "chinese": "让一切都在你身上发生：美，也包括恐惧。",
+    "source": "Rainer Maria Rilke, poem"
+  },
+  {
+    "id": 126,
+    "english": "Live the questions now.",
+    "chinese": "先活在问题之中。",
+    "source": "Rainer Maria Rilke, Letters to a Young Poet"
+  },
+  {
+    "id": 127,
+    "english": "No feeling is final.",
+    "chinese": "没有一种感受会永远持续。",
+    "source": "Rainer Maria Rilke, poem"
+  },
+  {
+    "id": 128,
+    "english": "The only journey is the one within.",
+    "chinese": "真正的旅程，是走向自己的内心。",
+    "source": "Rainer Maria Rilke, commonly attributed"
+  },
+  {
+    "id": 129,
+    "english": "You must change your life.",
+    "chinese": "你必须改变自己的生活。",
+    "source": "Rainer Maria Rilke, poem 'Archaic Torso of Apollo'"
+  },
+  {
+    "id": 130,
+    "english": "And now we welcome the new year, full of things that have never been.",
+    "chinese": "现在，让我们迎接新年，迎接那些从未发生过的事。",
+    "source": "Rainer Maria Rilke, letter"
+  },
+  {
+    "id": 131,
+    "english": "Tell me, what is it you plan to do with your one wild and precious life?",
+    "chinese": "告诉我，你准备怎样度过这仅有一次、狂野而珍贵的人生？",
+    "source": "Mary Oliver, poem 'The Summer Day'"
+  },
+  {
+    "id": 132,
+    "english": "You do not have to be good.",
+    "chinese": "你不必时时证明自己足够好。",
+    "source": "Mary Oliver, poem 'Wild Geese'"
+  },
+  {
+    "id": 133,
+    "english": "Pay attention. Be astonished. Tell about it.",
+    "chinese": "认真注视，保持惊叹，然后把它说出来。",
+    "source": "Mary Oliver, poem 'Sometimes'"
+  },
+  {
+    "id": 134,
+    "english": "Instructions for living a life: Pay attention. Be astonished. Tell about it.",
+    "chinese": "生活的说明书：认真注视，保持惊叹，然后讲述。",
+    "source": "Mary Oliver, poem 'Sometimes'"
+  },
+  {
+    "id": 135,
+    "english": "Keep some room in your heart for the unimaginable.",
+    "chinese": "在心里留一点空间，给那些不可想象的可能。",
+    "source": "Mary Oliver, 'Evidence'"
+  },
+  {
+    "id": 136,
+    "english": "What will you do with your one wild and precious life?",
+    "chinese": "你要怎样度过这仅有一次、狂野而珍贵的人生？",
+    "source": "Mary Oliver, poem 'The Summer Day'"
+  },
+  {
+    "id": 137,
+    "english": "There are a thousand ways to kneel and kiss the ground.",
+    "chinese": "俯身亲吻大地，有一千种方式。",
+    "source": "Rumi, poem, translated"
+  },
+  {
+    "id": 138,
+    "english": "What you seek is seeking you.",
+    "chinese": "你所寻找的，也正在寻找你。",
+    "source": "Rumi, commonly cited translation"
+  },
+  {
+    "id": 139,
+    "english": "The wound is the place where the Light enters you.",
+    "chinese": "伤口，正是光进入你的地方。",
+    "source": "Rumi, commonly cited translation"
+  },
+  {
+    "id": 140,
+    "english": "Why do you stay in prison when the door is so wide open?",
+    "chinese": "门明明敞开着，你为何还留在牢笼里？",
+    "source": "Rumi, translated saying"
+  },
+  {
+    "id": 141,
+    "english": "Raise your words, not your voice.",
+    "chinese": "提高你的思想和语言，而不是提高音量。",
+    "source": "Rumi, commonly cited translation"
+  },
+  {
+    "id": 142,
+    "english": "Let yourself be silently drawn by the strange pull of what you really love.",
+    "chinese": "让真正热爱的事物，以无声的力量牵引你前行。",
+    "source": "Rumi, commonly cited translation"
+  },
+  {
+    "id": 143,
+    "english": "Out beyond ideas of wrongdoing and rightdoing, there is a field.",
+    "chinese": "在对错观念之外，有一片原野。",
+    "source": "Rumi, poem, translated"
+  },
+  {
+    "id": 144,
+    "english": "The breeze at dawn has secrets to tell you. Don't go back to sleep.",
+    "chinese": "黎明的微风带着秘密而来，别再沉睡。",
+    "source": "Rumi, translated"
+  },
+  {
+    "id": 145,
+    "english": "Be melting snow. Wash yourself of yourself.",
+    "chinese": "像融雪一样，让执念从自身流走。",
+    "source": "Rumi, translated"
+  },
+  {
+    "id": 146,
+    "english": "Only from the heart can you touch the sky.",
+    "chinese": "只有从心出发，才能触及天空。",
+    "source": "Rumi, commonly attributed"
+  },
+  {
+    "id": 147,
+    "english": "I celebrate myself, and sing myself.",
+    "chinese": "我赞美自己，也歌唱自己。",
+    "source": "Walt Whitman, poem 'Song of Myself'"
+  },
+  {
+    "id": 148,
+    "english": "Keep your face always toward the sunshine—and shadows will fall behind you.",
+    "chinese": "永远面向阳光，阴影自然落在身后。",
+    "source": "Walt Whitman, commonly attributed"
+  },
+  {
+    "id": 149,
+    "english": "I am large, I contain multitudes.",
+    "chinese": "我辽阔无边，我容纳万千。",
+    "source": "Walt Whitman, poem 'Song of Myself'"
+  },
+  {
+    "id": 150,
+    "english": "Resist much, obey little.",
+    "chinese": "多一些质疑，少一些盲从。",
+    "source": "Walt Whitman, poem 'To the States'"
+  },
+  {
+    "id": 151,
+    "english": "Be curious, not judgmental.",
+    "chinese": "保持好奇，不急于评判。",
+    "source": "Commonly attributed to Walt Whitman; popularized by Ted Lasso"
+  },
+  {
+    "id": 152,
+    "english": "The powerful play goes on, and you may contribute a verse.",
+    "chinese": "这场宏大的戏仍在继续，而你可以写下属于自己的一句诗。",
+    "source": "Walt Whitman, poem 'O Me! O Life!'"
+  },
+  {
+    "id": 153,
+    "english": "I exist as I am, that is enough.",
+    "chinese": "我如我所是，这就已经足够。",
+    "source": "Walt Whitman, poem 'Song of Myself'"
+  },
+  {
+    "id": 154,
+    "english": "Do anything, but let it produce joy.",
+    "chinese": "做你愿意做的事，但要让它生出喜悦。",
+    "source": "Walt Whitman, Leaves of Grass"
+  },
+  {
+    "id": 155,
+    "english": "It is not down in any map; true places never are.",
+    "chinese": "真正重要的地方，从来不在地图上。",
+    "source": "Herman Melville, Moby-Dick"
+  },
+  {
+    "id": 156,
+    "english": "I know not all that may be coming, but be it what it will, I'll go to it laughing.",
+    "chinese": "我不知道将来会发生什么，但无论发生什么，我都会笑着迎上去。",
+    "source": "Herman Melville, Moby-Dick"
+  },
+  {
+    "id": 157,
+    "english": "Call me Ishmael.",
+    "chinese": "叫我以实玛利吧。",
+    "source": "Herman Melville, Moby-Dick"
+  },
+  {
+    "id": 158,
+    "english": "There is wisdom that is woe; but there is a woe that is madness.",
+    "chinese": "有一种智慧伴随忧伤，也有一种忧伤走向疯狂。",
+    "source": "Herman Melville, Moby-Dick"
+  },
+  {
+    "id": 159,
+    "english": "All we have to decide is what to do with the time that is given us.",
+    "chinese": "我们真正能决定的，是如何使用被给予的时间。",
+    "source": "J. R. R. Tolkien, The Fellowship of the Ring"
+  },
+  {
+    "id": 160,
+    "english": "Not all those who wander are lost.",
+    "chinese": "并非所有徘徊的人都迷失了方向。",
+    "source": "J. R. R. Tolkien, poem in The Fellowship of the Ring"
+  },
+  {
+    "id": 161,
+    "english": "Even the smallest person can change the course of the future.",
+    "chinese": "即使最微小的人，也能改变未来的走向。",
+    "source": "J. R. R. Tolkien, The Lord of the Rings"
+  },
+  {
+    "id": 162,
+    "english": "There is some good in this world, and it's worth fighting for.",
+    "chinese": "这个世界仍有美好，而它值得我们为之奋斗。",
+    "source": "J. R. R. Tolkien, The Two Towers; film adaptation wording"
+  },
+  {
+    "id": 163,
+    "english": "Courage is found in unlikely places.",
+    "chinese": "勇气常常出现在最意想不到的地方。",
+    "source": "J. R. R. Tolkien, The Fellowship of the Ring"
+  },
+  {
+    "id": 164,
+    "english": "Faithless is he that says farewell when the road darkens.",
+    "chinese": "道路变暗时就告别的人，谈不上忠诚。",
+    "source": "J. R. R. Tolkien, The Fellowship of the Ring"
+  },
+  {
+    "id": 165,
+    "english": "Deeds will not be less valiant because they are unpraised.",
+    "chinese": "即使无人赞美，勇敢的行动也不会因此失去价值。",
+    "source": "J. R. R. Tolkien, The Return of the King"
+  },
+  {
+    "id": 166,
+    "english": "The world is indeed full of peril, and in it there are many dark places; but still there is much that is fair.",
+    "chinese": "世界确实充满危险，也有许多黑暗角落；但其中依然有大量美好。",
+    "source": "J. R. R. Tolkien, The Fellowship of the Ring"
+  },
+  {
+    "id": 167,
+    "english": "It does not do to dwell on dreams and forget to live.",
+    "chinese": "沉溺梦想而忘记生活，并不是好事。",
+    "source": "J. K. Rowling, Harry Potter and the Philosopher's Stone"
+  },
+  {
+    "id": 168,
+    "english": "Happiness can be found even in the darkest of times, if one only remembers to turn on the light.",
+    "chinese": "即使身处最黑暗的时刻，只要记得点亮一盏灯，也能找到幸福。",
+    "source": "Harry Potter and the Prisoner of Azkaban, film"
+  },
+  {
+    "id": 169,
+    "english": "It is our choices that show what we truly are, far more than our abilities.",
+    "chinese": "真正显示我们是谁的，是我们的选择，而不是能力。",
+    "source": "J. K. Rowling, Harry Potter and the Chamber of Secrets"
+  },
+  {
+    "id": 170,
+    "english": "Things we lose have a way of coming back to us in the end.",
+    "chinese": "我们失去的东西，最终常会以某种方式回到身边。",
+    "source": "J. K. Rowling, Harry Potter and the Order of the Phoenix"
+  },
+  {
+    "id": 171,
+    "english": "Numbing the pain for a while will make it worse when you finally feel it.",
+    "chinese": "暂时麻痹痛苦，只会让它在真正到来时更难承受。",
+    "source": "J. K. Rowling, Harry Potter and the Goblet of Fire"
+  },
+  {
+    "id": 172,
+    "english": "Differences of habit and language are nothing at all if our aims are identical and our hearts are open.",
+    "chinese": "只要目标相同、心胸开放，习惯和语言的差异根本不算什么。",
+    "source": "J. K. Rowling, Harry Potter and the Goblet of Fire"
+  },
+  {
+    "id": 173,
+    "english": "We are only as strong as we are united, as weak as we are divided.",
+    "chinese": "团结时我们才强大，分裂时我们便脆弱。",
+    "source": "J. K. Rowling, Harry Potter and the Goblet of Fire"
+  },
+  {
+    "id": 174,
+    "english": "It matters not what someone is born, but what they grow to be.",
+    "chinese": "重要的不是一个人生来是什么，而是他最终成长为什么。",
+    "source": "J. K. Rowling, Harry Potter and the Goblet of Fire"
+  },
+  {
+    "id": 175,
+    "english": "Tomorrow is always fresh, with no mistakes in it yet.",
+    "chinese": "明天永远崭新，还没有犯过任何错误。",
+    "source": "L. M. Montgomery, Anne of Green Gables"
+  },
+  {
+    "id": 176,
+    "english": "It's been my experience that you can nearly always enjoy things if you make up your mind firmly that you will.",
+    "chinese": "我的经验是，只要真心决定去享受，几乎任何事情都能找到乐趣。",
+    "source": "L. M. Montgomery, Anne of Green Gables"
+  },
+  {
+    "id": 177,
+    "english": "Life is worth living as long as there's a laugh in it.",
+    "chinese": "只要生活中还有笑声，人生就值得继续。",
+    "source": "L. M. Montgomery, Anne of Green Gables"
+  },
+  {
+    "id": 178,
+    "english": "Isn't it nice to think that tomorrow is a new day with no mistakes in it yet?",
+    "chinese": "想到明天是全新的一天、还没有任何错误，不是很美好吗？",
+    "source": "L. M. Montgomery, Anne of Green Gables"
+  },
+  {
+    "id": 179,
+    "english": "There is no charm equal to tenderness of heart.",
+    "chinese": "没有什么魅力能胜过一颗温柔的心。",
+    "source": "Jane Austen, Emma"
+  },
+  {
+    "id": 180,
+    "english": "Think only of the past as its remembrance gives you pleasure.",
+    "chinese": "回忆过去时，只保留那些能带来温暖的部分。",
+    "source": "Jane Austen, Pride and Prejudice"
+  },
+  {
+    "id": 181,
+    "english": "There is no enjoyment like reading.",
+    "chinese": "没有什么乐趣能与阅读相比。",
+    "source": "Jane Austen, Pride and Prejudice"
+  },
+  {
+    "id": 182,
+    "english": "We are all fools in love.",
+    "chinese": "在爱情里，我们都难免有些傻气。",
+    "source": "Jane Austen, Pride and Prejudice"
+  },
+  {
+    "id": 183,
+    "english": "To be fond of dancing was a certain step towards falling in love.",
+    "chinese": "喜欢跳舞，往往是走向爱情的一步。",
+    "source": "Jane Austen, Pride and Prejudice"
+  },
+  {
+    "id": 184,
+    "english": "It isn't what we say or think that defines us, but what we do.",
+    "chinese": "定义我们的，不是所说所想，而是实际行动。",
+    "source": "Jane Austen, Sense and Sensibility, commonly cited paraphrase"
+  },
+  {
+    "id": 185,
+    "english": "No one is useless in this world who lightens the burdens of another.",
+    "chinese": "能减轻别人负担的人，在这个世界上绝不是无用之人。",
+    "source": "Charles Dickens, Our Mutual Friend"
+  },
+  {
+    "id": 186,
+    "english": "There are dark shadows on the earth, but its lights are stronger in the contrast.",
+    "chinese": "世上虽有黑暗阴影，但正因如此，光才更显明亮。",
+    "source": "Charles Dickens, The Pickwick Papers"
+  },
+  {
+    "id": 187,
+    "english": "It was the best of times, it was the worst of times.",
+    "chinese": "这是最好的时代，也是最坏的时代。",
+    "source": "Charles Dickens, A Tale of Two Cities"
+  },
+  {
+    "id": 188,
+    "english": "A loving heart is the truest wisdom.",
+    "chinese": "一颗有爱的心，才是真正的智慧。",
+    "source": "Charles Dickens, David Copperfield"
+  },
+  {
+    "id": 189,
+    "english": "Never close your lips to those whom you have already opened your heart.",
+    "chinese": "既然已经向一个人敞开心扉，就不要再用沉默将他拒之门外。",
+    "source": "Charles Dickens, commonly attributed"
+  },
+  {
+    "id": 190,
+    "english": "Have a heart that never hardens, and a temper that never tires.",
+    "chinese": "愿你有一颗永不冷硬的心，也有一份永不厌倦的耐心。",
+    "source": "Charles Dickens, Our Mutual Friend"
+  },
+  {
+    "id": 191,
+    "english": "The pain of parting is nothing to the joy of meeting again.",
+    "chinese": "离别的痛苦，比不上重逢的喜悦。",
+    "source": "Charles Dickens, Nicholas Nickleby"
+  },
+  {
+    "id": 192,
+    "english": "We need never be ashamed of our tears.",
+    "chinese": "我们永远不必为眼泪感到羞耻。",
+    "source": "Charles Dickens, Great Expectations"
+  },
+  {
+    "id": 193,
+    "english": "Take nothing on its looks; take everything on evidence.",
+    "chinese": "不要只凭外表判断，要依据事实。",
+    "source": "Charles Dickens, Great Expectations"
+  },
+  {
+    "id": 194,
+    "english": "Whatever our souls are made of, his and mine are the same.",
+    "chinese": "无论灵魂由什么构成，我和他的灵魂都是一样的。",
+    "source": "Emily Brontë, Wuthering Heights"
+  },
+  {
+    "id": 195,
+    "english": "I am no bird; and no net ensnares me.",
+    "chinese": "我不是鸟，也没有罗网能够困住我。",
+    "source": "Charlotte Brontë, Jane Eyre"
+  },
+  {
+    "id": 196,
+    "english": "Life appears to me too short to be spent in nursing animosity.",
+    "chinese": "人生太短，不该浪费在滋养怨恨上。",
+    "source": "Charlotte Brontë, Jane Eyre"
+  },
+  {
+    "id": 197,
+    "english": "I would always rather be happy than dignified.",
+    "chinese": "比起维持体面，我更愿意选择幸福。",
+    "source": "Charlotte Brontë, Jane Eyre"
+  },
+  {
+    "id": 198,
+    "english": "The soul, fortunately, has an interpreter—often an unconscious but still a faithful interpreter—in the eye.",
+    "chinese": "幸运的是，灵魂有一个译者，那就是眼睛。",
+    "source": "Charlotte Brontë, Jane Eyre"
+  },
+  {
+    "id": 199,
+    "english": "Beware; for I am fearless, and therefore powerful.",
+    "chinese": "当心吧，因为我无所畏惧，所以拥有力量。",
+    "source": "Mary Shelley, Frankenstein"
+  },
+  {
+    "id": 200,
+    "english": "Nothing is so painful to the human mind as a great and sudden change.",
+    "chinese": "对人的心灵而言，没有什么比巨大而突然的变化更痛苦。",
+    "source": "Mary Shelley, Frankenstein"
+  },
+  {
+    "id": 201,
+    "english": "The world was to me a secret which I desired to divine.",
+    "chinese": "世界对我来说是一个渴望解开的秘密。",
+    "source": "Mary Shelley, Frankenstein"
+  },
+  {
+    "id": 202,
+    "english": "Life, although it may only be an accumulation of anguish, is dear to me.",
+    "chinese": "生命即使积累着痛苦，对我依然珍贵。",
+    "source": "Mary Shelley, Frankenstein"
+  },
+  {
+    "id": 203,
+    "english": "There is nothing either good or bad, but thinking makes it so.",
+    "chinese": "世事本无绝对好坏，许多感受来自我们的看法。",
+    "source": "William Shakespeare, Hamlet"
+  },
+  {
+    "id": 204,
+    "english": "To thine own self be true.",
+    "chinese": "忠于你自己。",
+    "source": "William Shakespeare, Hamlet"
+  },
+  {
+    "id": 205,
+    "english": "We know what we are, but know not what we may be.",
+    "chinese": "我们知道自己现在是谁，却不知道未来能成为谁。",
+    "source": "William Shakespeare, Hamlet"
+  },
+  {
+    "id": 206,
+    "english": "The readiness is all.",
+    "chinese": "真正重要的，是做好准备。",
+    "source": "William Shakespeare, Hamlet"
+  },
+  {
+    "id": 207,
+    "english": "Our doubts are traitors.",
+    "chinese": "怀疑常常会背叛我们。",
+    "source": "William Shakespeare, Measure for Measure"
+  },
+  {
+    "id": 208,
+    "english": "The fault, dear Brutus, is not in our stars, but in ourselves.",
+    "chinese": "问题不在命运，而在我们自己。",
+    "source": "William Shakespeare, Julius Caesar"
+  },
+  {
+    "id": 209,
+    "english": "Cowards die many times before their deaths; the valiant never taste of death but once.",
+    "chinese": "懦夫在真正死去前已死过多次，勇者只经历一次死亡。",
+    "source": "William Shakespeare, Julius Caesar"
+  },
+  {
+    "id": 210,
+    "english": "What's past is prologue.",
+    "chinese": "过去只是序章。",
+    "source": "William Shakespeare, The Tempest"
+  },
+  {
+    "id": 211,
+    "english": "We are such stuff as dreams are made on.",
+    "chinese": "我们正是由梦构成的。",
+    "source": "William Shakespeare, The Tempest"
+  },
+  {
+    "id": 212,
+    "english": "All the world's a stage.",
+    "chinese": "整个世界就是一座舞台。",
+    "source": "William Shakespeare, As You Like It"
+  },
+  {
+    "id": 213,
+    "english": "Sweet are the uses of adversity.",
+    "chinese": "逆境也有它甘甜的用处。",
+    "source": "William Shakespeare, As You Like It"
+  },
+  {
+    "id": 214,
+    "english": "Love all, trust a few, do wrong to none.",
+    "chinese": "爱所有人，信任少数人，不伤害任何人。",
+    "source": "William Shakespeare, All's Well That Ends Well"
+  },
+  {
+    "id": 215,
+    "english": "The only thing we have to fear is fear itself.",
+    "chinese": "我们唯一需要恐惧的，就是恐惧本身。",
+    "source": "Franklin D. Roosevelt, first inaugural address, 1933"
+  },
+  {
+    "id": 216,
+    "english": "The future belongs to those who believe in the beauty of their dreams.",
+    "chinese": "未来属于那些相信梦想之美的人。",
+    "source": "Eleanor Roosevelt, commonly attributed"
+  },
+  {
+    "id": 217,
+    "english": "No one can make you feel inferior without your consent.",
+    "chinese": "未经你的允许，没有人能让你觉得低人一等。",
+    "source": "Eleanor Roosevelt, This Is My Story"
+  },
+  {
+    "id": 218,
+    "english": "Do one thing every day that scares you.",
+    "chinese": "每天做一件让自己有点害怕的事。",
+    "source": "Often attributed to Eleanor Roosevelt"
+  },
+  {
+    "id": 219,
+    "english": "It is better to light a candle than curse the darkness.",
+    "chinese": "与其诅咒黑暗，不如点亮一支蜡烛。",
+    "source": "Proverb popularized by Eleanor Roosevelt and others"
+  },
+  {
+    "id": 220,
+    "english": "Great minds discuss ideas; average minds discuss events; small minds discuss people.",
+    "chinese": "伟大的人讨论思想，普通的人讨论事件，狭隘的人议论他人。",
+    "source": "Commonly attributed to Eleanor Roosevelt"
+  },
+  {
+    "id": 221,
+    "english": "You must do the thing you think you cannot do.",
+    "chinese": "你必须去做那件你以为自己做不到的事。",
+    "source": "Eleanor Roosevelt, You Learn by Living"
+  },
+  {
+    "id": 222,
+    "english": "In the middle of difficulty lies opportunity.",
+    "chinese": "困难之中，往往藏着机会。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 223,
+    "english": "Life is like riding a bicycle. To keep your balance, you must keep moving.",
+    "chinese": "人生像骑自行车；想保持平衡，就要继续前进。",
+    "source": "Albert Einstein, letter to his son Eduard, 1930"
+  },
+  {
+    "id": 224,
+    "english": "Imagination is more important than knowledge.",
+    "chinese": "想象力比知识更重要。",
+    "source": "Albert Einstein, interview, 1929"
+  },
+  {
+    "id": 225,
+    "english": "Try not to become a person of success, but rather try to become a person of value.",
+    "chinese": "不要只追求成为成功的人，更要努力成为有价值的人。",
+    "source": "Albert Einstein, commonly cited"
+  },
+  {
+    "id": 226,
+    "english": "A person who never made a mistake never tried anything new.",
+    "chinese": "从不犯错的人，通常也从未尝试新事物。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 227,
+    "english": "We cannot solve our problems with the same thinking we used when we created them.",
+    "chinese": "我们不能用制造问题时的旧思维，去解决这些问题。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 228,
+    "english": "The important thing is not to stop questioning.",
+    "chinese": "重要的是永远不要停止提问。",
+    "source": "Albert Einstein, Life magazine interview, 1955"
+  },
+  {
+    "id": 229,
+    "english": "Anyone who has never made a mistake has never tried anything new.",
+    "chinese": "一个从未犯错的人，也很可能从未尝试过新事物。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 230,
+    "english": "Strive not to be a success, but rather to be of value.",
+    "chinese": "不要只追求成功，更要努力创造价值。",
+    "source": "Albert Einstein, commonly cited variant"
+  },
+  {
+    "id": 231,
+    "english": "The measure of intelligence is the ability to change.",
+    "chinese": "智慧的重要尺度，是改变自己的能力。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 232,
+    "english": "Learn from yesterday, live for today, hope for tomorrow.",
+    "chinese": "向昨天学习，活在今天，对明天怀抱希望。",
+    "source": "Commonly attributed to Albert Einstein"
+  },
+  {
+    "id": 233,
+    "english": "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+    "chinese": "成功并非终点，失败也非末日；重要的是继续前行的勇气。",
+    "source": "Commonly attributed to Winston Churchill"
+  },
+  {
+    "id": 234,
+    "english": "If you're going through hell, keep going.",
+    "chinese": "如果你正穿过地狱，那就继续走。",
+    "source": "Commonly attributed to Winston Churchill"
+  },
+  {
+    "id": 235,
+    "english": "Never, never, never give in.",
+    "chinese": "永远，永远，永远不要屈服。",
+    "source": "Winston Churchill, Harrow School speech, 1941; commonly shortened"
+  },
+  {
+    "id": 236,
+    "english": "Attitude is a little thing that makes a big difference.",
+    "chinese": "态度虽小，却能造成巨大的不同。",
+    "source": "Commonly attributed to Winston Churchill"
+  },
+  {
+    "id": 237,
+    "english": "Kites rise highest against the wind—not with it.",
+    "chinese": "风筝逆风而上，而不是顺风。",
+    "source": "Winston Churchill, speech, 1942"
+  },
+  {
+    "id": 238,
+    "english": "We make a living by what we get, but we make a life by what we give.",
+    "chinese": "所得让我们谋生，付出让我们真正生活。",
+    "source": "Commonly attributed to Winston Churchill"
+  },
+  {
+    "id": 239,
+    "english": "History will be kind to me, for I intend to write it.",
+    "chinese": "历史会善待我，因为我打算亲自书写它。",
+    "source": "Commonly attributed to Winston Churchill"
+  },
+  {
+    "id": 240,
+    "english": "It always seems impossible until it's done.",
+    "chinese": "事情在完成之前，总显得不可能。",
+    "source": "Nelson Mandela, commonly attributed"
+  },
+  {
+    "id": 241,
+    "english": "I never lose. I either win or learn.",
+    "chinese": "我从不失败；我不是赢，就是学习。",
+    "source": "Commonly attributed to Nelson Mandela"
+  },
+  {
+    "id": 242,
+    "english": "After climbing a great hill, one only finds that there are many more hills to climb.",
+    "chinese": "翻过一座高山后，才发现前面还有更多山峰。",
+    "source": "Nelson Mandela, Long Walk to Freedom"
+  },
+  {
+    "id": 243,
+    "english": "The greatest glory in living lies not in never falling, but in rising every time we fall.",
+    "chinese": "人生最大的荣耀，不在从不跌倒，而在每次跌倒后都能站起。",
+    "source": "Often attributed to Nelson Mandela; earlier variants exist"
+  },
+  {
+    "id": 244,
+    "english": "Education is the most powerful weapon which you can use to change the world.",
+    "chinese": "教育是你可以用来改变世界的最强大武器。",
+    "source": "Nelson Mandela, speech, 2003"
+  },
+  {
+    "id": 245,
+    "english": "Courage is not the absence of fear, but the triumph over it.",
+    "chinese": "勇气不是没有恐惧，而是战胜恐惧。",
+    "source": "Nelson Mandela, Long Walk to Freedom"
+  },
+  {
+    "id": 246,
+    "english": "May your choices reflect your hopes, not your fears.",
+    "chinese": "愿你的选择反映希望，而不是恐惧。",
+    "source": "Nelson Mandela, commonly cited"
+  },
+  {
+    "id": 247,
+    "english": "Our deepest fear is not that we are inadequate.",
+    "chinese": "我们最深的恐惧，并不是自己不够好。",
+    "source": "Marianne Williamson, A Return to Love"
+  },
+  {
+    "id": 248,
+    "english": "Darkness cannot drive out darkness; only light can do that.",
+    "chinese": "黑暗无法驱散黑暗，只有光可以。",
+    "source": "Martin Luther King Jr., Strength to Love"
+  },
+  {
+    "id": 249,
+    "english": "Hate cannot drive out hate; only love can do that.",
+    "chinese": "仇恨无法驱散仇恨，只有爱可以。",
+    "source": "Martin Luther King Jr., Strength to Love"
+  },
+  {
+    "id": 250,
+    "english": "The time is always right to do what is right.",
+    "chinese": "做正确的事，永远都是恰当的时机。",
+    "source": "Martin Luther King Jr., commonly cited"
+  },
+  {
+    "id": 251,
+    "english": "Faith is taking the first step even when you don't see the whole staircase.",
+    "chinese": "信念就是即使看不见整段楼梯，也愿意迈出第一步。",
+    "source": "Martin Luther King Jr., commonly attributed"
+  },
+  {
+    "id": 252,
+    "english": "We must accept finite disappointment, but never lose infinite hope.",
+    "chinese": "我们必须接受有限的失望，却绝不能失去无限的希望。",
+    "source": "Martin Luther King Jr., In My Own Words"
+  },
+  {
+    "id": 253,
+    "english": "Life's most persistent and urgent question is: What are you doing for others?",
+    "chinese": "人生最持久、最迫切的问题是：你正在为别人做什么？",
+    "source": "Martin Luther King Jr., speech"
+  },
+  {
+    "id": 254,
+    "english": "If I cannot do great things, I can do small things in a great way.",
+    "chinese": "如果做不了伟大的事，我也可以用伟大的方式做好小事。",
+    "source": "Martin Luther King Jr., commonly attributed"
+  },
+  {
+    "id": 255,
+    "english": "We may have all come on different ships, but we're in the same boat now.",
+    "chinese": "我们也许乘着不同的船而来，但现在都在同一条船上。",
+    "source": "Martin Luther King Jr., commonly attributed"
+  },
+  {
+    "id": 256,
+    "english": "The arc of the moral universe is long, but it bends toward justice.",
+    "chinese": "道德宇宙的弧线虽然漫长，却终将弯向正义。",
+    "source": "Martin Luther King Jr., sermon, adapting Theodore Parker"
+  },
+  {
+    "id": 257,
+    "english": "Ask not what your country can do for you—ask what you can do for your country.",
+    "chinese": "不要问国家能为你做什么，要问你能为国家做什么。",
+    "source": "John F. Kennedy, inaugural address, 1961"
+  },
+  {
+    "id": 258,
+    "english": "Every accomplishment starts with the decision to try.",
+    "chinese": "每一项成就，都始于尝试的决定。",
+    "source": "Commonly attributed to John F. Kennedy"
+  },
+  {
+    "id": 259,
+    "english": "One person can make a difference, and everyone should try.",
+    "chinese": "一个人也能带来改变，而每个人都应该尝试。",
+    "source": "Commonly attributed to John F. Kennedy"
+  },
+  {
+    "id": 260,
+    "english": "Efforts and courage are not enough without purpose and direction.",
+    "chinese": "没有目标和方向，努力与勇气仍然不够。",
+    "source": "John F. Kennedy, speech"
+  },
+  {
+    "id": 261,
+    "english": "We choose to go to the Moon.",
+    "chinese": "我们选择登上月球。",
+    "source": "John F. Kennedy, Rice University speech, 1962"
+  },
+  {
+    "id": 262,
+    "english": "Change is the law of life.",
+    "chinese": "改变是生命的法则。",
+    "source": "John F. Kennedy, speech, 1963"
+  },
+  {
+    "id": 263,
+    "english": "Do not pray for easy lives. Pray to be stronger men.",
+    "chinese": "不要祈求轻松的人生，要祈求自己变得更强。",
+    "source": "John F. Kennedy, remarks, 1963"
+  },
+  {
+    "id": 264,
+    "english": "The only limit to our realization of tomorrow will be our doubts of today.",
+    "chinese": "实现明天的唯一限制，是我们今天的怀疑。",
+    "source": "Franklin D. Roosevelt, message, 1945"
+  },
+  {
+    "id": 265,
+    "english": "When you reach the end of your rope, tie a knot and hang on.",
+    "chinese": "当你抓到绳子的尽头，就打个结，坚持住。",
+    "source": "Commonly attributed to Franklin D. Roosevelt"
+  },
+  {
+    "id": 266,
+    "english": "Do what you can, with what you have, where you are.",
+    "chinese": "在你所在之处，用你拥有的条件，做你能做的事。",
+    "source": "Theodore Roosevelt, quoting Squire Bill Widener"
+  },
+  {
+    "id": 267,
+    "english": "Believe you can and you're halfway there.",
+    "chinese": "相信自己能做到，你就已经走了一半。",
+    "source": "Theodore Roosevelt, commonly attributed"
+  },
+  {
+    "id": 268,
+    "english": "People ask the difference between a leader and a boss. The leader leads, and the boss drives.",
+    "chinese": "领袖带领人前进，老板只会驱使人行动。",
+    "source": "Theodore Roosevelt, commonly attributed"
+  },
+  {
+    "id": 269,
+    "english": "Keep your eyes on the stars, and your feet on the ground.",
+    "chinese": "仰望星空，也要脚踏实地。",
+    "source": "Theodore Roosevelt, address, 1904"
+  },
+  {
+    "id": 270,
+    "english": "Old age is like everything else. To make a success of it, you've got to start young.",
+    "chinese": "变老也和其他事情一样；想把它过好，就要从年轻时开始准备。",
+    "source": "Theodore Roosevelt, commonly attributed"
+  },
+  {
+    "id": 271,
+    "english": "Far and away the best prize that life offers is the chance to work hard at work worth doing.",
+    "chinese": "人生最好的奖赏，是有机会为值得的事情努力。",
+    "source": "Theodore Roosevelt, Labor Day speech, 1903"
+  },
+  {
+    "id": 272,
+    "english": "It is only through labor and painful effort that we move on to better things.",
+    "chinese": "只有通过劳动和艰苦努力，我们才能走向更好的未来。",
+    "source": "Theodore Roosevelt, speech"
+  },
+  {
+    "id": 273,
+    "english": "Speak softly and carry a big stick.",
+    "chinese": "说话温和，同时保有实力。",
+    "source": "Theodore Roosevelt, foreign-policy maxim"
+  },
+  {
+    "id": 274,
+    "english": "The credit belongs to the man who is actually in the arena.",
+    "chinese": "荣誉属于真正站在竞技场里的人。",
+    "source": "Theodore Roosevelt, 'Citizenship in a Republic,' 1910"
+  },
+  {
+    "id": 275,
+    "english": "Do not judge me by my successes; judge me by how many times I fell down and got back up again.",
+    "chinese": "不要用成功来评判我，要看我跌倒多少次又重新站起。",
+    "source": "Commonly attributed to Nelson Mandela"
+  },
+  {
+    "id": 276,
+    "english": "Be the change that you wish to see in the world.",
+    "chinese": "成为你希望在世界上看到的改变。",
+    "source": "Commonly attributed to Mahatma Gandhi; paraphrase of his ideas"
+  },
+  {
+    "id": 277,
+    "english": "Live as if you were to die tomorrow. Learn as if you were to live forever.",
+    "chinese": "像明天就会离去那样生活，像永远活着那样学习。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 278,
+    "english": "The weak can never forgive. Forgiveness is the attribute of the strong.",
+    "chinese": "弱者无法宽恕；宽恕是强者的品质。",
+    "source": "Mahatma Gandhi, Young India"
+  },
+  {
+    "id": 279,
+    "english": "Strength does not come from physical capacity. It comes from an indomitable will.",
+    "chinese": "力量不只来自体能，更来自不可征服的意志。",
+    "source": "Mahatma Gandhi, commonly cited"
+  },
+  {
+    "id": 280,
+    "english": "An eye for an eye only ends up making the whole world blind.",
+    "chinese": "以眼还眼，最终只会让全世界失明。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 281,
+    "english": "Happiness is when what you think, what you say, and what you do are in harmony.",
+    "chinese": "幸福，是思想、言语与行动彼此一致。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 282,
+    "english": "The future depends on what you do today.",
+    "chinese": "未来取决于你今天所做的事。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 283,
+    "english": "In a gentle way, you can shake the world.",
+    "chinese": "以温和的方式，也能撼动世界。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 284,
+    "english": "Freedom is not worth having if it does not include the freedom to make mistakes.",
+    "chinese": "若不包括犯错的自由，自由便不值得拥有。",
+    "source": "Mahatma Gandhi, Young India"
+  },
+  {
+    "id": 285,
+    "english": "First they ignore you, then they laugh at you, then they fight you, then you win.",
+    "chinese": "起初他们忽视你，随后嘲笑你、反对你，最后你赢得胜利。",
+    "source": "Commonly attributed to Gandhi; attribution disputed"
+  },
+  {
+    "id": 286,
+    "english": "You may never know what results come of your actions, but if you do nothing, there will be no result.",
+    "chinese": "你也许永远不知道行动会带来什么结果，但若什么都不做，就一定没有结果。",
+    "source": "Commonly attributed to Mahatma Gandhi"
+  },
+  {
+    "id": 287,
+    "english": "Turn your wounds into wisdom.",
+    "chinese": "把伤口变成智慧。",
+    "source": "Oprah Winfrey, commonly cited"
+  },
+  {
+    "id": 288,
+    "english": "Doing the best at this moment puts you in the best place for the next moment.",
+    "chinese": "此刻做到最好，会把你带到下一个更好的位置。",
+    "source": "Oprah Winfrey, commonly cited"
+  },
+  {
+    "id": 289,
+    "english": "The biggest adventure you can take is to live the life of your dreams.",
+    "chinese": "你能踏上的最大冒险，就是活出梦想中的人生。",
+    "source": "Oprah Winfrey, commonly cited"
+  },
+  {
+    "id": 290,
+    "english": "You get in life what you have the courage to ask for.",
+    "chinese": "人生会给予你那些你有勇气开口争取的东西。",
+    "source": "Oprah Winfrey, commonly cited"
+  },
+  {
+    "id": 291,
+    "english": "Failure is another stepping stone to greatness.",
+    "chinese": "失败只是通往卓越的另一块垫脚石。",
+    "source": "Oprah Winfrey, Harvard commencement speech, 2013"
+  },
+  {
+    "id": 292,
+    "english": "Create the highest, grandest vision possible for your life.",
+    "chinese": "为自己的人生描绘尽可能高远的愿景。",
+    "source": "Oprah Winfrey, commonly cited"
+  },
+  {
+    "id": 293,
+    "english": "When they go low, we go high.",
+    "chinese": "当别人选择低处，我们选择更高的原则。",
+    "source": "Michelle Obama, Democratic National Convention speech, 2016"
+  },
+  {
+    "id": 294,
+    "english": "Success isn't about how much money you make; it's about the difference you make in people's lives.",
+    "chinese": "成功不在于赚多少钱，而在于你为别人的生活带来多大改变。",
+    "source": "Michelle Obama, commonly cited"
+  },
+  {
+    "id": 295,
+    "english": "Your story is what you have, what you will always have.",
+    "chinese": "你的故事属于你，也将永远伴随你。",
+    "source": "Michelle Obama, Becoming"
+  },
+  {
+    "id": 296,
+    "english": "There is no magic to achievement. It's really about hard work, choices, and persistence.",
+    "chinese": "成就没有魔法，它来自努力、选择和坚持。",
+    "source": "Michelle Obama, commonly cited"
+  },
+  {
+    "id": 297,
+    "english": "Am I good enough? Yes, I am.",
+    "chinese": "我够好吗？是的，我够好。",
+    "source": "Michelle Obama, Becoming"
+  },
+  {
+    "id": 298,
+    "english": "One voice can change a room.",
+    "chinese": "一个声音可以改变整个房间。",
+    "source": "Barack Obama, speech"
+  },
+  {
+    "id": 299,
+    "english": "Change will not come if we wait for some other person or some other time.",
+    "chinese": "如果只等待别人或另一个时机，改变永远不会到来。",
+    "source": "Barack Obama, speech"
+  },
+  {
+    "id": 300,
+    "english": "We are the ones we've been waiting for.",
+    "chinese": "我们一直等待的人，其实就是我们自己。",
+    "source": "Barack Obama, campaign speech, adapting June Jordan"
+  },
+  {
+    "id": 301,
+    "english": "The future rewards those who press on.",
+    "chinese": "未来会奖励那些继续前行的人。",
+    "source": "Barack Obama, speech"
+  },
+  {
+    "id": 302,
+    "english": "Yes, we can.",
+    "chinese": "是的，我们能做到。",
+    "source": "Barack Obama, 2008 campaign slogan"
+  },
+  {
+    "id": 303,
+    "english": "If you're walking down the right path and you're willing to keep walking, eventually you'll make progress.",
+    "chinese": "只要走在正确的路上并愿意坚持，终会取得进展。",
+    "source": "Barack Obama, commonly cited"
+  },
+  {
+    "id": 304,
+    "english": "We did not come to fear the future. We came here to shape it.",
+    "chinese": "我们来到这里，不是为了害怕未来，而是为了塑造未来。",
+    "source": "Barack Obama, speech"
+  },
+  {
+    "id": 305,
+    "english": "Focusing your life solely on making a buck shows a poverty of ambition.",
+    "chinese": "若人生只专注于赚钱，反而显示了志向的贫乏。",
+    "source": "Barack Obama, commencement address"
+  },
+  {
+    "id": 306,
+    "english": "The best way to not feel hopeless is to get up and do something.",
+    "chinese": "摆脱绝望最好的办法，就是起身去做点什么。",
+    "source": "Barack Obama, commonly cited"
+  },
+  {
+    "id": 307,
+    "english": "Whatever you are, be a good one.",
+    "chinese": "无论你做什么，都努力把它做好。",
+    "source": "Commonly attributed to Abraham Lincoln"
+  },
+  {
+    "id": 308,
+    "english": "I am a slow walker, but I never walk back.",
+    "chinese": "我走得慢，但我从不后退。",
+    "source": "Commonly attributed to Abraham Lincoln"
+  },
+  {
+    "id": 309,
+    "english": "Always bear in mind that your own resolution to succeed is more important than any other.",
+    "chinese": "请始终记住：你成功的决心，比其他任何因素都重要。",
+    "source": "Abraham Lincoln, letter, 1855"
+  },
+  {
+    "id": 310,
+    "english": "Give me six hours to chop down a tree and I will spend the first four sharpening the axe.",
+    "chinese": "给我六小时砍树，我会先用四小时磨斧。",
+    "source": "Commonly attributed to Abraham Lincoln"
+  },
+  {
+    "id": 311,
+    "english": "I do the very best I know how—the very best I can.",
+    "chinese": "我会用自己所知、所能做到的最好方式去做。",
+    "source": "Abraham Lincoln, statement"
+  },
+  {
+    "id": 312,
+    "english": "Nearly all people can stand adversity, but if you want to test a person's character, give them power.",
+    "chinese": "多数人能经受逆境；若想检验一个人的品格，就给他权力。",
+    "source": "Often attributed to Abraham Lincoln; likely later formulation"
+  },
+  {
+    "id": 313,
+    "english": "The best way to predict your future is to create it.",
+    "chinese": "预测未来最好的方式，是亲手创造它。",
+    "source": "Often attributed to Peter Drucker and Abraham Lincoln"
+  },
+  {
+    "id": 314,
+    "english": "Those who dare to fail miserably can achieve greatly.",
+    "chinese": "敢于经历惨痛失败的人，也可能取得伟大成就。",
+    "source": "Robert F. Kennedy, speech, 1966"
+  },
+  {
+    "id": 315,
+    "english": "Only those who dare to fail greatly can ever achieve greatly.",
+    "chinese": "只有敢于大败的人，才可能取得大成。",
+    "source": "Robert F. Kennedy, speech, 1966"
+  },
+  {
+    "id": 316,
+    "english": "Some people see things as they are and say why. I dream things that never were and say why not.",
+    "chinese": "有人看见现实并追问为什么；我梦想从未存在的事物，并追问为什么不。",
+    "source": "Robert F. Kennedy, speech, adapting George Bernard Shaw"
+  },
+  {
+    "id": 317,
+    "english": "Each time a person stands up for an ideal, they send forth a tiny ripple of hope.",
+    "chinese": "每当一个人为理想挺身而出，就会激起一圈希望的涟漪。",
+    "source": "Robert F. Kennedy, Day of Affirmation Address, 1966"
+  },
+  {
+    "id": 318,
+    "english": "May the Force be with you.",
+    "chinese": "愿原力与你同在。",
+    "source": "Star Wars"
+  },
+  {
+    "id": 319,
+    "english": "Do. Or do not. There is no try.",
+    "chinese": "要么做，要么不做；不要只停留在“试试看”。",
+    "source": "Yoda, Star Wars: The Empire Strikes Back"
+  },
+  {
+    "id": 320,
+    "english": "Your focus determines your reality.",
+    "chinese": "你的专注，决定你看到的现实。",
+    "source": "Qui-Gon Jinn, Star Wars: The Phantom Menace"
+  },
+  {
+    "id": 321,
+    "english": "The Force will be with you. Always.",
+    "chinese": "原力会永远与你同在。",
+    "source": "Obi-Wan Kenobi, Star Wars"
+  },
+  {
+    "id": 322,
+    "english": "Never tell me the odds.",
+    "chinese": "别告诉我胜算有多小。",
+    "source": "Han Solo, Star Wars: The Empire Strikes Back"
+  },
+  {
+    "id": 323,
+    "english": "In my experience, there's no such thing as luck.",
+    "chinese": "依我的经验，所谓运气并不存在。",
+    "source": "Obi-Wan Kenobi, Star Wars: A New Hope"
+  },
+  {
+    "id": 324,
+    "english": "Fear is the path to the dark side.",
+    "chinese": "恐惧是通往黑暗面的道路。",
+    "source": "Yoda, Star Wars: The Phantom Menace"
+  },
+  {
+    "id": 325,
+    "english": "The greatest teacher, failure is.",
+    "chinese": "失败，是最伟大的老师。",
+    "source": "Yoda, Star Wars: The Last Jedi"
+  },
+  {
+    "id": 326,
+    "english": "No one's ever really gone.",
+    "chinese": "真正重要的人，从未彻底离开。",
+    "source": "Luke Skywalker, Star Wars: The Last Jedi"
+  },
+  {
+    "id": 327,
+    "english": "Chewie, we're home.",
+    "chinese": "楚巴卡，我们回家了。",
+    "source": "Han Solo, Star Wars: The Force Awakens"
+  },
+  {
+    "id": 328,
+    "english": "Just keep swimming.",
+    "chinese": "继续游，别停下。",
+    "source": "Dory, Finding Nemo"
+  },
+  {
+    "id": 329,
+    "english": "When life gets you down, you know what you gotta do? Just keep swimming.",
+    "chinese": "生活让你低落时，你要做的就是继续向前。",
+    "source": "Dory, Finding Nemo"
+  },
+  {
+    "id": 330,
+    "english": "To infinity and beyond!",
+    "chinese": "飞向无限，超越一切！",
+    "source": "Buzz Lightyear, Toy Story"
+  },
+  {
+    "id": 331,
+    "english": "You are braver than you believe, stronger than you seem, and smarter than you think.",
+    "chinese": "你比自己相信的更勇敢，比看起来更坚强，也比想象中更聪明。",
+    "source": "Christopher Robin, commonly associated with Winnie-the-Pooh adaptations"
+  },
+  {
+    "id": 332,
+    "english": "The flower that blooms in adversity is the most rare and beautiful of all.",
+    "chinese": "在逆境中盛开的花，最珍贵也最美丽。",
+    "source": "The Emperor, Disney's Mulan"
+  },
+  {
+    "id": 333,
+    "english": "The past can hurt. But you can either run from it or learn from it.",
+    "chinese": "过去会伤人；你可以逃避，也可以从中学习。",
+    "source": "Rafiki, The Lion King"
+  },
+  {
+    "id": 334,
+    "english": "Remember who you are.",
+    "chinese": "记住你是谁。",
+    "source": "Mufasa, The Lion King"
+  },
+  {
+    "id": 335,
+    "english": "Hakuna Matata.",
+    "chinese": "别担心，轻松生活。",
+    "source": "The Lion King; Swahili phrase meaning 'no worries'"
+  },
+  {
+    "id": 336,
+    "english": "Oh yes, the past can hurt.",
+    "chinese": "是的，过去确实会让人受伤。",
+    "source": "Rafiki, The Lion King"
+  },
+  {
+    "id": 337,
+    "english": "The very things that hold you down are going to lift you up.",
+    "chinese": "曾经压住你的东西，也可能成为托起你的力量。",
+    "source": "Timothy Q. Mouse, Dumbo"
+  },
+  {
+    "id": 338,
+    "english": "Adventure is out there!",
+    "chinese": "冒险就在前方！",
+    "source": "Up"
+  },
+  {
+    "id": 339,
+    "english": "Thanks for the adventure—now go have a new one.",
+    "chinese": "谢谢你陪我经历这场冒险，现在去开启新的旅程吧。",
+    "source": "Ellie, Up"
+  },
+  {
+    "id": 340,
+    "english": "Sometimes the right path is not the easiest one.",
+    "chinese": "正确的路，有时并不是最容易的路。",
+    "source": "Grandmother Willow, Pocahontas"
+  },
+  {
+    "id": 341,
+    "english": "Our fate lives within us. You only have to be brave enough to see it.",
+    "chinese": "命运就在我们心里，你只需要勇敢地看见它。",
+    "source": "Merida, Brave"
+  },
+  {
+    "id": 342,
+    "english": "If you focus on what you left behind, you will never see what lies ahead.",
+    "chinese": "若只盯着失去的东西，就看不见前方的可能。",
+    "source": "Gusteau, Ratatouille"
+  },
+  {
+    "id": 343,
+    "english": "Anyone can cook.",
+    "chinese": "任何人都可以创造美好。",
+    "source": "Gusteau, Ratatouille"
+  },
+  {
+    "id": 344,
+    "english": "The only thing predictable about life is its unpredictability.",
+    "chinese": "人生唯一可以预料的，就是它的不可预料。",
+    "source": "Remy, Ratatouille"
+  },
+  {
+    "id": 345,
+    "english": "Not everyone can become a great artist, but a great artist can come from anywhere.",
+    "chinese": "不是每个人都能成为伟大的艺术家，但伟大的艺术家可能来自任何地方。",
+    "source": "Anton Ego, Ratatouille"
+  },
+  {
+    "id": 346,
+    "english": "Yesterday is history, tomorrow is a mystery, but today is a gift.",
+    "chinese": "昨天已成历史，明天仍是谜，而今天是一份礼物。",
+    "source": "Master Oogway, Kung Fu Panda"
+  },
+  {
+    "id": 347,
+    "english": "There is no secret ingredient.",
+    "chinese": "真正的秘诀，就是相信本来的自己。",
+    "source": "Kung Fu Panda"
+  },
+  {
+    "id": 348,
+    "english": "Your story may not have such a happy beginning, but that doesn't make you who you are.",
+    "chinese": "你的故事开头也许并不幸福，但它并不能定义你是谁。",
+    "source": "Soothsayer, Kung Fu Panda 2"
+  },
+  {
+    "id": 349,
+    "english": "Anything is possible when you have inner peace.",
+    "chinese": "当内心平静时，一切皆有可能。",
+    "source": "Master Shifu, Kung Fu Panda 2"
+  },
+  {
+    "id": 350,
+    "english": "The present is a gift.",
+    "chinese": "当下，就是一份礼物。",
+    "source": "Kung Fu Panda, wordplay in dialogue"
+  },
+  {
+    "id": 351,
+    "english": "You must believe.",
+    "chinese": "你必须相信。",
+    "source": "Kung Fu Panda"
+  },
+  {
+    "id": 352,
+    "english": "I never look back, darling. It distracts from the now.",
+    "chinese": "我从不回头，亲爱的；那会让我错过当下。",
+    "source": "Edna Mode, The Incredibles"
+  },
+  {
+    "id": 353,
+    "english": "Luck favors the prepared.",
+    "chinese": "好运眷顾有准备的人。",
+    "source": "Edna Mode, The Incredibles"
+  },
+  {
+    "id": 354,
+    "english": "When everyone is super, no one will be.",
+    "chinese": "当所有人都“特别”时，也就没人真正特别。",
+    "source": "Syndrome, The Incredibles"
+  },
+  {
+    "id": 355,
+    "english": "You control your destiny—you don't need magic to do it.",
+    "chinese": "命运掌握在你自己手中，不需要魔法。",
+    "source": "Merida, Brave"
+  },
+  {
+    "id": 356,
+    "english": "Let it go.",
+    "chinese": "放下吧。",
+    "source": "Elsa, Frozen"
+  },
+  {
+    "id": 357,
+    "english": "Some people are worth melting for.",
+    "chinese": "有些人，值得你为他们融化自己。",
+    "source": "Olaf, Frozen"
+  },
+  {
+    "id": 358,
+    "english": "Do the next right thing.",
+    "chinese": "做好眼前下一件正确的事。",
+    "source": "Anna, Frozen II"
+  },
+  {
+    "id": 359,
+    "english": "Fear can't be trusted.",
+    "chinese": "恐惧不值得完全相信。",
+    "source": "Elsa, Frozen II"
+  },
+  {
+    "id": 360,
+    "english": "Show yourself.",
+    "chinese": "勇敢展现真正的自己。",
+    "source": "Frozen II"
+  },
+  {
+    "id": 361,
+    "english": "The cold never bothered me anyway.",
+    "chinese": "寒冷从未真正困扰过我。",
+    "source": "Elsa, Frozen"
+  },
+  {
+    "id": 362,
+    "english": "How lucky am I to have something that makes saying goodbye so hard.",
+    "chinese": "能够拥有一段让告别如此艰难的关系，我是多么幸运。",
+    "source": "Winnie-the-Pooh, commonly associated quote"
+  },
+  {
+    "id": 363,
+    "english": "Sometimes the smallest things take up the most room in your heart.",
+    "chinese": "有时最微小的事物，会占据心中最大的空间。",
+    "source": "Winnie-the-Pooh, commonly associated quote"
+  },
+  {
+    "id": 364,
+    "english": "A day without a friend is like a pot without a single drop of honey.",
+    "chinese": "没有朋友的一天，就像蜂蜜罐里一滴蜜也没有。",
+    "source": "Winnie-the-Pooh, adaptation quote"
+  },
+  {
+    "id": 365,
+    "english": "Promise me you'll always remember: you're braver than you believe.",
+    "chinese": "答应我，永远记住：你比自己相信的更勇敢。",
+    "source": "Winnie-the-Pooh, commonly associated quote"
+  },
+  {
+    "id": 366,
+    "english": "The things that make me different are the things that make me.",
+    "chinese": "正是那些与众不同之处，构成了真正的我。",
+    "source": "Piglet, Winnie-the-Pooh adaptation"
+  },
+  {
+    "id": 367,
+    "english": "Today is a good day to try.",
+    "chinese": "今天是适合尝试的一天。",
+    "source": "The Hunchback of Notre Dame, Disney"
+  },
+  {
+    "id": 368,
+    "english": "Keep moving forward.",
+    "chinese": "继续向前。",
+    "source": "Meet the Robinsons"
+  },
+  {
+    "id": 369,
+    "english": "Around here, however, we don't look backwards for very long.",
+    "chinese": "在这里，我们不会长久停留在过去。",
+    "source": "Meet the Robinsons, quoting Walt Disney"
+  },
+  {
+    "id": 370,
+    "english": "You don't have time to be timid. You must be bold and daring.",
+    "chinese": "你没有时间畏缩，必须勇敢而大胆。",
+    "source": "Lumière, Beauty and the Beast"
+  },
+  {
+    "id": 371,
+    "english": "Think of the one thing you've always wanted. Now find it in your mind's eye and feel it in your heart.",
+    "chinese": "想一件你一直渴望的事，让它出现在脑海，也落在心里。",
+    "source": "Beauty and the Beast adaptation"
+  },
+  {
+    "id": 372,
+    "english": "Even miracles take a little time.",
+    "chinese": "即使奇迹，也需要一点时间。",
+    "source": "Fairy Godmother, Cinderella"
+  },
+  {
+    "id": 373,
+    "english": "Have courage and be kind.",
+    "chinese": "要勇敢，也要善良。",
+    "source": "Cinderella, 2015 film"
+  },
+  {
+    "id": 374,
+    "english": "Where there is kindness, there is goodness; where there is goodness, there is magic.",
+    "chinese": "有善意的地方就有美好，有美好的地方就有魔法。",
+    "source": "Cinderella, 2015 film"
+  },
+  {
+    "id": 375,
+    "english": "A dream is a wish your heart makes.",
+    "chinese": "梦想，是心灵许下的愿望。",
+    "source": "Cinderella"
+  },
+  {
+    "id": 376,
+    "english": "The only way to get what you want in this world is through hard work.",
+    "chinese": "想在这个世界得到真正想要的东西，离不开努力。",
+    "source": "Tiana, The Princess and the Frog"
+  },
+  {
+    "id": 377,
+    "english": "You got to dig a little deeper.",
+    "chinese": "你得再往内心深处挖一点。",
+    "source": "The Princess and the Frog"
+  },
+  {
+    "id": 378,
+    "english": "The evening star is shining bright. So make a wish and hold on tight.",
+    "chinese": "晚星正明亮，许下愿望，并牢牢守住它。",
+    "source": "The Princess and the Frog"
+  },
+  {
+    "id": 379,
+    "english": "Sometimes our strengths lie beneath the surface.",
+    "chinese": "有时，我们的力量藏在表面之下。",
+    "source": "Moana"
+  },
+  {
+    "id": 380,
+    "english": "The call isn't out there at all. It's inside me.",
+    "chinese": "真正的召唤不在远方，它就在我心里。",
+    "source": "Moana"
+  },
+  {
+    "id": 381,
+    "english": "Know who you are.",
+    "chinese": "认识真正的自己。",
+    "source": "Moana"
+  },
+  {
+    "id": 382,
+    "english": "If I go, there's just no telling how far I'll go.",
+    "chinese": "只要出发，就没人知道我能走多远。",
+    "source": "Moana"
+  },
+  {
+    "id": 383,
+    "english": "I am Moana.",
+    "chinese": "我就是莫阿娜。",
+    "source": "Moana"
+  },
+  {
+    "id": 384,
+    "english": "A true hero isn't measured by the size of his strength, but by the strength of his heart.",
+    "chinese": "真正的英雄，不看力量有多大，而看内心有多强。",
+    "source": "Zeus, Hercules"
+  },
+  {
+    "id": 385,
+    "english": "Giving up is for rookies.",
+    "chinese": "放弃是新手才做的事。",
+    "source": "Philoctetes, Hercules"
+  },
+  {
+    "id": 386,
+    "english": "Sometimes it is the people no one imagines anything of who do the things that no one can imagine.",
+    "chinese": "有时，正是那些不被看好的人，完成了无人能想象的事。",
+    "source": "The Imitation Game, film line"
+  },
+  {
+    "id": 387,
+    "english": "Why do we fall? So we can learn to pick ourselves up.",
+    "chinese": "我们为何跌倒？为了学会重新站起来。",
+    "source": "Thomas Wayne / Alfred, Batman Begins"
+  },
+  {
+    "id": 388,
+    "english": "It's not who I am underneath, but what I do that defines me.",
+    "chinese": "定义我的，不是内心自称是谁，而是我实际做了什么。",
+    "source": "Batman Begins"
+  },
+  {
+    "id": 389,
+    "english": "A hero can be anyone.",
+    "chinese": "任何人都可以成为英雄。",
+    "source": "Batman, The Dark Knight Rises"
+  },
+  {
+    "id": 390,
+    "english": "The night is darkest just before the dawn.",
+    "chinese": "黎明前的夜最黑。",
+    "source": "Harvey Dent, The Dark Knight"
+  },
+  {
+    "id": 391,
+    "english": "You either die a hero, or you live long enough to see yourself become the villain.",
+    "chinese": "你要么以英雄之名离去，要么活得够久，看着自己成为反派。",
+    "source": "Harvey Dent, The Dark Knight"
+  },
+  {
+    "id": 392,
+    "english": "There's some good in this world, Mr. Frodo, and it's worth fighting for.",
+    "chinese": "这个世界仍有美好，弗罗多先生，而它值得我们为之奋斗。",
+    "source": "Sam, The Lord of the Rings: The Two Towers"
+  },
+  {
+    "id": 393,
+    "english": "I would rather share one lifetime with you than face all the ages of this world alone.",
+    "chinese": "我宁愿与你共度一生，也不愿独自面对世间所有岁月。",
+    "source": "Arwen, The Lord of the Rings: The Fellowship of the Ring"
+  },
+  {
+    "id": 394,
+    "english": "Carpe diem. Seize the day, boys.",
+    "chinese": "及时行乐。孩子们，抓住今天。",
+    "source": "John Keating, Dead Poets Society"
+  },
+  {
+    "id": 395,
+    "english": "No matter what anybody tells you, words and ideas can change the world.",
+    "chinese": "无论别人怎么说，文字与思想都能改变世界。",
+    "source": "John Keating, Dead Poets Society"
+  },
+  {
+    "id": 396,
+    "english": "You are here—life exists, and identity; that the powerful play goes on, and you may contribute a verse.",
+    "chinese": "你在这里，生命存在，自我存在；宏大的戏继续，而你可以写下属于自己的诗句。",
+    "source": "Dead Poets Society, quoting Walt Whitman"
+  },
+  {
+    "id": 397,
+    "english": "Medicine, law, business, engineering—these are noble pursuits. But poetry, beauty, romance, love—these are what we stay alive for.",
+    "chinese": "医学、法律、商业、工程都很高尚；但诗、美、浪漫与爱，才是我们活着的意义。",
+    "source": "John Keating, Dead Poets Society"
+  },
+  {
+    "id": 398,
+    "english": "Get busy living, or get busy dying.",
+    "chinese": "要么忙着活，要么忙着死。",
+    "source": "Andy Dufresne, The Shawshank Redemption"
+  },
+  {
+    "id": 399,
+    "english": "Hope is a good thing, maybe the best of things.",
+    "chinese": "希望是好东西，也许是世上最好的东西。",
+    "source": "Andy Dufresne, The Shawshank Redemption"
+  },
+  {
+    "id": 400,
+    "english": "Remember, Red, hope is a good thing.",
+    "chinese": "记住，瑞德，希望是一件好事。",
+    "source": "The Shawshank Redemption"
+  },
+  {
+    "id": 401,
+    "english": "Fear can hold you prisoner. Hope can set you free.",
+    "chinese": "恐惧能囚禁你，希望能让你自由。",
+    "source": "The Shawshank Redemption, tagline"
+  },
+  {
+    "id": 402,
+    "english": "Life moves pretty fast. If you don't stop and look around once in a while, you could miss it.",
+    "chinese": "生活走得很快；若不偶尔停下来看看，你可能会错过它。",
+    "source": "Ferris Bueller's Day Off"
+  },
+  {
+    "id": 403,
+    "english": "Just because someone stumbles and loses their path, doesn't mean they're lost forever.",
+    "chinese": "一个人偶尔跌倒、迷路，并不代表他永远失去了方向。",
+    "source": "Professor X, X-Men: Days of Future Past"
+  },
+  {
+    "id": 404,
+    "english": "Peace was never an option.",
+    "chinese": "和平从来不是唯一选项。",
+    "source": "Magneto, X-Men: First Class"
+  },
+  {
+    "id": 405,
+    "english": "With great power comes great responsibility.",
+    "chinese": "能力越大，责任越大。",
+    "source": "Spider-Man; maxim associated with Uncle Ben"
+  },
+  {
+    "id": 406,
+    "english": "Anyone can wear the mask.",
+    "chinese": "任何人都可以戴上面具，成为英雄。",
+    "source": "Spider-Man: Into the Spider-Verse"
+  },
+  {
+    "id": 407,
+    "english": "It's a leap of faith.",
+    "chinese": "这需要一次信念的飞跃。",
+    "source": "Spider-Man: Into the Spider-Verse"
+  },
+  {
+    "id": 408,
+    "english": "No matter how buried it gets, or lost you feel, you must promise me that you will hold on to hope.",
+    "chinese": "无论希望被埋得多深、你多么迷失，都要答应我坚持住。",
+    "source": "Spider-Man 2"
+  },
+  {
+    "id": 409,
+    "english": "Part of the journey is the end.",
+    "chinese": "旅程的一部分，就是学会面对终点。",
+    "source": "Tony Stark, Avengers: Endgame"
+  },
+  {
+    "id": 410,
+    "english": "Whatever it takes.",
+    "chinese": "无论付出什么代价。",
+    "source": "Avengers: Endgame"
+  },
+  {
+    "id": 411,
+    "english": "I can do this all day.",
+    "chinese": "我可以坚持一整天。",
+    "source": "Steve Rogers, Captain America"
+  },
+  {
+    "id": 412,
+    "english": "We never lose our demons. We only learn to live above them.",
+    "chinese": "我们无法彻底失去心魔，只能学会不再被它控制。",
+    "source": "The Ancient One, Doctor Strange"
+  },
+  {
+    "id": 413,
+    "english": "It's not about you.",
+    "chinese": "这一切不只关乎你自己。",
+    "source": "The Ancient One, Doctor Strange"
+  },
+  {
+    "id": 414,
+    "english": "Wakanda forever!",
+    "chinese": "瓦坎达万岁！",
+    "source": "Black Panther"
+  },
+  {
+    "id": 415,
+    "english": "In times of crisis, the wise build bridges, while the foolish build barriers.",
+    "chinese": "危机中，智者建桥，愚者筑墙。",
+    "source": "T'Challa, Black Panther"
+  },
+  {
+    "id": 416,
+    "english": "Death is not the end. It's more of a stepping-off point.",
+    "chinese": "死亡并非终点，更像是迈向下一段旅程的起点。",
+    "source": "Black Panther"
+  },
+  {
+    "id": 417,
+    "english": "We are Groot.",
+    "chinese": "我们是格鲁特。",
+    "source": "Guardians of the Galaxy"
+  },
+  {
+    "id": 418,
+    "english": "I have lived most of my life surrounded by my enemies. I would be grateful to die surrounded by my friends.",
+    "chinese": "我一生大多被敌人包围；若能在朋友身边离去，我会心怀感激。",
+    "source": "Gamora, Guardians of the Galaxy"
+  },
+  {
+    "id": 419,
+    "english": "We accept the love we think we deserve.",
+    "chinese": "我们接受的爱，往往是我们以为自己配得上的爱。",
+    "source": "Stephen Chbosky, The Perks of Being a Wallflower"
+  },
+  {
+    "id": 420,
+    "english": "And in that moment, I swear we were infinite.",
+    "chinese": "在那一刻，我发誓我们是无限的。",
+    "source": "The Perks of Being a Wallflower"
+  },
+  {
+    "id": 421,
+    "english": "It's only after we've lost everything that we're free to do anything.",
+    "chinese": "只有当失去一切后，我们才可能获得做任何事的自由。",
+    "source": "Fight Club"
+  },
+  {
+    "id": 422,
+    "english": "Every man dies, not every man really lives.",
+    "chinese": "人人都会死，但并非人人真正活过。",
+    "source": "Braveheart"
+  },
+  {
+    "id": 423,
+    "english": "What we do in life echoes in eternity.",
+    "chinese": "我们此生所做的一切，会在永恒中回响。",
+    "source": "Maximus, Gladiator"
+  },
+  {
+    "id": 424,
+    "english": "Are you not entertained?",
+    "chinese": "你们还不满意吗？",
+    "source": "Maximus, Gladiator"
+  },
+  {
+    "id": 425,
+    "english": "Keep your friends close, but your enemies closer.",
+    "chinese": "亲近朋友，更要了解对手。",
+    "source": "Michael Corleone, The Godfather Part II"
+  },
+  {
+    "id": 426,
+    "english": "Think different.",
+    "chinese": "不同凡想。",
+    "source": "Apple advertising slogan"
+  },
+  {
+    "id": 427,
+    "english": "Just do it.",
+    "chinese": "尽管去做。",
+    "source": "Nike advertising slogan"
+  },
+  {
+    "id": 428,
+    "english": "Impossible is nothing.",
+    "chinese": "没有什么不可能。",
+    "source": "Adidas advertising slogan"
+  },
+  {
+    "id": 429,
+    "english": "Because you're worth it.",
+    "chinese": "因为你值得。",
+    "source": "L'Oréal advertising slogan"
+  },
+  {
+    "id": 430,
+    "english": "Keep calm and carry on.",
+    "chinese": "保持冷静，继续前行。",
+    "source": "British wartime slogan, 1939"
+  },
+  {
+    "id": 431,
+    "english": "Stay hungry. Stay foolish.",
+    "chinese": "求知若饥，虚心若愚。",
+    "source": "Stewart Brand; popularized by Steve Jobs, Stanford speech, 2005"
+  },
+  {
+    "id": 432,
+    "english": "One more thing.",
+    "chinese": "还有一件事。",
+    "source": "Phrase associated with Steve Jobs presentations"
+  },
+  {
+    "id": 433,
+    "english": "Move fast and break things.",
+    "chinese": "快速行动，勇于打破旧框架。",
+    "source": "Early Facebook motto"
+  },
+  {
+    "id": 434,
+    "english": "Done is better than perfect.",
+    "chinese": "完成胜过完美。",
+    "source": "Modern productivity maxim, associated with Facebook"
+  },
+  {
+    "id": 435,
+    "english": "Ideas are easy. Execution is everything.",
+    "chinese": "想法容易，执行决定一切。",
+    "source": "Startup saying"
+  },
+  {
+    "id": 436,
+    "english": "Fail fast, learn faster.",
+    "chinese": "快速试错，更快学习。",
+    "source": "Startup and design-thinking slogan"
+  },
+  {
+    "id": 437,
+    "english": "Start before you're ready.",
+    "chinese": "在完全准备好之前就开始。",
+    "source": "Modern motivational saying"
+  },
+  {
+    "id": 438,
+    "english": "Progress, not perfection.",
+    "chinese": "追求进步，不必苛求完美。",
+    "source": "Modern recovery and self-development saying"
+  },
+  {
+    "id": 439,
+    "english": "One day or day one. You decide.",
+    "chinese": "是“总有一天”，还是“从第一天开始”，由你决定。",
+    "source": "Modern motivational slogan"
+  },
+  {
+    "id": 440,
+    "english": "Dream big. Start small. Act now.",
+    "chinese": "梦想要大，起步要小，行动要快。",
+    "source": "Modern business slogan"
+  },
+  {
+    "id": 441,
+    "english": "Work smarter, not harder.",
+    "chinese": "更聪明地工作，而不只是更辛苦地工作。",
+    "source": "Modern workplace saying"
+  },
+  {
+    "id": 442,
+    "english": "What gets measured gets managed.",
+    "chinese": "被衡量的事情，才更容易被管理。",
+    "source": "Management maxim, often attributed to Peter Drucker"
+  },
+  {
+    "id": 443,
+    "english": "Culture eats strategy for breakfast.",
+    "chinese": "文化会在早餐时吃掉战略。",
+    "source": "Management saying, commonly attributed to Peter Drucker"
+  },
+  {
+    "id": 444,
+    "english": "The best way to predict the future is to create it.",
+    "chinese": "预测未来最好的方式，是创造未来。",
+    "source": "Commonly attributed to Peter Drucker and others"
+  },
+  {
+    "id": 445,
+    "english": "Plans are nothing; planning is everything.",
+    "chinese": "计划本身有限，规划的过程才最重要。",
+    "source": "Dwight D. Eisenhower, speech"
+  },
+  {
+    "id": 446,
+    "english": "If you want something new, you have to stop doing something old.",
+    "chinese": "想获得新结果，就要停止某些旧做法。",
+    "source": "Peter Drucker, commonly cited"
+  },
+  {
+    "id": 447,
+    "english": "Management is doing things right; leadership is doing the right things.",
+    "chinese": "管理是把事情做对，领导是做对的事情。",
+    "source": "Commonly attributed to Peter Drucker and Warren Bennis"
+  },
+  {
+    "id": 448,
+    "english": "There is nothing so useless as doing efficiently that which should not be done at all.",
+    "chinese": "把根本不该做的事高效完成，是最无用的努力。",
+    "source": "Peter Drucker"
+  },
+  {
+    "id": 449,
+    "english": "The greatest danger in times of turbulence is to act with yesterday's logic.",
+    "chinese": "动荡时期最大的危险，是仍用昨天的逻辑行动。",
+    "source": "Peter Drucker, commonly cited"
+  },
+  {
+    "id": 450,
+    "english": "You can't use up creativity. The more you use, the more you have.",
+    "chinese": "创造力不会被用完；越使用，反而越丰富。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 451,
+    "english": "Do the best you can until you know better. Then when you know better, do better.",
+    "chinese": "在懂得更多以前，尽力做到最好；懂得更多之后，就做得更好。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 452,
+    "english": "Nothing will work unless you do.",
+    "chinese": "除非你行动，否则没有什么会自动奏效。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 453,
+    "english": "If you don't like something, change it. If you can't change it, change your attitude.",
+    "chinese": "若不喜欢现状，就改变它；若无法改变，就调整自己的态度。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 454,
+    "english": "We may encounter many defeats, but we must not be defeated.",
+    "chinese": "我们也许会遭遇许多失败，但绝不能被失败击垮。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 455,
+    "english": "Try to be a rainbow in someone's cloud.",
+    "chinese": "努力成为别人乌云中的一道彩虹。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 456,
+    "english": "Courage is the most important of all the virtues.",
+    "chinese": "勇气是所有美德中最重要的一项。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 457,
+    "english": "People will forget what you said, but they will never forget how you made them feel.",
+    "chinese": "人们也许会忘记你说过什么，却不会忘记你带给他们的感受。",
+    "source": "Commonly attributed to Maya Angelou; wording has earlier precedents"
+  },
+  {
+    "id": 458,
+    "english": "If one is lucky, a solitary fantasy can totally transform one million realities.",
+    "chinese": "幸运时，一个人的想象，也能改变千万人的现实。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 459,
+    "english": "Success is liking yourself, liking what you do, and liking how you do it.",
+    "chinese": "成功，是喜欢自己、喜欢所做的事，也喜欢做事的方式。",
+    "source": "Maya Angelou"
+  },
+  {
+    "id": 460,
+    "english": "You can't stop the waves, but you can learn to surf.",
+    "chinese": "你无法阻止海浪，但可以学会冲浪。",
+    "source": "Jon Kabat-Zinn, Wherever You Go, There You Are"
+  },
+  {
+    "id": 461,
+    "english": "Wherever you go, there you are.",
+    "chinese": "无论走到哪里，你都要与自己相处。",
+    "source": "Jon Kabat-Zinn, book title and mindfulness saying"
+  },
+  {
+    "id": 462,
+    "english": "The little things? The little moments? They aren't little.",
+    "chinese": "那些小事、那些片刻，其实一点也不小。",
+    "source": "Jon Kabat-Zinn, commonly cited"
+  },
+  {
+    "id": 463,
+    "english": "As long as you are breathing, there is more right with you than wrong with you.",
+    "chinese": "只要你还在呼吸，你身上正确的部分就比错误的部分更多。",
+    "source": "Jon Kabat-Zinn, Full Catastrophe Living"
+  },
+  {
+    "id": 464,
+    "english": "Mindfulness means being awake.",
+    "chinese": "正念，就是清醒地活着。",
+    "source": "Jon Kabat-Zinn"
+  },
+  {
+    "id": 465,
+    "english": "You are the sky. Everything else is just the weather.",
+    "chinese": "你是天空，其余一切只是天气。",
+    "source": "Pema Chödrön, commonly cited"
+  },
+  {
+    "id": 466,
+    "english": "Nothing ever goes away until it has taught us what we need to know.",
+    "chinese": "一件事不会真正离开，直到它教会我们该学的东西。",
+    "source": "Pema Chödrön"
+  },
+  {
+    "id": 467,
+    "english": "Start where you are.",
+    "chinese": "从你现在所在的地方开始。",
+    "source": "Pema Chödrön, book title"
+  },
+  {
+    "id": 468,
+    "english": "Fear is a natural reaction to moving closer to the truth.",
+    "chinese": "越接近真实，恐惧越可能自然出现。",
+    "source": "Pema Chödrön"
+  },
+  {
+    "id": 469,
+    "english": "Compassion is not a relationship between the healer and the wounded.",
+    "chinese": "慈悲不是治愈者与伤者之间高低分明的关系。",
+    "source": "Pema Chödrön"
+  },
+  {
+    "id": 470,
+    "english": "The most difficult times for many of us are the ones we give ourselves.",
+    "chinese": "许多人最艰难的时刻，往往来自自己对自己的苛待。",
+    "source": "Pema Chödrön, commonly cited"
+  },
+  {
+    "id": 471,
+    "english": "No mud, no lotus.",
+    "chinese": "没有淤泥，就没有莲花。",
+    "source": "Thích Nhất Hạnh, book title and teaching"
+  },
+  {
+    "id": 472,
+    "english": "Smile, breathe, and go slowly.",
+    "chinese": "微笑，呼吸，慢慢前行。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 473,
+    "english": "Because you are alive, everything is possible.",
+    "chinese": "因为你还活着，一切皆有可能。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 474,
+    "english": "The present moment is filled with joy and happiness.",
+    "chinese": "当下本身就充满喜悦与幸福。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 475,
+    "english": "Walk as if you are kissing the Earth with your feet.",
+    "chinese": "行走时，仿佛双脚正在亲吻大地。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 476,
+    "english": "The way out is in.",
+    "chinese": "向外寻找出口之前，先回到内心。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 477,
+    "english": "Understanding is love's other name.",
+    "chinese": "理解，是爱的另一个名字。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 478,
+    "english": "There is no way to happiness—happiness is the way.",
+    "chinese": "通往幸福的路并不存在；幸福本身就是道路。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 479,
+    "english": "Breathing in, I calm body and mind.",
+    "chinese": "吸气时，我让身心安定。",
+    "source": "Thích Nhất Hạnh, mindfulness teaching"
+  },
+  {
+    "id": 480,
+    "english": "The present moment contains past and future.",
+    "chinese": "当下同时容纳过去与未来。",
+    "source": "Thích Nhất Hạnh"
+  },
+  {
+    "id": 481,
+    "english": "You have power over your mind—not outside events.",
+    "chinese": "你能掌控的是自己的心，而不是外界事件。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 482,
+    "english": "The happiness of your life depends upon the quality of your thoughts.",
+    "chinese": "人生的幸福，取决于思想的质量。",
+    "source": "Marcus Aurelius, Meditations, common translation"
+  },
+  {
+    "id": 483,
+    "english": "Waste no more time arguing what a good person should be. Be one.",
+    "chinese": "别再争论好人应当是什么样，直接成为那样的人。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 484,
+    "english": "The impediment to action advances action. What stands in the way becomes the way.",
+    "chinese": "阻碍行动的事，反而推动行动；挡路之物，最终成为道路。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 485,
+    "english": "If it is not right, do not do it; if it is not true, do not say it.",
+    "chinese": "不正确的事不要做，不真实的话不要说。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 486,
+    "english": "Choose not to be harmed—and you won't feel harmed.",
+    "chinese": "选择不把它视为伤害，你便不会被它困住。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 487,
+    "english": "The soul becomes dyed with the color of its thoughts.",
+    "chinese": "灵魂会染上思想的颜色。",
+    "source": "Marcus Aurelius, Meditations, common translation"
+  },
+  {
+    "id": 488,
+    "english": "Very little is needed to make a happy life.",
+    "chinese": "幸福人生真正需要的东西，其实很少。",
+    "source": "Marcus Aurelius, Meditations, common translation"
+  },
+  {
+    "id": 489,
+    "english": "Receive without pride, let go without attachment.",
+    "chinese": "得到时不骄傲，放下时不执着。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 490,
+    "english": "Confine yourself to the present.",
+    "chinese": "把自己安顿在当下。",
+    "source": "Marcus Aurelius, Meditations"
+  },
+  {
+    "id": 491,
+    "english": "We suffer more often in imagination than in reality.",
+    "chinese": "我们在想象中遭受的痛苦，往往多于现实。",
+    "source": "Seneca, Letters from a Stoic"
+  },
+  {
+    "id": 492,
+    "english": "Luck is what happens when preparation meets opportunity.",
+    "chinese": "所谓幸运，就是准备遇上机会。",
+    "source": "Commonly attributed to Seneca"
+  },
+  {
+    "id": 493,
+    "english": "Difficulties strengthen the mind, as labor does the body.",
+    "chinese": "困难磨炼心智，正如劳动锻炼身体。",
+    "source": "Seneca, On Providence"
+  },
+  {
+    "id": 494,
+    "english": "Begin at once to live, and count each separate day as a separate life.",
+    "chinese": "立刻开始生活，把每一天都当成一段独立的人生。",
+    "source": "Seneca, Letters"
+  },
+  {
+    "id": 495,
+    "english": "While we wait for life, life passes.",
+    "chinese": "当我们等待生活开始时，生活已经流逝。",
+    "source": "Seneca, Letters"
+  },
+  {
+    "id": 496,
+    "english": "It is not that we have a short time to live, but that we waste much of it.",
+    "chinese": "不是生命太短，而是我们浪费了太多时间。",
+    "source": "Seneca, On the Shortness of Life"
+  },
+  {
+    "id": 497,
+    "english": "No person is more unhappy than one who never faces adversity.",
+    "chinese": "从未面对逆境的人，未必真正幸福。",
+    "source": "Seneca, commonly translated"
+  },
+  {
+    "id": 498,
+    "english": "He who is brave is free.",
+    "chinese": "勇敢的人，才是自由的人。",
+    "source": "Seneca, Letters"
+  },
+  {
+    "id": 499,
+    "english": "Associate with people who are likely to improve you.",
+    "chinese": "与那些能让你变得更好的人同行。",
+    "source": "Seneca, Letters"
+  },
+  {
+    "id": 500,
+    "english": "Sometimes even to live is an act of courage.",
+    "chinese": "有时，仅仅继续活着，本身就是勇气。",
+    "source": "Seneca, Letters"
+  }
+]

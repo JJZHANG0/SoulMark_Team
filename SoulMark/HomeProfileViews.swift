@@ -11,6 +11,7 @@ struct IntegratedHomePage: View {
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
 
+    let userID: UUID?
     let people: [RelationshipPerson]
     let onOpenRelationshipGraph: () -> Void
     let onOpenScenario: () -> Void
@@ -124,7 +125,7 @@ struct IntegratedHomePage: View {
     }
 
     private var dailyDose: some View {
-        let quote = DailySoulQuote.quote()
+        let quote = DailyQuoteCatalog.quote(userID: userID ?? DailyQuoteCatalog.guestUserID)
 
         return VStack(alignment: .leading, spacing: 14) {
             HStack {
@@ -150,6 +151,11 @@ struct IntegratedHomePage: View {
                 .foregroundStyle(SoulTheme.primaryText)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Text("— \(quote.source)")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(SoulTheme.tertiaryText)
+                .lineLimit(2)
 
             Text("SOULMARK / DAILY DOSE")
                 .font(.system(size: 9, weight: .heavy, design: .monospaced))

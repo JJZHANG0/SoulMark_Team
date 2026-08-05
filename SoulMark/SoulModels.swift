@@ -13,51 +13,6 @@ enum FreeRelationshipPolicy {
     }
 }
 
-struct DailySoulQuote: Equatable {
-    let chinese: String
-    let english: String
-
-    var text: String {
-        localizedText(chinese, english)
-    }
-
-    var shareText: String {
-        "\(text)\n\n— SoulMark"
-    }
-
-    static func quote(for date: Date = Date(), calendar: Calendar = .current) -> DailySoulQuote {
-        let day = calendar.ordinality(of: .day, in: .year, for: date) ?? 1
-        return quotes[(day - 1) % quotes.count]
-    }
-
-    private static let quotes: [DailySoulQuote] = [
-        DailySoulQuote(
-            chinese: "你不是不会社交，只是擅长把每次聊天都变成事后复盘。",
-            english: "You are not bad at socializing. You just turn every chat into a post-game review."
-        ),
-        DailySoulQuote(
-            chinese: "成年人的默契：消息看见了，情绪也看见了，就是没回。",
-            english: "Adult chemistry is seeing the message, seeing the feelings, and still not replying."
-        ),
-        DailySoulQuote(
-            chinese: "有些关系不是淡了，只是双方都在等对方先热情。",
-            english: "Some relationships are not fading. Both people are simply waiting for the other to care first."
-        ),
-        DailySoulQuote(
-            chinese: "沟通解决不了所有问题，但沉默通常会再送你几个。",
-            english: "Communication cannot solve everything, but silence is very good at creating more problems."
-        ),
-        DailySoulQuote(
-            chinese: "你以为自己在保持边界，对方可能以为你已经搬走了。",
-            english: "You may call it a boundary. They may think you have left the building."
-        ),
-        DailySoulQuote(
-            chinese: "真正的情绪稳定，有时只是终于想好这句话该怎么说。",
-            english: "Emotional stability sometimes means finally knowing how to say the difficult sentence."
-        )
-    ]
-}
-
 struct RelationshipLabelLayout: Equatable {
     let horizontalDirection: Int
 }

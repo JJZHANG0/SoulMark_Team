@@ -106,6 +106,7 @@ struct ContentView: View {
         switch selectedSection {
         case .home:
             IntegratedHomePage(
+                userID: session.user?.id,
                 people: people,
                 onOpenRelationshipGraph: {
                     selectedSection = .relationshipGraph
