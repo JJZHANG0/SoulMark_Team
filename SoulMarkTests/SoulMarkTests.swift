@@ -292,6 +292,23 @@ struct SoulMarkTests {
         ))
     }
 
+    @MainActor
+    @Test func dailyQuoteSharePayloadProvidesWechatCompatibleImageAndText() throws {
+        let quote = DailySoulQuote(
+            id: 1,
+            chinese: "测试中文",
+            english: "Test quote",
+            source: "Test Source"
+        )
+
+        let payload = try DailyQuoteSharePayload.make(quote: quote)
+
+        #expect(payload.items.contains { $0 is UIImage })
+        #expect(payload.items.contains { $0 is NSString })
+        #expect(payload.previewImage.cgImage?.width == 1080)
+        #expect(payload.previewImage.cgImage?.height == 1350)
+    }
+
     @Test func remoteContactMapsAvatarURLToRelationshipPerson() throws {
         let json = """
         {

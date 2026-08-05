@@ -10,6 +10,8 @@ struct IntegratedHomePage: View {
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
+    @State private var sharePayload: DailyQuoteSharePayload?
+    @State private var shareErrorMessage: String?
 
     let userID: UUID?
     let people: [RelationshipPerson]
@@ -57,6 +59,20 @@ struct IntegratedHomePage: View {
             SoulSettingsSheet()
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $sharePayload) { payload in
+            ActivityShareSheet(items: payload.items)
+        }
+        .alert(
+            localizedText("暂时无法分享", "Unable to Share"),
+            isPresented: Binding(
+                get: { shareErrorMessage != nil },
+                set: { if !$0 { shareErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { shareErrorMessage = nil }
+        } message: {
+            Text(shareErrorMessage ?? "")
         }
     }
 
@@ -135,7 +151,16 @@ struct IntegratedHomePage: View {
 
                 Spacer()
 
-                ShareLink(item: quote.shareText) {
+                Button {
+                    do {
+                        sharePayload = try DailyQuoteSharePayload.make(quote: quote)
+                    } catch {
+                        shareErrorMessage = localizedText(
+                            "分享卡片生成失败，请稍后重试。",
+                            "The share card could not be created. Try again later."
+                        )
+                    }
+                } label: {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 15, weight: .bold))
                         .foregroundStyle(Color.white)
