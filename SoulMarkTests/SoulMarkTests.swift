@@ -146,6 +146,20 @@ struct SoulMarkTests {
         #expect(modes.last?.isCustom == true)
     }
 
+    @Test func scenarioParticipantPolicyRejectsThirdPersonByID() {
+        let participantIDs = ["wren", "rhea", "owen"]
+
+        #expect(ScenarioParticipantAccessPolicy.isUnlocked(participantID: "wren", in: participantIDs))
+        #expect(ScenarioParticipantAccessPolicy.isUnlocked(participantID: "rhea", in: participantIDs))
+        #expect(!ScenarioParticipantAccessPolicy.isUnlocked(participantID: "owen", in: participantIDs))
+        #expect(!ScenarioParticipantAccessPolicy.isUnlocked(participantID: "missing", in: participantIDs))
+    }
+
+    @Test func scenarioParticipantPolicyStopsNewPeopleAtTwo() {
+        #expect(ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: 1))
+        #expect(!ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: 2))
+    }
+
     @Test func recordingTimerStartsAtZeroAndTicksUp() async throws {
         var timer = RecordingTimer()
 
