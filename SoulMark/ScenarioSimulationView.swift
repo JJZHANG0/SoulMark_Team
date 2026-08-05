@@ -16,6 +16,7 @@ struct ScenarioSimulationView: View {
     let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
 
     @State private var participants: [ScenarioParticipant]
+    @State private var unlockedParticipantIDs: [ScenarioParticipant.ID]
     @State private var selectedParticipantID: ScenarioParticipant.ID?
     @State private var isAddingParticipant = false
     @State private var isAddingMode = false
@@ -44,10 +45,16 @@ struct ScenarioSimulationView: View {
         self.onPracticeSubmitted = onPracticeSubmitted
         let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
+        let earliestRelationshipIDs = relationshipPeople
+            .prefix(ScenarioParticipantAccessPolicy.freeLimit)
+            .map { $0.id.uuidString }
+        let initialUnlockedIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: earliestRelationshipIDs,
+            participantIDs: initialParticipants.map(\.id)
+        )
+        _unlockedParticipantIDs = State(initialValue: initialUnlockedIDs)
         let focusedID = focusedPersonID?.uuidString
-        let selectedID = focusedID.map {
-            ScenarioParticipantAccessPolicy.isUnlocked(participantID: $0, in: initialParticipants.map(\.id))
-        } == true
+        let selectedID = focusedID.map { initialUnlockedIDs.contains($0) } == true
             ? focusedID
             : initialParticipants.first?.id
         _selectedParticipantID = State(initialValue: selectedID)
@@ -158,6 +165,10 @@ struct ScenarioSimulationView: View {
                     relationshipLabel: relationshipLabel
                 )
                 participants.append(participant)
+                unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+                    existing: unlockedParticipantIDs,
+                    participantIDs: participants.map(\.id)
+                )
                 switchToParticipant(participant)
             }
             .presentationDetents([.height(360)])
@@ -416,6 +427,10 @@ struct ScenarioSimulationView: View {
     private func deleteCustomParticipant(_ participant: ScenarioParticipant) {
         participants.deleteCustomParticipant(participant.id)
         participants = participants.withSoulFallback()
+        unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: unlockedParticipantIDs,
+            participantIDs: participants.map(\.id)
+        )
 
         if selectedParticipantID == participant.id {
             selectedParticipantID = participants.first?.id
@@ -426,12 +441,13 @@ struct ScenarioSimulationView: View {
     private func syncRelationshipParticipants() {
         let customParticipants = participants.filter(\.isCustom)
         participants = (relationshipPeople.scenarioParticipants() + customParticipants).withSoulFallback()
+        unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: unlockedParticipantIDs,
+            participantIDs: participants.map(\.id)
+        )
 
         if let selectedParticipantID,
-           ScenarioParticipantAccessPolicy.isUnlocked(
-               participantID: selectedParticipantID,
-               in: participants.map(\.id)
-           ) {
+           unlockedParticipantIDs.contains(selectedParticipantID) {
             return
         } else {
             selectedParticipantID = participants.first?.id
@@ -440,10 +456,7 @@ struct ScenarioSimulationView: View {
     }
 
     private func isParticipantUnlocked(_ participant: ScenarioParticipant) -> Bool {
-        ScenarioParticipantAccessPolicy.isUnlocked(
-            participantID: participant.id,
-            in: participants.map(\.id)
-        )
+        unlockedParticipantIDs.contains(participant.id)
     }
 
     private func presentPendingSheetIfNeeded() {

@@ -146,13 +146,14 @@ struct SoulMarkTests {
         #expect(modes.last?.isCustom == true)
     }
 
-    @Test func scenarioParticipantPolicyRejectsThirdPersonByID() {
-        let participantIDs = ["wren", "rhea", "owen"]
+    @Test func scenarioParticipantPolicyKeepsEarlierPeopleWhenNewestSortsFirst() {
+        let unlockedIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: ["wren", "rhea"],
+            participantIDs: ["new-person", "wren", "rhea"]
+        )
 
-        #expect(ScenarioParticipantAccessPolicy.isUnlocked(participantID: "wren", in: participantIDs))
-        #expect(ScenarioParticipantAccessPolicy.isUnlocked(participantID: "rhea", in: participantIDs))
-        #expect(!ScenarioParticipantAccessPolicy.isUnlocked(participantID: "owen", in: participantIDs))
-        #expect(!ScenarioParticipantAccessPolicy.isUnlocked(participantID: "missing", in: participantIDs))
+        #expect(unlockedIDs == ["wren", "rhea"])
+        #expect(!unlockedIDs.contains("new-person"))
     }
 
     @Test func scenarioParticipantPolicyStopsNewPeopleAtTwo() {

@@ -30,6 +30,19 @@ enum ScenarioParticipantAccessPolicy {
     static func canAddParticipant(currentCount: Int) -> Bool {
         currentCount < freeLimit
     }
+
+    static func reconciledUnlockedIDs(existing: [String], participantIDs: [String]) -> [String] {
+        let availableIDs = Set(participantIDs)
+        var unlockedIDs = existing.filter(availableIDs.contains)
+
+        for participantID in participantIDs where unlockedIDs.count < freeLimit {
+            if !unlockedIDs.contains(participantID) {
+                unlockedIDs.append(participantID)
+            }
+        }
+
+        return Array(unlockedIDs.prefix(freeLimit))
+    }
 }
 
 struct RelationshipLabelLayout: Equatable {
