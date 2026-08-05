@@ -74,7 +74,7 @@ enum RealtimeVoiceServiceConfiguration {
 #if targetEnvironment(simulator)
         return "http://127.0.0.1:8000"
 #elseif DEBUG
-        return "http://192.168.110.68:8000"
+        return "http://192.168.110.109:8000"
 #else
         return "https://api.soulmark.app"
 #endif
