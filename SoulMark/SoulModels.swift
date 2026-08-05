@@ -318,6 +318,7 @@ struct RelationshipPerson: Identifiable, Equatable {
     let avatarColors: [Color]
     let symbol: String
     let memory: String
+    var avatarURL: String? = nil
 
     static func == (lhs: RelationshipPerson, rhs: RelationshipPerson) -> Bool {
         lhs.id == rhs.id

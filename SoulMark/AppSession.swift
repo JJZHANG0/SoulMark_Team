@@ -90,12 +90,14 @@ struct RemoteContact: Codable {
     let positionY: Double
     let symbol: String
     let memory: String?
+    let avatarURL: String?
 
     enum CodingKeys: String, CodingKey {
         case id, name, notes, strength, symbol, memory
         case relationshipLabel = "relationship_label"
         case positionX = "position_x"
         case positionY = "position_y"
+        case avatarURL = "avatar_url"
     }
 
     var relationshipPerson: RelationshipPerson {
@@ -109,7 +111,8 @@ struct RemoteContact: Codable {
             position: CGPoint(x: positionX, y: positionY),
             avatarColors: [category.color.opacity(0.86), Color.white.opacity(0.52)],
             symbol: symbol,
-            memory: memory ?? localizedText("这段连接已经同步到你的关系图谱。", "This connection is synced to your map.")
+            memory: memory ?? localizedText("这段连接已经同步到你的关系图谱。", "This connection is synced to your map."),
+            avatarURL: avatarURL
         )
     }
 }
@@ -297,6 +300,35 @@ private final class SoulAPIClient {
         try await requestVoid(path: "/api/v1/contacts/\(id.uuidString)", method: "DELETE", token: token)
     }
 
+    func uploadContactAvatar(token: String, id: UUID, imageData: Data) async throws -> RemoteContact {
+        guard let url = BackendURLResolver.apiURL("/api/v1/contacts/\(id.uuidString)/avatar") else {
+            throw SoulAPIError.invalidResponse
+        }
+        let boundary = "SoulMark-\(UUID().uuidString)"
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"avatar.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = body
+        request.timeoutInterval = 30
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        return try await perform(request)
+    }
+
+    func deleteContactAvatar(token: String, id: UUID) async throws -> RemoteContact {
+        try await request(
+            path: "/api/v1/contacts/\(id.uuidString)/avatar",
+            method: "DELETE",
+            token: token
+        )
+    }
+
     func stats(token: String) async throws -> DashboardStatsDTO {
         try await request(path: "/api/v1/stats", token: token)
     }
@@ -400,6 +432,10 @@ private final class SoulAPIClient {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
+        return try await perform(request)
+    }
+
+    private func perform<Response: Decodable>(_ request: URLRequest) async throws -> Response {
         let data: Data
         let response: URLResponse
         do {
@@ -621,6 +657,20 @@ final class AppSession: ObservableObject {
     func deleteContact(_ id: UUID) async {
         guard let token = tokenStore.read() else { return }
         try? await api.deleteContact(token: token, id: id)
+    }
+
+    func uploadContactAvatar(contactID: UUID, imageData: Data) async -> RelationshipPerson? {
+        guard let token = tokenStore.read() else { return nil }
+        return try? await api.uploadContactAvatar(
+            token: token,
+            id: contactID,
+            imageData: imageData
+        ).relationshipPerson
+    }
+
+    func deleteContactAvatar(contactID: UUID) async -> RelationshipPerson? {
+        guard let token = tokenStore.read() else { return nil }
+        return try? await api.deleteContactAvatar(token: token, id: contactID).relationshipPerson
     }
 
     func loadStats() async -> DashboardStatsDTO? {

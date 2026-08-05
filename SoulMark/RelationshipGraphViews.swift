@@ -3,7 +3,17 @@
 //  SoulMark
 //
 
+import PhotosUI
 import SwiftUI
+
+enum RelationshipOwnerDisplayName {
+    static func resolve(_ displayName: String?, language: String? = nil) -> String {
+        let trimmed = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard trimmed.isEmpty else { return trimmed }
+        let selectedLanguage = language ?? UserDefaults.standard.string(forKey: "soulMarkLanguage")
+        return selectedLanguage == "en" ? "Me" : "我"
+    }
+}
 
 struct RelationshipHeader: View {
     let onBackHome: () -> Void
@@ -83,6 +93,7 @@ struct PlaceholderPage: View {
 
 struct RelationshipMapView: View {
     let people: [RelationshipPerson]
+    let ownerDisplayName: String?
     let selectedPerson: RelationshipPerson?
     let onMovePerson: (RelationshipPerson.ID, CGPoint) -> Void
     let onOrganize: () -> Void
@@ -131,7 +142,7 @@ struct RelationshipMapView: View {
                         )
                     }
 
-                    CenterProfile()
+                    CenterProfile(displayName: RelationshipOwnerDisplayName.resolve(ownerDisplayName))
                         .position(centerPoint)
 
                     if people.isEmpty {
@@ -299,7 +310,12 @@ private struct RelationshipNode: View {
             }
 
             ZStack(alignment: .bottomTrailing) {
-                AvatarView(color: person.category.color, symbol: person.symbol, size: avatarSize)
+                ContactAvatarView(
+                    avatarPath: person.avatarURL,
+                    color: person.category.color,
+                    symbol: person.symbol,
+                    size: avatarSize
+                )
                     .contentShape(Circle())
                     .onTapGesture {
                         onSelect(person)
@@ -358,6 +374,8 @@ private struct RelationshipNode: View {
 }
 
 private struct CenterProfile: View {
+    let displayName: String
+
     var body: some View {
         VStack(spacing: 10) {
             ZStack {
@@ -387,37 +405,18 @@ private struct CenterProfile: View {
             }
 
             VStack(spacing: 2) {
-                Text("Elias")
+                Text(displayName)
                     .font(.system(size: 30, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.56)
+                    .frame(maxWidth: 180)
 
                 Text(localizedText("你的关系坐标", "YOUR RELATIONSHIP ORIGIN"))
                     .font(.system(size: 9, weight: .heavy, design: .monospaced))
                     .foregroundStyle(SoulTheme.energy)
             }
         }
-    }
-}
-
-private struct AvatarView: View {
-    let color: Color
-    let symbol: String
-    let size: CGFloat
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(color.opacity(SoulTheme.isNight ? 0.24 : 0.14))
-
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.34, weight: .semibold))
-                .foregroundStyle(color)
-        }
-        .frame(width: size, height: size)
-        .overlay(
-            Circle()
-                .stroke(SoulTheme.cardStroke, lineWidth: 1)
-        )
     }
 }
 
@@ -669,13 +668,34 @@ struct RelationshipDetailSheet: View {
     let onCategoryChange: (RelationshipCategory) -> Void
     let onDeletePerson: () -> Void
     let onStartScenario: () -> Void
+    let onAvatarChange: (Data) -> Void
+    let onAvatarDelete: () -> Void
     @State private var pendingCategory: RelationshipCategory?
     @State private var isConfirmingDeletePerson = false
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var photoErrorMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
-                ProfileAvatarView(category: person.category, symbol: person.symbol)
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    ZStack(alignment: .bottomTrailing) {
+                        ContactAvatarView(
+                            avatarPath: person.avatarURL,
+                            color: person.category.color,
+                            symbol: person.symbol,
+                            size: 64
+                        )
+
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(Color.white)
+                            .frame(width: 24, height: 24)
+                            .background(SoulTheme.accent, in: Circle())
+                            .overlay(Circle().stroke(SoulTheme.cardFill, lineWidth: 2))
+                    }
+                }
+                .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(person.name)
@@ -741,6 +761,15 @@ struct RelationshipDetailSheet: View {
                 }
             }
 
+            if person.avatarURL != nil {
+                Button(role: .destructive, action: onAvatarDelete) {
+                    Label(localizedText("删除头像", "Remove Photo"), systemImage: "person.crop.circle.badge.minus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(SoulTheme.danger)
+                }
+                .buttonStyle(.plain)
+            }
+
             Button(action: onStartScenario) {
                 Label(localizedText("与 \(person.name) 情景模拟", "Simulate with \(person.name)"), systemImage: "figure.wave")
                     .font(.system(size: 16, weight: .bold))
@@ -767,6 +796,33 @@ struct RelationshipDetailSheet: View {
         }
         .padding(24)
         .background(SoulTheme.pageGradient)
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self) else {
+                        throw ContactAvatarImageProcessor.ProcessingError.invalidImage
+                    }
+                    onAvatarChange(try ContactAvatarImageProcessor.prepare(data))
+                } catch {
+                    photoErrorMessage = localizedText(
+                        "无法读取这张图片，请选择另一张。",
+                        "This photo could not be read. Choose another one."
+                    )
+                }
+            }
+        }
+        .alert(
+            localizedText("头像没有更新", "Photo Not Updated"),
+            isPresented: Binding(
+                get: { photoErrorMessage != nil },
+                set: { if !$0 { photoErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { photoErrorMessage = nil }
+        } message: {
+            Text(photoErrorMessage ?? "")
+        }
         .confirmationDialog(
             localizedText("确认更改关系？", "Confirm relationship change?"),
             isPresented: Binding(
@@ -828,39 +884,21 @@ private struct RelationshipMetric: View {
     }
 }
 
-private struct ProfileAvatarView: View {
-    let category: RelationshipCategory
-    let symbol: String
-
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(category.color.opacity(0.18))
-                .frame(width: 64, height: 64)
-                .overlay(
-                    Circle()
-                        .stroke(category.color.opacity(0.52), lineWidth: 1)
-                )
-
-            Image(systemName: symbol)
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(SoulTheme.primaryText)
-        }
-    }
-}
-
 struct AddPersonSheet: View {
     let availableCategories: [RelationshipCategory]
-    let onAdd: (String, String, RelationshipCategory) -> Void
+    let onAdd: (String, String, RelationshipCategory, Data?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var note = ""
     @State private var selectedCategory: RelationshipCategory
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var avatarData: Data?
+    @State private var photoErrorMessage: String?
 
     init(
         availableCategories: [RelationshipCategory],
-        onAdd: @escaping (String, String, RelationshipCategory) -> Void
+        onAdd: @escaping (String, String, RelationshipCategory, Data?) -> Void
     ) {
         self.availableCategories = availableCategories
         self.onAdd = onAdd
@@ -895,6 +933,45 @@ struct AddPersonSheet: View {
                     .textFieldStyle(.roundedBorder)
             }
 
+            HStack(spacing: 14) {
+                ContactAvatarView(
+                    avatarPath: nil,
+                    color: selectedCategory.color,
+                    symbol: avatarData == nil ? "person.fill" : "checkmark",
+                    size: 58
+                )
+                .overlay {
+                    if let avatarData, let image = UIImage(data: avatarData) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .clipShape(Circle())
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 5) {
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        Label(
+                            avatarData == nil
+                                ? localizedText("添加头像（可跳过）", "Add photo (optional)")
+                                : localizedText("更换头像", "Change photo"),
+                            systemImage: "photo.on.rectangle"
+                        )
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(SoulTheme.accent)
+                    }
+
+                    if avatarData != nil {
+                        Button(localizedText("移除已选头像", "Remove selected photo")) {
+                            avatarData = nil
+                            selectedPhotoItem = nil
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(SoulTheme.secondaryText)
+                    }
+                }
+            }
+
             VStack(alignment: .leading, spacing: 10) {
                 Text(localizedText("选择关系", "Choose Relationship"))
                     .font(.system(size: 16, weight: .bold))
@@ -923,7 +1000,7 @@ struct AddPersonSheet: View {
             }
 
             Button {
-                onAdd(name, note, selectedCategory)
+                onAdd(name, note, selectedCategory, avatarData)
                 dismiss()
             } label: {
                 Label(localizedText("添加到图谱", "Add to Map"), systemImage: "person.badge.plus")
@@ -939,6 +1016,34 @@ struct AddPersonSheet: View {
         }
         .padding(24)
         .background(SoulTheme.pageGradient)
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self) else {
+                        throw ContactAvatarImageProcessor.ProcessingError.invalidImage
+                    }
+                    avatarData = try ContactAvatarImageProcessor.prepare(data)
+                } catch {
+                    avatarData = nil
+                    photoErrorMessage = localizedText(
+                        "无法读取这张图片，请选择另一张。",
+                        "This photo could not be read. Choose another one."
+                    )
+                }
+            }
+        }
+        .alert(
+            localizedText("头像没有添加", "Photo Not Added"),
+            isPresented: Binding(
+                get: { photoErrorMessage != nil },
+                set: { if !$0 { photoErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { photoErrorMessage = nil }
+        } message: {
+            Text(photoErrorMessage ?? "")
+        }
     }
 
     private var canSubmit: Bool {

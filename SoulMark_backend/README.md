@@ -80,6 +80,8 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `SOULMARK_QWEN_API_KEY`: Model Studio API key. Keep this only in the backend `.env` or secret store.
 - `SOULMARK_QWEN_REALTIME_MODEL`: realtime model, default `qwen3.5-omni-plus-realtime`.
 - `SOULMARK_QWEN_VOICE`: generated voice, default `Ethan`.
+- `SOULMARK_AVATAR_UPLOAD_DIR`: local avatar directory, default `uploads/avatars`.
+- `SOULMARK_AVATAR_MAX_BYTES`: maximum source image size, default 5 MB.
 
 ## Current API
 
@@ -94,6 +96,8 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `GET /api/v1/contacts/{contact_id}`
 - `PATCH /api/v1/contacts/{contact_id}`
 - `DELETE /api/v1/contacts/{contact_id}`
+- `POST /api/v1/contacts/{contact_id}/avatar`
+- `DELETE /api/v1/contacts/{contact_id}/avatar`
 - `GET /api/v1/practices`
 - `POST /api/v1/practices`
 - `DELETE /api/v1/practices/{practice_id}`
@@ -117,7 +121,15 @@ never sent to the app. Raw audio is relayed transiently and is not retained by t
 Scenario replies are simulations for communication practice and must not be treated as statements
 or predictions from the real person being represented.
 
+## Contact Avatars
+
+The avatar upload endpoint accepts JPEG, PNG, HEIC, and HEIF images. Images are validated,
+orientation-corrected, cropped by the iOS client, resized to at most 1024 pixels, and stored as
+normalized JPEG files. Development files are served under `/media/avatars/` and the local upload
+directory is intentionally ignored by Git. Use durable object storage behind the storage service
+for a production deployment with more than one backend instance.
+
 ## Next Modules
 
-Subscriptions, uploads, push notifications, password recovery, email verification, and account
+Subscriptions, push notifications, password recovery, email verification, and account
 deletion should be added as separate modules while keeping the same API/service/database boundaries.

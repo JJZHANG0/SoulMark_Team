@@ -52,6 +52,7 @@ struct ContentView: View {
     @State private var showingMembershipUpgrade = false
     @State private var practiceCount = 0
     @State private var reviewCount = 0
+    @State private var relationshipErrorMessage: String?
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
 
@@ -168,6 +169,7 @@ struct ContentView: View {
 
                 RelationshipMapView(
                     people: visiblePeople,
+                    ownerDisplayName: session.user?.displayName,
                     selectedPerson: selectedPerson,
                     onMovePerson: { id, position in
                         people.updatePosition(for: id, to: position)
@@ -222,23 +224,62 @@ struct ContentView: View {
                     scenarioFocusedPersonID = person.id
                     selectedPerson = nil
                     selectedSection = .scenarioSimulation
+                },
+                onAvatarChange: { imageData in
+                    Task {
+                        if let updated = await session.uploadContactAvatar(
+                            contactID: person.id,
+                            imageData: imageData
+                        ) {
+                            replacePerson(updated)
+                        } else {
+                            relationshipErrorMessage = localizedText(
+                                "联系人仍然保留，但头像上传失败，请稍后重试。",
+                                "The contact is safe, but the photo upload failed. Try again later."
+                            )
+                        }
+                    }
+                },
+                onAvatarDelete: {
+                    Task {
+                        if let updated = await session.deleteContactAvatar(contactID: person.id) {
+                            replacePerson(updated)
+                        } else {
+                            relationshipErrorMessage = localizedText(
+                                "头像删除失败，请稍后重试。",
+                                "The photo could not be removed. Try again later."
+                            )
+                        }
+                    }
                 }
             )
-            .presentationDetents([.height(450), .medium])
+            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isAddingPerson) {
-            AddPersonSheet(availableCategories: availableCategories) { name, note, category in
+            AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData in
                 people.addPerson(name: name, note: note, category: category)
                 guard let localPerson = people.last else { return }
                 Task {
                     if let remotePerson = await session.createContact(localPerson),
                        let index = people.firstIndex(where: { $0.id == localPerson.id }) {
                         people[index] = remotePerson
+                        if let avatarData,
+                           let avatarPerson = await session.uploadContactAvatar(
+                            contactID: remotePerson.id,
+                            imageData: avatarData
+                           ) {
+                            people[index] = avatarPerson
+                        } else if avatarData != nil {
+                            relationshipErrorMessage = localizedText(
+                                "联系人已创建，但头像上传失败，可以稍后在资料中重试。",
+                                "The contact was created, but the photo upload failed. You can retry in their profile."
+                            )
+                        }
                     }
                 }
             }
-            .presentationDetents([.height(430), .medium])
+            .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingMembershipUpgrade) {
@@ -320,6 +361,17 @@ struct ContentView: View {
                 Text(localizedText("这个关系下的人会一起从关系图谱中移除。", "People under this relationship will also be removed from the map."))
             }
         }
+        .alert(
+            localizedText("头像没有保存", "Photo Not Saved"),
+            isPresented: Binding(
+                get: { relationshipErrorMessage != nil },
+                set: { if !$0 { relationshipErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { relationshipErrorMessage = nil }
+        } message: {
+            Text(relationshipErrorMessage ?? "")
+        }
     }
 
     private func requestAddPerson() {
@@ -328,6 +380,12 @@ struct ContentView: View {
         } else {
             showingMembershipUpgrade = true
         }
+    }
+
+    private func replacePerson(_ updated: RelationshipPerson) {
+        guard let index = people.firstIndex(where: { $0.id == updated.id }) else { return }
+        people[index] = updated
+        selectedPerson = updated
     }
 }
 

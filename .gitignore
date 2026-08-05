@@ -5,3 +5,4 @@ DerivedData/
 xcuserdata/
 *.xcbkptlist
 .worktrees/
+SoulMark_backend/uploads/

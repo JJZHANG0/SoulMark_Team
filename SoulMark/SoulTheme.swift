@@ -136,23 +136,6 @@ struct SoulBackground: View {
                 .stroke(SoulTheme.gridLine, lineWidth: 0.6)
             }
 
-            VStack {
-                HStack(spacing: 5) {
-                    Capsule()
-                        .fill(SoulTheme.energy.opacity(0.62))
-                        .frame(width: 58, height: 2)
-
-                    Capsule()
-                        .fill(SoulTheme.primaryText.opacity(0.14))
-                        .frame(width: 13, height: 2)
-
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-
-                Spacer()
-            }
         }
         .ignoresSafeArea()
     }
@@ -170,15 +153,6 @@ struct SoulGlassCardBackground: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(SoulTheme.cardStroke, lineWidth: 1)
             )
-            .overlay(alignment: .topLeading) {
-                if accented {
-                    Capsule()
-                        .fill(SoulTheme.energy)
-                        .frame(width: 44, height: 3)
-                        .padding(.leading, 14)
-                        .padding(.top, 1)
-                }
-            }
             .shadow(color: SoulTheme.shadow, radius: 18, x: 0, y: 10)
     }
 }
@@ -190,13 +164,6 @@ struct SoulVisorPanelBackground: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            }
-            .overlay(alignment: .topLeading) {
-                HStack(spacing: 5) {
-                    Capsule().fill(SoulTheme.energy).frame(width: 48, height: 3)
-                    Capsule().fill(Color.white.opacity(0.22)).frame(width: 12, height: 3)
-                }
-                .padding(16)
             }
             .shadow(color: SoulTheme.energy.opacity(0.10), radius: 24, x: 0, y: 10)
     }

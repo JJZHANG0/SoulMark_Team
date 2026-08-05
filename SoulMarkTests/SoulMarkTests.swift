@@ -8,6 +8,7 @@
 import Testing
 import CoreGraphics
 import Foundation
+import UIKit
 @testable import SoulMark
 
 struct SoulMarkTests {
@@ -291,6 +292,55 @@ struct SoulMarkTests {
         ))
     }
 
+    @Test func remoteContactMapsAvatarURLToRelationshipPerson() throws {
+        let json = """
+        {
+          "id": "B973B3E4-2D43-4C17-8AAE-93024A6C91E5",
+          "name": "Wren",
+          "relationship_label": "friend",
+          "notes": "Friend",
+          "strength": 80,
+          "position_x": 0.4,
+          "position_y": 0.6,
+          "symbol": "person.fill",
+          "memory": "Memory",
+          "avatar_url": "/media/avatars/wren.jpg"
+        }
+        """
+
+        let contact = try JSONDecoder().decode(RemoteContact.self, from: Data(json.utf8))
+
+        #expect(contact.relationshipPerson.avatarURL == "/media/avatars/wren.jpg")
+    }
+
+    @Test func backendMediaURLResolvesRelativeAndAbsoluteAddresses() throws {
+        let relative = try #require(BackendURLResolver.mediaURL(
+            "/media/avatars/wren.jpg",
+            baseURL: "http://192.168.110.109:8000"
+        ))
+        let absolute = try #require(BackendURLResolver.mediaURL(
+            "https://cdn.example.com/wren.jpg",
+            baseURL: "http://192.168.110.109:8000"
+        ))
+
+        #expect(relative.absoluteString == "http://192.168.110.109:8000/media/avatars/wren.jpg")
+        #expect(absolute.absoluteString == "https://cdn.example.com/wren.jpg")
+    }
+
+    @Test func contactAvatarProcessorProducesBoundedJPEG() throws {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 1_600, height: 900)).image { context in
+            UIColor.systemPink.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 1_600, height: 900))
+        }
+        let source = try #require(image.pngData())
+
+        let prepared = try ContactAvatarImageProcessor.prepare(source)
+        let decoded = try #require(UIImage(data: prepared))
+
+        #expect(decoded.size.width == decoded.size.height)
+        #expect(decoded.size.width <= 1_024)
+    }
+
     @Test func emptyScenarioParticipantListUsesSoulFallback() {
         let participants = [ScenarioParticipant]().withSoulFallback()
 
@@ -306,6 +356,12 @@ struct SoulMarkTests {
 
         #expect(right.horizontalDirection == 1)
         #expect(left.horizontalDirection == -1)
+    }
+
+    @Test func relationshipOwnerNameUsesNicknameWithLocalizedFallback() {
+        #expect(RelationshipOwnerDisplayName.resolve("  小雨  ", language: "zh") == "小雨")
+        #expect(RelationshipOwnerDisplayName.resolve("", language: "zh") == "我")
+        #expect(RelationshipOwnerDisplayName.resolve("   ", language: "en") == "Me")
     }
 
     @Test func achievementsUnlockFromCurrentSessionProgress() {
