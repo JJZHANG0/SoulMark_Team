@@ -33,6 +33,14 @@ class ReviewCreate(BaseModel):
     advice: str = Field(min_length=1, max_length=4000)
 
 
+class ReviewAnalyzeRequest(BaseModel):
+    practice_id: UUID | None = None
+    title: str = Field(min_length=1, max_length=160)
+    source: Literal["scenario", "wechat", "manual"]
+    transcript: str = Field(min_length=1, max_length=100_000)
+    language: Literal["zh", "en"] = "zh"
+
+
 class ReviewResponse(ReviewCreate):
     id: UUID
     owner_id: UUID

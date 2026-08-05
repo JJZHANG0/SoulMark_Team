@@ -4,12 +4,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.review import ReviewAnalyzerDependency
 from app.api.dependencies import CurrentUser
 from app.db.session import get_db
 from app.schemas.activity import (
     DashboardStats,
     PracticeCreate,
     PracticeResponse,
+    ReviewAnalyzeRequest,
     ReviewCreate,
     ReviewResponse,
 )
@@ -61,6 +63,30 @@ async def post_review(
     payload: ReviewCreate, current_user: CurrentUser, session: DatabaseSession
 ) -> ReviewResponse:
     return ReviewResponse.model_validate(await create_review(session, current_user.id, payload))
+
+
+@router.post(
+    "/reviews/analyze",
+    response_model=ReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def analyze_review(
+    payload: ReviewAnalyzeRequest,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+    analyzer: ReviewAnalyzerDependency,
+) -> ReviewResponse:
+    analysis = await analyzer.analyze(payload.transcript, payload.language)
+    review = ReviewCreate(
+        practice_id=payload.practice_id,
+        title=payload.title,
+        source=payload.source,
+        transcript=payload.transcript,
+        score=analysis.score,
+        reason=analysis.reason,
+        advice=analysis.advice,
+    )
+    return ReviewResponse.model_validate(await create_review(session, current_user.id, review))
 
 
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)

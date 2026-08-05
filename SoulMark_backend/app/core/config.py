@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     qwen_realtime_model: str = "qwen3.5-omni-plus-realtime"
     qwen_voice: str = "Ethan"
     qwen_input_transcription_model: str = "qwen3-asr-flash-realtime"
+    qwen_workspace_id: str | None = None
+    qwen_region: Literal["cn-beijing", "ap-southeast-1", "ap-northeast-1", "eu-central-1"] = (
+        "cn-beijing"
+    )
+    qwen_analysis_model: str = "qwen3.7-plus"
+    qwen_analysis_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    qwen_analysis_timeout_seconds: float = 45.0
     realtime_input_sample_rate_hz: int = 16000
     realtime_output_sample_rate_hz: int = 24000
     realtime_max_audio_frame_bytes: int = 65536
@@ -56,6 +63,10 @@ class Settings(BaseSettings):
         if self.environment == "production" and self.sms_provider == "development":
             raise ValueError("production must use the aliyun or pnvs SMS provider")
         return self
+
+    @property
+    def qwen_analysis_base_url(self) -> str:
+        return self.qwen_analysis_url.rstrip("/")
 
 
 @lru_cache

@@ -80,6 +80,10 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `SOULMARK_QWEN_API_KEY`: Model Studio API key. Keep this only in the backend `.env` or secret store.
 - `SOULMARK_QWEN_REALTIME_MODEL`: realtime model, default `qwen3.5-omni-plus-realtime`.
 - `SOULMARK_QWEN_VOICE`: generated voice, default `Ethan`.
+- `SOULMARK_QWEN_WORKSPACE_ID`: Model Studio workspace used in the regional API URL.
+- `SOULMARK_QWEN_REGION`: Model Studio region, default `cn-beijing`.
+- `SOULMARK_QWEN_ANALYSIS_MODEL`: communication review model, default `qwen3.7-plus`.
+- `SOULMARK_QWEN_ANALYSIS_URL`: OpenAI-compatible base URL used for review analysis.
 - `SOULMARK_AVATAR_UPLOAD_DIR`: local avatar directory, default `uploads/avatars`.
 - `SOULMARK_AVATAR_MAX_BYTES`: maximum source image size, default 5 MB.
 - `SOULMARK_SMS_PROVIDER`: `development`, `aliyun`, or `pnvs`.
@@ -113,6 +117,7 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `DELETE /api/v1/practices/{practice_id}`
 - `GET /api/v1/reviews`
 - `POST /api/v1/reviews`
+- `POST /api/v1/reviews/analyze`
 - `DELETE /api/v1/reviews/{review_id}`
 - `GET /api/v1/stats`
 - `WS /api/v1/realtime/scenario`
