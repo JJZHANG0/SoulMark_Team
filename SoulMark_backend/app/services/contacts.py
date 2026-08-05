@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.models.contact import Contact
 from app.schemas.contact import ContactCreate, ContactUpdate
+from app.services.avatar_storage import AvatarStorage
 
 FREE_CONTACT_LIMIT = 5
 
@@ -75,7 +76,38 @@ async def delete_contact(
     session: AsyncSession,
     owner_id: UUID,
     contact_id: UUID,
+    avatar_storage: AvatarStorage | None = None,
 ) -> None:
     contact = await get_owned_contact(session, owner_id, contact_id)
+    if avatar_storage is not None:
+        avatar_storage.delete(contact.avatar_url)
     await session.delete(contact)
     await session.commit()
+
+
+async def update_contact_avatar(
+    session: AsyncSession,
+    contact: Contact,
+    avatar_storage: AvatarStorage,
+    content: bytes,
+    content_type: str | None,
+) -> Contact:
+    previous_url = contact.avatar_url
+    contact.avatar_url = avatar_storage.save(content, content_type)
+    await session.commit()
+    await session.refresh(contact)
+    avatar_storage.delete(previous_url)
+    return contact
+
+
+async def delete_contact_avatar(
+    session: AsyncSession,
+    contact: Contact,
+    avatar_storage: AvatarStorage,
+) -> Contact:
+    previous_url = contact.avatar_url
+    contact.avatar_url = None
+    await session.commit()
+    await session.refresh(contact)
+    avatar_storage.delete(previous_url)
+    return contact

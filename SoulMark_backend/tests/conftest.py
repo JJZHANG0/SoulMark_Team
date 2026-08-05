@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
@@ -10,10 +11,11 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
 from app.models import Contact, ConversationReview, PracticeSession, User  # noqa: F401
+from app.services.avatar_storage import AvatarStorage, get_avatar_storage
 
 
 @pytest.fixture
-async def application() -> AsyncIterator[FastAPI]:
+async def application(tmp_path: Path) -> AsyncIterator[FastAPI]:
     test_engine = create_async_engine(
         "sqlite+aiosqlite://",
         connect_args={"check_same_thread": False},
@@ -30,6 +32,10 @@ async def application() -> AsyncIterator[FastAPI]:
 
     test_app = create_app()
     test_app.dependency_overrides[get_db] = override_get_db
+    test_app.dependency_overrides[get_avatar_storage] = lambda: AvatarStorage(
+        tmp_path / "avatars",
+        5 * 1024 * 1024,
+    )
     yield test_app
     test_app.dependency_overrides.clear()
     await test_engine.dispose()

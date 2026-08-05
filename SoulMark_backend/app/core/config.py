@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -19,6 +20,8 @@ class Settings(BaseSettings):
     realtime_input_sample_rate_hz: int = 16000
     realtime_output_sample_rate_hz: int = 24000
     realtime_max_audio_frame_bytes: int = 65536
+    avatar_upload_dir: Path = Path("uploads/avatars")
+    avatar_max_bytes: int = 5 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=".env",

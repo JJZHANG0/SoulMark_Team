@@ -1,4 +1,10 @@
+import base64
+
 from httpx import AsyncClient
+
+PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
 
 CONTACT_PAYLOAD = {
     "name": "Wren",
@@ -92,6 +98,102 @@ async def test_contact_is_hidden_from_other_users(client: AsyncClient) -> None:
     contact_id = created.json()["id"]
 
     response = await client.get(f"/api/v1/contacts/{contact_id}", headers=other_headers)
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "contact_not_found"
+
+
+async def test_user_can_upload_replace_and_delete_contact_avatar(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    created = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json=CONTACT_PAYLOAD,
+    )
+    contact_id = created.json()["id"]
+
+    uploaded = await client.post(
+        f"/api/v1/contacts/{contact_id}/avatar",
+        headers=auth_headers,
+        files={"file": ("avatar.png", PNG_BYTES, "image/png")},
+    )
+
+    assert uploaded.status_code == 200
+    first_url = uploaded.json()["avatar_url"]
+    assert first_url.startswith("/media/avatars/")
+
+    replaced = await client.post(
+        f"/api/v1/contacts/{contact_id}/avatar",
+        headers=auth_headers,
+        files={"file": ("replacement.png", PNG_BYTES, "image/png")},
+    )
+    assert replaced.status_code == 200
+    assert replaced.json()["avatar_url"] != first_url
+
+    deleted = await client.delete(
+        f"/api/v1/contacts/{contact_id}/avatar",
+        headers=auth_headers,
+    )
+    assert deleted.status_code == 200
+    assert deleted.json()["avatar_url"] is None
+
+
+async def test_avatar_upload_rejects_unsupported_file_type(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    created = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json=CONTACT_PAYLOAD,
+    )
+
+    response = await client.post(
+        f"/api/v1/contacts/{created.json()['id']}/avatar",
+        headers=auth_headers,
+        files={"file": ("avatar.txt", b"not an image", "text/plain")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_avatar_type"
+
+
+async def test_avatar_upload_rejects_oversized_file(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    created = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json=CONTACT_PAYLOAD,
+    )
+
+    response = await client.post(
+        f"/api/v1/contacts/{created.json()['id']}/avatar",
+        headers=auth_headers,
+        files={"file": ("large.jpg", b"x" * (5 * 1024 * 1024 + 1), "image/jpeg")},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"]["code"] == "avatar_too_large"
+
+
+async def test_other_user_cannot_manage_contact_avatar(client: AsyncClient) -> None:
+    owner_headers = await create_headers(client, "avatar-owner@example.com", "Owner")
+    other_headers = await create_headers(client, "avatar-other@example.com", "Other")
+    created = await client.post(
+        "/api/v1/contacts",
+        headers=owner_headers,
+        json=CONTACT_PAYLOAD,
+    )
+
+    response = await client.post(
+        f"/api/v1/contacts/{created.json()['id']}/avatar",
+        headers=other_headers,
+        files={"file": ("avatar.png", PNG_BYTES, "image/png")},
+    )
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "contact_not_found"

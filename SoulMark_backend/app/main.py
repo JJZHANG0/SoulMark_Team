@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +25,12 @@ def create_app() -> FastAPI:
     application.include_router(users_router, prefix="/api/v1")
     application.include_router(contacts_router, prefix="/api/v1")
     application.include_router(realtime_router, prefix="/api/v1")
+    settings.avatar_upload_dir.mkdir(parents=True, exist_ok=True)
+    application.mount(
+        "/media",
+        StaticFiles(directory=settings.avatar_upload_dir.parent),
+        name="media",
+    )
 
     @application.get("/health", tags=["health"])
     async def health() -> dict[str, str]:
