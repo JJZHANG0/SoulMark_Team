@@ -25,6 +25,8 @@ struct ConversationReviewPage: View {
     @State private var selectedRecord: ConversationReviewRecord?
     @State private var searchText = ""
     @State private var deletionError: String?
+    @State private var queuedTimelineSuggestion: ReviewTimelineSuggestion?
+    @State private var pendingTimelineSuggestion: ReviewTimelineSuggestion?
     let onRecordCountChange: (Int) -> Void
 
     init(onRecordCountChange: @escaping (Int) -> Void = { _ in }) {
@@ -99,17 +101,18 @@ struct ConversationReviewPage: View {
         }
         .sheet(isPresented: $isAddingRecord) {
             AddReviewRecordSheet { title, source, transcript, media in
-                let analyzedRecord = try await session.analyzeReview(
+                let analysis = try await session.analyzeReview(
                     title: title,
                     source: source,
                     transcript: transcript,
                     language: SoulPreferencesStore.shared.language,
                     media: media
                 )
-                let record = try await session.recordReview(analyzedRecord)
+                let record = try await session.recordReview(analysis.record)
                 await MainActor.run {
                     records.insert(record, at: 0)
                     onRecordCountChange(records.count)
+                    queuedTimelineSuggestion = analysis.timelineSuggestion
                 }
             }
             .presentationDetents([.large])
@@ -119,6 +122,34 @@ struct ConversationReviewPage: View {
             ConversationReviewDetailSheet(record: record)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $pendingTimelineSuggestion) { suggestion in
+            ReviewTimelineSuggestionSheet(suggestion: suggestion) {
+                contactIDs,
+                title,
+                details,
+                occurredAt,
+                imageData in
+                _ = try await session.createContactEvents(
+                    contactIDs: contactIDs,
+                    title: title,
+                    details: details,
+                    occurredAt: occurredAt,
+                    imageData: imageData
+                )
+            }
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .onChange(of: isAddingRecord) { _, isPresented in
+            guard !isPresented, let suggestion = queuedTimelineSuggestion else {
+                return
+            }
+            queuedTimelineSuggestion = nil
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(280))
+                pendingTimelineSuggestion = suggestion
+            }
         }
         .task {
             if let syncedRecords = await session.loadReviews() {
@@ -889,6 +920,302 @@ private struct AddReviewRecordSheet: View {
                         .allowsHitTesting(false)
                     }
                 }
+        }
+    }
+}
+
+private struct ReviewContactSelectionButton: View {
+    let name: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 7) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                Text(name).lineLimit(1)
+            }
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(isSelected ? Color.white : SoulTheme.primaryText)
+            .padding(.horizontal, 14)
+            .frame(maxWidth: .infinity)
+            .frame(height: 42)
+            .background {
+                Capsule()
+                    .fill(isSelected ? SoulTheme.accent : SoulTheme.cardFill)
+            }
+            .overlay {
+                if !isSelected {
+                    Capsule()
+                        .stroke(SoulTheme.cardStroke, lineWidth: 0.8)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct ReviewTimelineSuggestionSheet: View {
+    let suggestion: ReviewTimelineSuggestion
+    let onSave: ([UUID], String, String, Date, Data?) async throws -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedContactIDs: Set<UUID>
+    @State private var title: String
+    @State private var details: String
+    @State private var occurredAt = Date()
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var imageData: Data?
+    @State private var previewImage: UIImage?
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    init(
+        suggestion: ReviewTimelineSuggestion,
+        onSave: @escaping ([UUID], String, String, Date, Data?) async throws -> Void
+    ) {
+        self.suggestion = suggestion
+        self.onSave = onSave
+        _selectedContactIDs = State(initialValue: Set(suggestion.contacts.map(\.id)))
+        _title = State(initialValue: suggestion.title)
+        _details = State(initialValue: suggestion.details)
+    }
+
+    private var canSave: Bool {
+        !selectedContactIDs.isEmpty
+            && !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var contactNames: String {
+        suggestion.contacts.map(\.name).joined(separator: "、")
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Label(
+                            localizedText("识别到相关人物", "Related Person Found"),
+                            systemImage: "person.crop.circle.badge.checkmark"
+                        )
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(SoulTheme.accent)
+
+                        Text(
+                            localizedText(
+                                "要将这件事记录到 \(contactNames) 的事件时间线吗？",
+                                "Add this event to \(suggestion.contacts.map(\.name).joined(separator: ", "))'s timeline?"
+                            )
+                        )
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .foregroundStyle(SoulTheme.primaryText)
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizedText("事件标题", "Event Title"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        HStack(spacing: 12) {
+                            Image(systemName: "textformat")
+                                .foregroundStyle(SoulTheme.accent)
+                            TextField(localizedText("事件标题", "Event title"), text: $title)
+                                .textFieldStyle(.plain)
+                        }
+                        .padding(.horizontal, 15)
+                        .frame(height: 52)
+                        .background(
+                            SoulGlassCardBackground(
+                                cornerRadius: SoulTheme.controlCornerRadius
+                            )
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizedText("发生时间", "Date and Time"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        DatePicker(
+                            "",
+                            selection: $occurredAt,
+                            displayedComponents: [.date, .hourAndMinute]
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                        .padding(15)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(SoulGlassCardBackground())
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(localizedText("人物", "People"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+
+                        LazyVGrid(
+                            columns: [
+                                GridItem(.adaptive(minimum: 104), spacing: 8)
+                            ],
+                            alignment: .leading,
+                            spacing: 8
+                        ) {
+                            ForEach(suggestion.contacts) { contact in
+                                ReviewContactSelectionButton(
+                                    name: contact.name,
+                                    isSelected: selectedContactIDs.contains(contact.id)
+                                ) {
+                                    withAnimation(.snappy(duration: 0.28)) {
+                                        if selectedContactIDs.contains(contact.id) {
+                                            selectedContactIDs.remove(contact.id)
+                                        } else {
+                                            selectedContactIDs.insert(contact.id)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        .padding(14)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(SoulGlassCardBackground())
+
+                        if selectedContactIDs.isEmpty {
+                            Text(localizedText("请至少选择一位人物", "Select at least one person"))
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(.red)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(localizedText("事件详情", "Event Details"))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        TextEditor(text: $details)
+                            .font(.system(size: 15))
+                            .foregroundStyle(SoulTheme.primaryText)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 180)
+                            .padding(12)
+                            .background(SoulGlassCardBackground())
+                    }
+
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        VStack(spacing: 10) {
+                            if let previewImage {
+                                Image(uiImage: previewImage)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxHeight: 220)
+                                    .clipShape(
+                                        RoundedRectangle(
+                                            cornerRadius: SoulTheme.controlCornerRadius,
+                                            style: .continuous
+                                        )
+                                    )
+                                Label(
+                                    localizedText("更换图片", "Change Photo"),
+                                    systemImage: "photo"
+                                )
+                            } else {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.system(size: 28, weight: .medium))
+                                    .foregroundStyle(SoulTheme.accent)
+                                Text(localizedText("可选添加图片", "Add an Optional Photo"))
+                                    .font(.system(size: 15, weight: .semibold))
+                            }
+                        }
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .frame(maxWidth: .infinity)
+                        .padding(20)
+                        .background(SoulGlassCardBackground())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        Task {
+                            isSaving = true
+                            do {
+                                let selectedIDs = suggestion.contacts
+                                    .map(\.id)
+                                    .filter(selectedContactIDs.contains)
+                                try await onSave(
+                                    selectedIDs,
+                                    title,
+                                    details,
+                                    occurredAt,
+                                    imageData
+                                )
+                                dismiss()
+                            } catch {
+                                isSaving = false
+                                errorMessage = error.localizedDescription
+                            }
+                        }
+                    } label: {
+                        if isSaving {
+                            ProgressView().tint(.white)
+                        } else {
+                            Label(
+                                localizedText("记录到事件时间线", "Add to Timeline"),
+                                systemImage: "clock.badge.checkmark"
+                            )
+                        }
+                    }
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        canSave ? SoulTheme.accent : Color.gray.opacity(0.35),
+                        in: RoundedRectangle(
+                            cornerRadius: SoulTheme.controlCornerRadius,
+                            style: .continuous
+                        )
+                    )
+                    .disabled(!canSave || isSaving)
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("保存事件", "Save Event"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localizedText("不记录", "Not Now")) { dismiss() }
+                        .disabled(isSaving)
+                }
+            }
+        }
+        .onChange(of: selectedPhotoItem) { _, item in
+            guard let item else { return }
+            Task {
+                do {
+                    guard let data = try await item.loadTransferable(type: Data.self) else {
+                        throw ReviewMediaError.invalidImage
+                    }
+                    let prepared = try ReviewImageProcessor.prepare(data)
+                    imageData = prepared
+                    previewImage = UIImage(data: prepared)
+                } catch {
+                    errorMessage = localizedText(
+                        "无法读取这张图片，请选择另一张。",
+                        "This photo could not be read. Choose another one."
+                    )
+                }
+            }
+        }
+        .interactiveDismissDisabled(isSaving)
+        .alert(
+            localizedText("无法记录事件", "Could Not Save Event"),
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
         }
     }
 }

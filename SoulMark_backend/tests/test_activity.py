@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 from pytest import MonkeyPatch
 
-from app.ai.review import _normalize_analysis
+from app.ai.review import _ensure_first_person, _normalize_analysis
 from app.api.v1 import activity as activity_api
 from app.schemas.activity import ReviewAnalysisResponse
 
@@ -98,6 +98,11 @@ async def test_review_analysis_returns_structured_qwen_result(
         "brief_advice": "把期待改成一个明确、可回应的请求。",
         "detailed_advice": "先确认事实，再说明感受，最后提出具体请求。",
         "transcript": None,
+        "related_contact_name": None,
+        "related_contact_id": None,
+        "related_contact_names": [],
+        "related_contacts": [],
+        "event_details": None,
     }
 
 
@@ -120,6 +125,24 @@ def test_review_analysis_normalizes_structured_advice_sections() -> None:
         "做得好的地方\n• 先陈述事实\n• 愿意倾听\n\n"
         "下次可以这样说\n我希望我们可以先确认彼此的理解。"
     )
+
+
+def test_review_analysis_rewrites_generated_summary_to_first_person() -> None:
+    analysis = ReviewAnalysisResponse(
+        title="一次沟通",
+        score=80,
+        reason="该用户表达了感受，但用户没有提出明确请求。",
+        brief_advice="用户可以先确认对方的想法。",
+        detailed_advice="用户下一次可以先停顿，再说明需要。",
+        event_details="用户和 Wren 因迟到发生了争执。",
+    )
+
+    rewritten = _ensure_first_person(analysis, "zh")
+
+    assert rewritten.reason == "我表达了感受，但我没有提出明确请求。"
+    assert rewritten.brief_advice == "我可以先确认对方的想法。"
+    assert rewritten.detailed_advice == "我下一次可以先停顿，再说明需要。"
+    assert rewritten.event_details == "我和 Wren 因迟到发生了争执。"
 
 
 async def test_review_media_analysis_accepts_chat_image(
@@ -253,3 +276,62 @@ async def test_review_ai_memory_contains_only_current_users_relationships(
     assert "去年表白" in captured["memory"]
     assert "我在公园向她表白" in captured["memory"]
     assert "Private Other Contact" not in captured["memory"]
+
+
+async def test_review_suggestion_resolves_only_owned_exact_contact(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    contact = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json={
+            "name": "Wren",
+            "relationship_label": "朋友",
+            "notes": "可以倾诉",
+            "strength": 80,
+        },
+    )
+    second_contact = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json={
+            "name": "Oscar",
+            "relationship_label": "朋友",
+            "notes": "共同朋友",
+            "strength": 70,
+        },
+    )
+
+    async def fake_analysis(*args: object, **kwargs: object) -> ReviewAnalysisResponse:
+        return ReviewAnalysisResponse(
+            title="雨天的争执",
+            score=76,
+            reason="表达较急。",
+            brief_advice="先确认感受。",
+            detailed_advice="下一次先停顿再回应。",
+            related_contact_names=["Wren", "Oscar", "Not Registered"],
+            event_details="我和 Wren、Oscar 在雨天因为迟到发生争执。",
+        )
+
+    monkeypatch.setattr(activity_api, "analyze_review", fake_analysis)
+    response = await client.post(
+        "/api/v1/reviews/analyze",
+        headers=auth_headers,
+        json={
+            "source": "manual",
+            "transcript": "我和 Wren、Oscar 吵架了",
+            "language": "zh",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["related_contact_id"] == contact.json()["id"]
+    assert response.json()["related_contact_name"] == "Wren"
+    assert response.json()["related_contact_names"] == ["Wren", "Oscar"]
+    assert response.json()["related_contacts"] == [
+        {"id": contact.json()["id"], "name": "Wren"},
+        {"id": second_contact.json()["id"], "name": "Oscar"},
+    ]
+    assert response.json()["event_details"] == "我和 Wren、Oscar 在雨天因为迟到发生争执。"

@@ -21,14 +21,21 @@ def _review_prompt(payload: ReviewAnalysisRequest, memory_context: str = "") -> 
     return f"""
 你是一名克制、具体、尊重用户的沟通复盘分析师。分析以下{source_names[payload.source]}记录。
 对话中的“我”代表用户。只评价用户的人际关系处理和情绪沟通方式，不诊断人格或心理疾病。
+除标题外，所有分析、原因、建议和事件总结都必须站在用户的第一视角，使用“我”来描述，
+绝对不要用“用户”“该用户”等第三人称称呼用户。建议应写成“我可以……”而不是“用户可以……”。
 必须使用{output_language}输出一个 JSON 对象，不要输出 Markdown 或额外文字，字段必须严格为：
 {{
-  "title": "事件概括，通常5到10个汉字或对应长度英文，避免冗长",
+  "title": "像本人随手写下的事件标题，通常5到10个汉字，具体自然，不用分析术语",
   "score": 0到100之间的整数,
-  "reason": "具体说明评分原因，引用行为特征但不要大段复述原文",
-  "brief_advice": "适合卡片展示的一到两句话建议",
-  "detailed_advice": "详细复盘建议，包含做得好的地方、可以改进的地方和下一次可直接采用的表达方式"
+  "reason": "以我的第一视角具体说明评分原因，引用行为特征但不要大段复述原文",
+  "brief_advice": "以我的第一视角写一到两句话建议",
+  "detailed_advice": "以我的视角写详细建议，包含优点、改进点和下次可采用的表达",
+  "related_contact_names": ["列出事件中明确出现的所有已登记人物准确姓名，没有则为空数组"],
+  "event_details": "像我的随手记录，用第一人称写清发生了什么；自然具体，不分析、不评价"
 }}
+
+标题和 event_details 要像真人日记或备忘录，不要出现“该事件”“本次沟通”“体现了”
+“关系得到修复”“双方进行了”等报告式、AI式表达，也不要为了完整而重复同一事实。
 
 聊天记录：
 {payload.transcript}
@@ -60,10 +67,33 @@ def _normalize_analysis(raw: Any) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise TypeError("Review analysis must be a JSON object.")
     normalized = dict(raw)
-    for field in ("title", "reason", "brief_advice", "detailed_advice", "transcript"):
+    for field in (
+        "title",
+        "reason",
+        "brief_advice",
+        "detailed_advice",
+        "transcript",
+        "event_details",
+    ):
         if field not in normalized and field == "transcript":
             continue
         normalized[field] = _render_text(normalized.get(field))
+    if normalized.get("related_contact_name") is not None:
+        normalized["related_contact_name"] = _render_text(
+            normalized["related_contact_name"]
+        ) or None
+    names = normalized.get("related_contact_names")
+    if isinstance(names, str):
+        normalized["related_contact_names"] = [names.strip()] if names.strip() else []
+    elif isinstance(names, list):
+        normalized["related_contact_names"] = [
+            rendered
+            for item in names
+            if (rendered := _render_text(item))
+        ]
+    else:
+        legacy_name = normalized.get("related_contact_name")
+        normalized["related_contact_names"] = [legacy_name] if legacy_name else []
     return normalized
 
 
@@ -139,6 +169,28 @@ def _parse_analysis(text: str) -> ReviewAnalysisResponse:
         ) from exc
 
 
+def _ensure_first_person(
+    analysis: ReviewAnalysisResponse,
+    language: str,
+) -> ReviewAnalysisResponse:
+    fields = ("reason", "brief_advice", "detailed_advice", "event_details")
+    updates: dict[str, str | None] = {}
+    for field in fields:
+        value = getattr(analysis, field)
+        if value is None:
+            updates[field] = None
+        elif language == "zh":
+            updates[field] = value.replace("该用户", "我").replace("用户", "我")
+        else:
+            updates[field] = (
+                value.replace("The user's", "My")
+                .replace("the user's", "my")
+                .replace("The user", "I")
+                .replace("the user", "I")
+            )
+    return analysis.model_copy(update=updates)
+
+
 def _call_qwen(
     payload: ReviewAnalysisRequest,
     settings: Settings,
@@ -161,7 +213,8 @@ def _call_qwen(
         ],
         structured=True,
     )
-    return _parse_analysis(text).model_copy(update={"transcript": payload.transcript})
+    analysis = _ensure_first_person(_parse_analysis(text), payload.language)
+    return analysis.model_copy(update={"transcript": payload.transcript})
 
 
 def _analyze_image(
@@ -200,7 +253,7 @@ def _analyze_image(
         ],
         structured=True,
     )
-    result = _parse_analysis(text)
+    result = _ensure_first_person(_parse_analysis(text), language)
     if not result.transcript:
         result = result.model_copy(
             update={

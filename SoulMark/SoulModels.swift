@@ -646,6 +646,23 @@ struct ConversationReviewRecord: Identifiable, Equatable {
     }
 }
 
+struct ReviewSuggestedContact: Identifiable, Equatable {
+    let id: UUID
+    let name: String
+}
+
+struct ReviewTimelineSuggestion: Identifiable, Equatable {
+    let id = UUID()
+    let contacts: [ReviewSuggestedContact]
+    let title: String
+    let details: String
+}
+
+struct AnalyzedConversationReview {
+    let record: ConversationReviewRecord
+    let timelineSuggestion: ReviewTimelineSuggestion?
+}
+
 enum RelationshipSampleData {
     static let people: [RelationshipPerson] = [
         .init(name: "Torin", note: "很久未曾联系", category: .distant, strength: 0.28, position: CGPoint(x: 0.16, y: 0.16), avatarColors: [.mint.opacity(0.35), .orange.opacity(0.28)], symbol: "leaf.fill", memory: "学生时期认识，偶尔想起对方。"),

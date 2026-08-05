@@ -287,6 +287,11 @@ private struct ReviewAnalysisPayload: Encodable {
     let language: String
 }
 
+private struct ReviewRelatedContactDTO: Decodable {
+    let id: UUID
+    let name: String
+}
+
 private struct ReviewAnalysisDTO: Decodable {
     let title: String
     let score: Int
@@ -294,11 +299,19 @@ private struct ReviewAnalysisDTO: Decodable {
     let briefAdvice: String
     let detailedAdvice: String
     let transcript: String?
+    let relatedContactName: String?
+    let relatedContactID: UUID?
+    let relatedContacts: [ReviewRelatedContactDTO]?
+    let eventDetails: String?
 
     enum CodingKeys: String, CodingKey {
         case title, score, reason, transcript
         case briefAdvice = "brief_advice"
         case detailedAdvice = "detailed_advice"
+        case relatedContactName = "related_contact_name"
+        case relatedContactID = "related_contact_id"
+        case relatedContacts = "related_contacts"
+        case eventDetails = "event_details"
     }
 }
 
@@ -1063,6 +1076,39 @@ final class AppSession: ObservableObject {
         return remote.timelineEvent
     }
 
+    func createContactEvents(
+        contactIDs: [UUID],
+        title: String,
+        details: String,
+        occurredAt: Date,
+        imageData: Data?
+    ) async throws -> [ContactTimelineEvent] {
+        let uniqueContactIDs = Array(NSOrderedSet(array: contactIDs))
+            .compactMap { $0 as? UUID }
+        var createdEvents: [ContactTimelineEvent] = []
+        do {
+            for contactID in uniqueContactIDs {
+                let event = try await createContactEvent(
+                    contactID: contactID,
+                    title: title,
+                    details: details,
+                    occurredAt: occurredAt,
+                    imageData: imageData
+                )
+                createdEvents.append(event)
+            }
+            return createdEvents
+        } catch {
+            for event in createdEvents {
+                try? await deleteContactEvent(
+                    contactID: event.contactID,
+                    eventID: event.id
+                )
+            }
+            throw error
+        }
+    }
+
     func deleteContactEvent(contactID: UUID, eventID: UUID) async throws {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         try await api.deleteContactEvent(
@@ -1112,7 +1158,7 @@ final class AppSession: ObservableObject {
         transcript: String,
         language: String,
         media: ReviewMediaAttachment? = nil
-    ) async throws -> ConversationReviewRecord {
+    ) async throws -> AnalyzedConversationReview {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         let analysis: ReviewAnalysisDTO
         if let media {
@@ -1139,7 +1185,7 @@ final class AppSession: ObservableObject {
         let finalTranscript = analyzedTranscript?.isEmpty == false
             ? analyzedTranscript ?? suppliedTranscript
             : suppliedTranscript
-        return ConversationReviewRecord(
+        let record = ConversationReviewRecord(
             title: suppliedTitle.isEmpty
                 ? localizedText("未命名复盘", "Untitled Review")
                 : suppliedTitle,
@@ -1150,6 +1196,32 @@ final class AppSession: ObservableObject {
             reason: analysis.reason,
             advice: analysis.briefAdvice,
             detailedAdvice: analysis.detailedAdvice
+        )
+        var matchedContacts = (analysis.relatedContacts ?? []).map {
+            ReviewSuggestedContact(id: $0.id, name: $0.name)
+        }
+        if matchedContacts.isEmpty,
+           let contactID = analysis.relatedContactID,
+           let contactName = analysis.relatedContactName {
+            matchedContacts = [ReviewSuggestedContact(id: contactID, name: contactName)]
+        }
+        let suggestion: ReviewTimelineSuggestion?
+        if !matchedContacts.isEmpty {
+            let generatedDetails = analysis.eventDetails?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            suggestion = ReviewTimelineSuggestion(
+                contacts: matchedContacts,
+                title: analysis.title,
+                details: generatedDetails?.isEmpty == false
+                    ? generatedDetails ?? finalTranscript
+                    : finalTranscript
+            )
+        } else {
+            suggestion = nil
+        }
+        return AnalyzedConversationReview(
+            record: record,
+            timelineSuggestion: suggestion
         )
     }
 
