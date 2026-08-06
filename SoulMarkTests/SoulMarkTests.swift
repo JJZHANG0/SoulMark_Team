@@ -13,6 +13,19 @@ import UIKit
 
 struct SoulMarkTests {
 
+    @Test func scenarioEmotionFallsBackToCalm() {
+        #expect(ScenarioEmotion(serverValue: "happy") == .happy)
+        #expect(ScenarioEmotion(serverValue: "unexpected") == .calm)
+        #expect(ScenarioEmotion(serverValue: nil) == .calm)
+    }
+
+    @Test func realtimePhaseHasPriorityOverEmotion() {
+        #expect(RealtimeVoiceCallPhase.idle.mascotAnimationState(emotion: .happy) == .idle)
+        #expect(RealtimeVoiceCallPhase.listening.mascotAnimationState(emotion: .happy) == .listening)
+        #expect(RealtimeVoiceCallPhase.speaking.mascotAnimationState(emotion: .caring) == .speaking(.caring))
+        #expect(RealtimeVoiceCallPhase.failed("offline").mascotAnimationState(emotion: .happy) == .failed)
+    }
+
     @Test func contactBirthdayFormatsDateAndCalculatesCompletedYears() throws {
         let calendar = Calendar(identifier: .gregorian)
         let birthday = try #require(calendar.date(from: DateComponents(year: 2000, month: 8, day: 20)))
@@ -120,6 +133,17 @@ struct SoulMarkTests {
         #expect(gate.canCapture)
         #expect(!gate.shouldMuteVoiceProcessingInput)
         #expect(!gate.beginBargeIn())
+    }
+
+    @Test func realtimeVoiceStartupDoesNotRequireMutedSpeechDetection() {
+        #expect(!RealtimeVoiceStartupPolicy.shouldFail(
+            voiceProcessingEnabled: true,
+            mutedSpeechDetectionAvailable: false
+        ))
+        #expect(RealtimeVoiceStartupPolicy.shouldFail(
+            voiceProcessingEnabled: false,
+            mutedSpeechDetectionAvailable: true
+        ))
     }
 
     @Test func relationshipFiltersReturnExpectedPeople() async throws {

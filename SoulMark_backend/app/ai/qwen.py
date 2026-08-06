@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import json
 import ssl
 from collections.abc import AsyncIterator, Callable
@@ -25,6 +26,7 @@ ConnectCallable = Callable[..., Any]
 class QwenRealtimeSession:
     def __init__(self, transport: RealtimeTransport, settings: Settings) -> None:
         self._transport = transport
+        self._events_iterator = transport.__aiter__()
         self._settings = settings
 
     @classmethod
@@ -40,7 +42,7 @@ class QwenRealtimeSession:
         query = urlencode({"model": settings.qwen_realtime_model})
         ssl_context = ssl.create_default_context(cafile=certifi.where())
         transport: ClientConnection = await connect_callable(
-            f"{settings.qwen_realtime_url}?{query}",
+            f"{settings.qwen_realtime_base_url}?{query}",
             additional_headers={"Authorization": f"Bearer {settings.qwen_api_key}"},
             max_size=8 * 1024 * 1024,
             proxy=None,
@@ -61,6 +63,7 @@ class QwenRealtimeSession:
                 },
             }
         )
+        await session._wait_until_ready()
         return session
 
     async def send_audio(self, pcm: bytes) -> None:
@@ -75,12 +78,28 @@ class QwenRealtimeSession:
         await self._send({"type": "response.cancel"})
 
     async def events(self) -> AsyncIterator[dict[str, Any]]:
-        async for raw_message in self._transport:
+        async for raw_message in self._events_iterator:
             if isinstance(raw_message, bytes):
                 continue
             payload = json.loads(raw_message)
             if isinstance(payload, dict):
                 yield payload
+
+    async def _wait_until_ready(self) -> None:
+        async with asyncio.timeout(10):
+            async for raw_message in self._events_iterator:
+                if isinstance(raw_message, bytes):
+                    continue
+                payload = json.loads(raw_message)
+                if not isinstance(payload, dict):
+                    continue
+                event_type = payload.get("type")
+                if event_type == "session.updated":
+                    return
+                if event_type == "error":
+                    message = payload.get("error", {}).get("message") or payload.get("message")
+                    raise RuntimeError(message or "Qwen realtime session update failed")
+        raise TimeoutError("Qwen realtime session did not become ready")
 
     async def close(self) -> None:
         await self._transport.close()

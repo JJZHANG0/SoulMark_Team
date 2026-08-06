@@ -74,6 +74,15 @@ class Settings(BaseSettings):
     def qwen_analysis_base_url(self) -> str:
         return self.qwen_analysis_url.rstrip("/")
 
+    @property
+    def qwen_realtime_base_url(self) -> str:
+        if self.qwen_workspace_id:
+            return (
+                f"wss://{self.qwen_workspace_id}.{self.qwen_region}.maas.aliyuncs.com"
+                "/api-ws/v1/realtime"
+            )
+        return self.qwen_realtime_url.rstrip("/")
+
 
 @lru_cache
 def get_settings() -> Settings:

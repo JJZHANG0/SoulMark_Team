@@ -4,17 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="790157d1-4133-437d-a248-2bd7dbc7dd2b" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/SoulMark.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark.xcodeproj/project.pbxproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/AppSession.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/AppSession.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/ContentView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/ContentView.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/HomeProfileViews.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/HomeProfileViews.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/RelationshipGraphViews.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/RelationshipGraphViews.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/ScenarioSimulationView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/ScenarioSimulationView.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/SoulModels.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/SoulModels.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMark/SoulTheme.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMark/SoulTheme.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/SoulMarkTests/SoulMarkTests.swift" beforeDir="false" afterPath="$PROJECT_DIR$/SoulMarkTests/SoulMarkTests.swift" afterDir="false" />
-    </list>
+    <list default="true" id="790157d1-4133-437d-a248-2bd7dbc7dd2b" name="更改" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
