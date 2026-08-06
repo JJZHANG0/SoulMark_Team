@@ -7,6 +7,7 @@ import SwiftUI
 
 struct AppTabBar: View {
     @Binding var selectedSection: AppSection
+    @State private var draggedSelectionX: CGFloat?
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
@@ -20,65 +21,86 @@ struct AppTabBar: View {
     ]
 
     var body: some View {
-        HStack(alignment: .center, spacing: 2) {
-            ForEach(sections, id: \.title) { section in
-                Button {
-                    withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
-                        selectedSection = section
+        GeometryReader { proxy in
+            let horizontalInset: CGFloat = 5
+            let availableWidth = proxy.size.width - horizontalInset * 2
+            let itemWidth = availableWidth / CGFloat(sections.count)
+            let indicatorWidth = max(itemWidth - 5, 44)
+            let restingCenterX = horizontalInset + (CGFloat(selectedIndex) + 0.5) * itemWidth
+            let indicatorCenterX = clampedSelectionX(
+                draggedSelectionX ?? restingCenterX,
+                itemWidth: itemWidth,
+                horizontalInset: horizontalInset
+            )
+
+            ZStack(alignment: .leading) {
+                SoulLiquidGlassSelection()
+                    .frame(width: indicatorWidth, height: 43)
+                    .offset(x: indicatorCenterX - indicatorWidth / 2)
+                    .animation(
+                        draggedSelectionX == nil
+                            ? .spring(response: 0.34, dampingFraction: 0.78)
+                            : nil,
+                        value: indicatorCenterX
+                    )
+
+                HStack(alignment: .center, spacing: 0) {
+                    ForEach(sections, id: \.title) { section in
+                        Button {
+                            withAnimation(.spring(response: 0.34, dampingFraction: 0.82)) {
+                                selectedSection = section
+                            }
+                        } label: {
+                            tabItem(section)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(section.title)
+                        .accessibilityAddTraits(selectedSection == section ? .isSelected : [])
                     }
-                } label: {
-                    tabItem(section)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(section.title)
-                .accessibilityAddTraits(selectedSection == section ? .isSelected : [])
+                .padding(.horizontal, horizontalInset)
             }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 4, coordinateSpace: .local)
+                    .onChanged { value in
+                        draggedSelectionX = clampedSelectionX(
+                            value.location.x,
+                            itemWidth: itemWidth,
+                            horizontalInset: horizontalInset
+                        )
+                        selectNearestItem(
+                            at: value.location.x,
+                            itemWidth: itemWidth,
+                            horizontalInset: horizontalInset
+                        )
+                    }
+                    .onEnded { value in
+                        selectNearestItem(
+                            at: value.predictedEndLocation.x,
+                            itemWidth: itemWidth,
+                            horizontalInset: horizontalInset
+                        )
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.76)) {
+                            draggedSelectionX = nil
+                        }
+                    }
+            )
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 5)
-        .frame(height: 68)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .background(SoulTheme.cardFill.opacity(0.68), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(SoulTheme.cardStroke, lineWidth: 1)
-        }
-        .shadow(color: SoulTheme.shadow, radius: 24, x: 0, y: 14)
-        .padding(.horizontal, 22)
-        .padding(.bottom, 12)
+        .frame(height: 55)
+        .background(SoulLiquidGlassBackground(cornerRadius: 26))
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
     }
 
     @ViewBuilder
     private func tabItem(_ section: AppSection) -> some View {
         let isSelected = selectedSection == section
-        let isPrimary = section == .scenarioSimulation
-
-        VStack(spacing: 4) {
-            ZStack {
-                if isPrimary {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(SoulTheme.visorSurface)
-                        .frame(width: 44, height: 40)
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(isSelected ? SoulTheme.energy.opacity(0.88) : Color.white.opacity(0.11), lineWidth: 1)
-                        }
-                        .shadow(color: isSelected ? SoulTheme.energy.opacity(0.28) : .clear, radius: 12, x: 0, y: 5)
-                } else if isSelected {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(SoulTheme.accentSoft)
-                        .frame(width: 38, height: 30)
-                }
-
-                Image(systemName: section.systemImage)
-                    .font(.system(size: isPrimary ? 19 : 17, weight: .bold))
-                    .foregroundStyle(
-                        isPrimary
-                        ? (isSelected ? SoulTheme.energy : Color.white.opacity(0.62))
-                        : (isSelected ? SoulTheme.accent : SoulTheme.secondaryText)
-                    )
-            }
-            .frame(height: 40)
+        VStack(spacing: 2) {
+            Image(systemName: section.systemImage)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(isSelected ? SoulTheme.accent : SoulTheme.secondaryText)
+                .frame(height: 25)
 
             Text(section.title)
                 .font(.system(size: 9, weight: .heavy, design: .rounded))
@@ -88,5 +110,33 @@ struct AppTabBar: View {
         }
         .frame(maxWidth: .infinity)
         .contentShape(Rectangle())
+    }
+
+    private var selectedIndex: Int {
+        sections.firstIndex(of: selectedSection) ?? 0
+    }
+
+    private func clampedSelectionX(
+        _ x: CGFloat,
+        itemWidth: CGFloat,
+        horizontalInset: CGFloat
+    ) -> CGFloat {
+        min(
+            max(x, horizontalInset + itemWidth / 2),
+            horizontalInset + itemWidth * (CGFloat(sections.count) - 0.5)
+        )
+    }
+
+    private func selectNearestItem(
+        at x: CGFloat,
+        itemWidth: CGFloat,
+        horizontalInset: CGFloat
+    ) {
+        let rawIndex = Int(((x - horizontalInset) / itemWidth).rounded(.down))
+        let index = min(max(rawIndex, 0), sections.count - 1)
+        guard selectedSection != sections[index] else { return }
+        withAnimation(.spring(response: 0.26, dampingFraction: 0.82)) {
+            selectedSection = sections[index]
+        }
     }
 }

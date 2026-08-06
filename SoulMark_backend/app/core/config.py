@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     qwen_api_key: str | None = None
     qwen_realtime_url: str = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime"
     qwen_realtime_model: str = "qwen3.5-omni-plus-realtime"
+    qwen_review_model: str = "qwen3.7-plus"
+    qwen_review_audio_model: str = "qwen3-asr-flash"
+    qwen_http_api_url: str = "https://dashscope.aliyuncs.com/api/v1"
+    review_media_max_bytes: int = 7 * 1024 * 1024
     qwen_voice: str = "Ethan"
     qwen_input_transcription_model: str = "qwen3-asr-flash-realtime"
     qwen_workspace_id: str | None = None
@@ -30,6 +34,8 @@ class Settings(BaseSettings):
     realtime_max_audio_frame_bytes: int = 65536
     avatar_upload_dir: Path = Path("uploads/avatars")
     avatar_max_bytes: int = 5 * 1024 * 1024
+    event_image_upload_dir: Path = Path("uploads/events")
+    event_image_max_bytes: int = 7 * 1024 * 1024
 
     # 微信开放平台移动应用配置。
     wechat_app_id: str = "REPLACE_ME_WECHAT_APP_ID"

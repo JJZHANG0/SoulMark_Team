@@ -31,6 +31,7 @@ class ReviewCreate(BaseModel):
     score: int = Field(ge=0, le=100)
     reason: str = Field(min_length=1, max_length=4000)
     advice: str = Field(min_length=1, max_length=4000)
+    detailed_advice: str = Field(default="暂无详细建议。", min_length=1, max_length=20_000)
 
 
 class ReviewAnalyzeRequest(BaseModel):
@@ -47,6 +48,31 @@ class ReviewResponse(ReviewCreate):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReviewAnalysisRequest(BaseModel):
+    source: Literal["scenario", "wechat", "manual"]
+    transcript: str = Field(min_length=1, max_length=100_000)
+    language: Literal["zh", "en"] = "zh"
+
+
+class ReviewRelatedContact(BaseModel):
+    id: UUID
+    name: str = Field(min_length=1, max_length=100)
+
+
+class ReviewAnalysisResponse(BaseModel):
+    title: str = Field(min_length=1, max_length=160)
+    score: int = Field(ge=0, le=100)
+    reason: str = Field(min_length=1, max_length=4000)
+    brief_advice: str = Field(min_length=1, max_length=4000)
+    detailed_advice: str = Field(min_length=1, max_length=20_000)
+    transcript: str | None = Field(default=None, max_length=100_000)
+    related_contact_name: str | None = Field(default=None, max_length=100)
+    related_contact_id: UUID | None = None
+    related_contact_names: list[str] = Field(default_factory=list, max_length=20)
+    related_contacts: list[ReviewRelatedContact] = Field(default_factory=list, max_length=20)
+    event_details: str | None = Field(default=None, max_length=20_000)
 
 
 class DashboardStats(BaseModel):

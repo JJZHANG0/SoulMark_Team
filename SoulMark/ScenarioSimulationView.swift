@@ -35,6 +35,8 @@ struct ScenarioSimulationView: View {
     @StateObject private var voiceCall = RealtimeVoiceCallManager()
     @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
     @AppStorage("soulMarkLanguage") private var language = "zh"
+    @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
+    @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
 
     init(
         relationshipPeople: [RelationshipPerson],
@@ -374,7 +376,7 @@ struct ScenarioSimulationView: View {
                     .font(.system(size: 17, weight: .bold))
                     .foregroundStyle(SoulTheme.accent)
                     .frame(width: 40, height: 40)
-                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .padding(14)
             .background(SoulGlassCardBackground())
@@ -664,7 +666,7 @@ private struct MinimalScenarioTranscript: View {
                                 .padding(.vertical, 9)
                                 .background(
                                     message.isUser ? SoulTheme.accent : SoulTheme.cardFill,
-                                    in: RoundedRectangle(cornerRadius: 8)
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                                 )
 
                             if !message.isUser { Spacer(minLength: 44) }
@@ -756,10 +758,10 @@ private struct ScenarioParticipantRail: View {
                                 selectedID == participant.id
                                 ? SoulTheme.accentSoft
                                 : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 8)
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .stroke(selectedID == participant.id ? participant.color.opacity(0.56) : .clear, lineWidth: 1.4)
                             )
                         }
@@ -873,10 +875,10 @@ private struct ScenarioParticipantPickerSheet: View {
                                                 selectedID == participant.id
                                                 ? participant.color.opacity(0.18)
                                                 : SoulTheme.cardFill,
-                                                in: RoundedRectangle(cornerRadius: 10)
+                                                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
                                             )
                                             .overlay(
-                                                RoundedRectangle(cornerRadius: 10)
+                                                RoundedRectangle(cornerRadius: 18, style: .continuous)
                                                     .stroke(selectedID == participant.id ? participant.color.opacity(0.52) : Color.clear, lineWidth: 1.3)
                                             )
                                         }
@@ -913,7 +915,7 @@ private struct ScenarioParticipantPickerSheet: View {
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -954,7 +956,7 @@ private struct ScenarioHistorySheet: View {
                     }
                     .padding(.horizontal, 12)
                     .frame(height: 42)
-                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     if filteredSessions.isEmpty {
                         VStack(spacing: 8) {
@@ -1021,7 +1023,7 @@ private struct ScenarioHistorySheet: View {
                                     .foregroundStyle(Color.white)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 38)
-                                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                             .buttonStyle(.plain)
                         }
@@ -1080,7 +1082,7 @@ private struct ScenarioControlCard: View {
                         .foregroundStyle(Color.white)
                         .padding(.horizontal, 12)
                         .frame(height: 38)
-                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 8))
+                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -1162,7 +1164,7 @@ private struct ScenarioControlCard: View {
                 }
             }
             .padding(15)
-            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             HStack(spacing: 10) {
                 TextField(localizedText("输入你想练习说的话", "Type what you want to practice saying"), text: $draftMessage)
@@ -1171,7 +1173,7 @@ private struct ScenarioControlCard: View {
                     .textFieldStyle(.plain)
                     .padding(.horizontal, 14)
                     .frame(height: 46)
-                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 Button(action: onSend) {
                     Image(systemName: "paperplane.fill")
@@ -1182,7 +1184,7 @@ private struct ScenarioControlCard: View {
                             draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? Color.gray.opacity(0.35)
                             : SoulTheme.accent,
-                            in: RoundedRectangle(cornerRadius: 8)
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                         )
                 }
                 .disabled(draftMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -1199,7 +1201,7 @@ private struct ScenarioControlCard: View {
                     Image(systemName: "lightbulb.max.fill")
                         .foregroundStyle(SoulTheme.warning)
                         .frame(width: 34, height: 34)
-                        .background(SoulTheme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                        .background(SoulTheme.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     Text(localizedText("实时指导：\(selectedMode.displayGuidance)", "Live guide: \(selectedMode.displayGuidance)"))
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -1216,7 +1218,7 @@ private struct ScenarioControlCard: View {
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(SoulGlassCardBackground(cornerRadius: 8, accented: true))
+        .background(SoulGlassCardBackground(cornerRadius: 24, accented: true))
         .sheet(isPresented: $isShowingGuidance) {
             ScenarioGuidanceSheet(mode: selectedMode)
                 .presentationDetents([.height(330), .medium])
@@ -1263,7 +1265,7 @@ private struct ScenarioGuidanceSheet: View {
                 .lineSpacing(4)
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
             VStack(alignment: .leading, spacing: 10) {
                 GuidanceBullet(text: localizedText("先说事实，减少评价和指责。", "Start with facts and reduce judgment or blame."))
@@ -1524,7 +1526,7 @@ private struct ScenarioConversationPreview: View {
                                 message.isUser
                                 ? SoulTheme.accent.opacity(0.18)
                                 : SoulTheme.cardFill,
-                                in: RoundedRectangle(cornerRadius: 8)
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                             )
 
                             if !message.isUser {
@@ -1551,7 +1553,7 @@ private struct ScenarioConversationPreview: View {
         }
         .frame(height: 210)
         .frame(maxWidth: .infinity)
-        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 8))
+        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -1711,7 +1713,7 @@ private struct AddScenarioParticipantSheet: View {
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 8))
+                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .disabled(!canSubmit)
 
@@ -1768,7 +1770,7 @@ private struct AddScenarioModeSheet: View {
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 8))
+                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .disabled(!canSubmit)
 

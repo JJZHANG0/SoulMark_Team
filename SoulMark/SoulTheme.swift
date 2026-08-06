@@ -4,16 +4,46 @@
 //
 
 import SwiftUI
+import Observation
+
+@Observable
+final class SoulPreferencesStore {
+    static let shared = SoulPreferencesStore()
+
+    var language: String {
+        didSet { UserDefaults.standard.set(language, forKey: "soulMarkLanguage") }
+    }
+
+    var genderTheme: String {
+        didSet { UserDefaults.standard.set(genderTheme, forKey: "soulMarkGenderTheme") }
+    }
+
+    var appearanceMode: String {
+        didSet { UserDefaults.standard.set(appearanceMode, forKey: "soulMarkAppearanceMode") }
+    }
+
+    private init() {
+        language = UserDefaults.standard.string(forKey: "soulMarkLanguage") ?? "zh"
+        genderTheme = UserDefaults.standard.string(forKey: "soulMarkGenderTheme") ?? "male"
+        appearanceMode = UserDefaults.standard.string(forKey: "soulMarkAppearanceMode") ?? "auto"
+    }
+
+    func apply(language: String, genderTheme: String, appearanceMode: String) {
+        self.language = language
+        self.genderTheme = genderTheme
+        self.appearanceMode = appearanceMode
+    }
+}
 
 var primaryTextColor: Color { SoulTheme.primaryText }
 var secondaryTextColor: Color { SoulTheme.secondaryText }
 
 func localizedText(_ chinese: String, _ english: String) -> String {
-    UserDefaults.standard.string(forKey: "soulMarkLanguage") == "en" ? english : chinese
+    SoulPreferencesStore.shared.language == "en" ? english : chinese
 }
 
 func isSoulNightMode() -> Bool {
-    let mode = UserDefaults.standard.string(forKey: "soulMarkAppearanceMode") ?? "auto"
+    let mode = SoulPreferencesStore.shared.appearanceMode
     if mode == "night" { return true }
     if mode == "day" { return false }
 
@@ -22,10 +52,15 @@ func isSoulNightMode() -> Bool {
 }
 
 enum SoulTheme {
+    // Concentric, continuous radii aligned with modern Apple hardware and sheets.
+    static let containerCornerRadius: CGFloat = 24
+    static let controlCornerRadius: CGFloat = 16
+    static let compactCornerRadius: CGFloat = 12
+
     static var isNight: Bool { isSoulNightMode() }
 
     static var isMale: Bool {
-        (UserDefaults.standard.string(forKey: "soulMarkGenderTheme") ?? "male") == "male"
+        SoulPreferencesStore.shared.genderTheme == "male"
     }
 
     static var background: Color {
@@ -142,7 +177,7 @@ struct SoulBackground: View {
 }
 
 struct SoulGlassCardBackground: View {
-    var cornerRadius: CGFloat = 8
+    var cornerRadius: CGFloat = SoulTheme.containerCornerRadius
     var accented = false
 
     var body: some View {
@@ -159,13 +194,100 @@ struct SoulGlassCardBackground: View {
 
 struct SoulVisorPanelBackground: View {
     var body: some View {
-        RoundedRectangle(cornerRadius: 8, style: .continuous)
+        RoundedRectangle(cornerRadius: 32, style: .continuous)
             .fill(SoulTheme.visorSurface)
             .overlay {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                RoundedRectangle(cornerRadius: 32, style: .continuous)
                     .stroke(Color.white.opacity(0.10), lineWidth: 1)
             }
             .shadow(color: SoulTheme.energy.opacity(0.10), radius: 24, x: 0, y: 10)
+    }
+}
+
+struct SoulLiquidGlassBackground: View {
+    var cornerRadius: CGFloat = 30
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        shape
+            .fill(.ultraThinMaterial)
+            .background(
+                shape.fill(SoulTheme.cardFill.opacity(SoulTheme.isNight ? 0.46 : 0.34))
+            )
+            .overlay {
+                shape.fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(SoulTheme.isNight ? 0.16 : 0.58),
+                            Color.white.opacity(0.05),
+                            SoulTheme.accent.opacity(0.04)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .blendMode(.plusLighter)
+            }
+            .overlay {
+                shape.stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(SoulTheme.isNight ? 0.30 : 0.78),
+                            Color.white.opacity(0.08),
+                            SoulTheme.cardStroke
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+            }
+            .overlay(alignment: .top) {
+                Capsule()
+                    .fill(Color.white.opacity(SoulTheme.isNight ? 0.12 : 0.34))
+                    .frame(width: 118, height: 1)
+                    .padding(.top, 1)
+                    .blur(radius: 0.35)
+            }
+            .shadow(color: SoulTheme.shadow.opacity(0.78), radius: 28, x: 0, y: 16)
+    }
+}
+
+struct SoulLiquidGlassSelection: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .fill(.thinMaterial)
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(SoulTheme.isNight ? 0.20 : 0.72),
+                                SoulTheme.accent.opacity(0.10),
+                                Color.white.opacity(0.10)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .blendMode(.plusLighter)
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(SoulTheme.isNight ? 0.36 : 0.90),
+                                Color.white.opacity(0.12)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        ),
+                        lineWidth: 0.8
+                    )
+            }
+            .shadow(color: SoulTheme.accent.opacity(0.12), radius: 9, x: 0, y: 5)
     }
 }
 
