@@ -806,8 +806,7 @@ private final class SoulAPIClient {
     }
 
     private func requestVoid(path: String, method: String, token: String) async throws {
-        let base = UserDefaults.standard.string(forKey: "soulMarkBackendURL")
-            ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
+        let base = RealtimeVoiceServiceConfiguration.defaultBackendURL
         guard let baseURL = URL(string: base), let url = URL(string: path, relativeTo: baseURL) else {
             throw SoulAPIError.invalidResponse
         }
@@ -835,8 +834,7 @@ private final class SoulAPIClient {
     }
 
     private func requestData(path: String, token: String) async throws -> Data {
-        let base = UserDefaults.standard.string(forKey: "soulMarkBackendURL")
-            ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
+        let base = RealtimeVoiceServiceConfiguration.defaultBackendURL
         guard let baseURL = URL(string: base), let url = URL(string: path, relativeTo: baseURL) else {
             throw SoulAPIError.invalidResponse
         }
@@ -887,8 +885,7 @@ private final class SoulAPIClient {
         bodyData: Data?,
         timeoutInterval: TimeInterval = 15
     ) async throws -> Response {
-        let base = UserDefaults.standard.string(forKey: "soulMarkBackendURL")
-            ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
+        let base = RealtimeVoiceServiceConfiguration.defaultBackendURL
         guard let baseURL = URL(string: base), let url = URL(string: path, relativeTo: baseURL) else {
             throw SoulAPIError.invalidResponse
         }

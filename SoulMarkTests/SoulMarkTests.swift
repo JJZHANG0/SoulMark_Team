@@ -111,78 +111,31 @@ struct SoulMarkTests {
         #expect(object["support_delta"] as? Double == 0.7)
     }
 
-    @Test func realtimeCaptureGateKeepsListeningDuringPlaybackAndAllowsBargeIn() {
-        let gate = RealtimeCaptureGate()
-
-        #expect(gate.canCapture)
-        gate.setAssistantResponseActive(true)
-        gate.beginPlaybackBuffer()
-        #expect(gate.canCapture)
-        #expect(!gate.shouldMuteVoiceProcessingInput)
-
-        #expect(gate.beginBargeIn())
-        #expect(gate.canCapture)
-        #expect(!gate.shouldMuteVoiceProcessingInput)
-    }
-
     @Test func realtimeCaptureGateStillHonorsManualMute() {
         let gate = RealtimeCaptureGate()
         gate.setManuallyMuted(true)
-        gate.setAssistantResponseActive(true)
         #expect(!gate.canCapture)
-        #expect(!gate.beginBargeIn())
 
         gate.setManuallyMuted(false)
         #expect(gate.canCapture)
     }
 
-    @Test func realtimeCaptureGateProtectsQueuedAudioAndPlaybackTail() {
+    @Test func realtimeCaptureGateResetRestoresCapture() {
         let gate = RealtimeCaptureGate()
-
-        gate.setAssistantResponseActive(true)
-        gate.beginPlaybackBuffer()
-        #expect(gate.setAssistantResponseActive(false) == nil)
-
-        let generation = gate.finishPlaybackBuffer()
-        #expect(generation != nil)
-        #expect(gate.canCapture)
-
-        #expect(gate.releaseTail(generation: generation!))
+        gate.setManuallyMuted(true)
+        gate.reset()
         #expect(gate.canCapture)
     }
 
-    @Test func completedEventAfterBargeInDoesNotMuteUserAgain() {
+    @Test func realtimeCaptureGateUsesAECForFullDuplexAndSafeFallback() {
         let gate = RealtimeCaptureGate()
-
         gate.setAssistantResponseActive(true)
-        gate.beginPlaybackBuffer()
-        #expect(gate.beginBargeIn())
 
-        #expect(gate.setAssistantResponseActive(false) == nil)
+        gate.configure(mode: .halfDuplexFallback)
+        #expect(!gate.canCapture)
+
+        gate.configure(mode: .systemAEC)
         #expect(gate.canCapture)
-    }
-
-    @Test func realtimeCaptureGateFallsBackToFullDuplexWithoutMutedSpeechDetection() {
-        let gate = RealtimeCaptureGate()
-
-        gate.setAssistantPlaybackProtectionEnabled(false)
-        gate.setAssistantResponseActive(true)
-        gate.beginPlaybackBuffer()
-
-        #expect(gate.canCapture)
-        #expect(!gate.shouldMuteVoiceProcessingInput)
-        #expect(!gate.beginBargeIn())
-    }
-
-    @Test func realtimeVoiceStartupDoesNotRequireMutedSpeechDetection() {
-        #expect(!RealtimeVoiceStartupPolicy.shouldFail(
-            voiceProcessingEnabled: true,
-            mutedSpeechDetectionAvailable: false
-        ))
-        #expect(RealtimeVoiceStartupPolicy.shouldFail(
-            voiceProcessingEnabled: false,
-            mutedSpeechDetectionAvailable: true
-        ))
     }
 
     @Test func relationshipFiltersReturnExpectedPeople() async throws {

@@ -1131,7 +1131,6 @@ private struct AchievementBadgeCard: View {
 private struct SoulSettingsSheet: View {
     @EnvironmentObject private var session: AppSession
     @Bindable private var preferences = SoulPreferencesStore.shared
-    @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -1189,36 +1188,6 @@ private struct SoulSettingsSheet: View {
                                 Text(localizedText("夜间", "Night")).tag("night")
                             }
                             .pickerStyle(.segmented)
-                        }
-
-                        SettingsGroup(
-                            title: localizedText("语音服务", "Voice Service"),
-                            subtitle: localizedText("真机调试时填写运行 SoulMark 后端的电脑地址", "For device testing, enter the Mac address running the SoulMark backend")
-                        ) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "server.rack")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundStyle(SoulTheme.accent)
-
-                                TextField("http://192.168.1.10:8000", text: $backendURL)
-                                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                                    .textInputAutocapitalization(.never)
-                                    .autocorrectionDisabled()
-                                    .keyboardType(.URL)
-
-                                Button {
-                                    backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
-                                } label: {
-                                    Image(systemName: "arrow.counterclockwise")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(SoulTheme.secondaryText)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(localizedText("恢复默认地址", "Restore default address"))
-                            }
-                            .padding(.horizontal, 12)
-                            .frame(height: 46)
-                            .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         }
 
                         SettingsGroup(

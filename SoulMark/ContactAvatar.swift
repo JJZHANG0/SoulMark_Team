@@ -3,8 +3,7 @@ import UIKit
 
 enum BackendURLResolver {
     static var configuredBaseURL: String {
-        UserDefaults.standard.string(forKey: "soulMarkBackendURL")
-            ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
+        RealtimeVoiceServiceConfiguration.defaultBackendURL
     }
 
     static func apiURL(_ path: String, baseURL: String = configuredBaseURL) -> URL? {

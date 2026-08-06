@@ -35,6 +35,8 @@
 	<string>SoulMark needs local network access to connect to its realtime voice service.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SoulMark uses the microphone for realtime AI scenario conversations.</string>
+	<key>SOULMARK_API_BASE_URL</key>
+	<string>https:&#47;&#47;8-146-228-143.sslip.io</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

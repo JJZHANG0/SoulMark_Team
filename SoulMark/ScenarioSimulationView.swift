@@ -36,7 +36,7 @@ struct ScenarioSimulationView: View {
     @State private var conversationScrollTarget = UUID()
     @State private var isShowingGuidance = false
     @StateObject private var voiceCall = RealtimeVoiceCallManager()
-    @AppStorage("soulMarkBackendURL") private var backendURL = RealtimeVoiceServiceConfiguration.defaultBackendURL
+    private var backendURL: String { RealtimeVoiceServiceConfiguration.defaultBackendURL }
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"

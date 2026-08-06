@@ -98,18 +98,14 @@ struct RealtimeVoiceSessionStart: Encodable {
 }
 
 enum RealtimeVoiceServiceConfiguration {
+    static let productionBackendURL = "https://8-146-228-143.sslip.io"
+
     static var defaultBackendURL: String {
         if let configured = Bundle.main.object(forInfoDictionaryKey: "SOULMARK_API_BASE_URL") as? String,
            !configured.isEmpty {
             return configured
         }
-#if targetEnvironment(simulator)
-        return "http://127.0.0.1:8000"
-#elseif DEBUG
-        return "http://192.168.110.109:8000"
-#else
-        return "https://api.soulmark.app"
-#endif
+        return productionBackendURL
     }
 
     static func websocketURL(from baseURL: String) throws -> URL {
@@ -145,10 +141,7 @@ enum RealtimeVoiceError: LocalizedError {
         case .microphoneDenied:
             localizedText("需要麦克风权限才能开始通话。", "Microphone access is required to start a call.")
         case .voiceProcessingUnavailable:
-            localizedText(
-                "当前音频设备无法启用通话回声消除，请更换音频设备后重试。",
-                "Echo cancellation is unavailable for the current audio device. Try another audio device."
-            )
+            localizedText("当前音频设备暂时不可用。", "The current audio device is unavailable.")
         case .invalidServerMessage:
             localizedText("语音服务返回了无法识别的数据。", "The voice service returned an invalid message.")
         case .connectionTimedOut:
@@ -159,15 +152,6 @@ enum RealtimeVoiceError: LocalizedError {
         case .server(let message):
             message
         }
-    }
-}
-
-enum RealtimeVoiceStartupPolicy {
-    static func shouldFail(
-        voiceProcessingEnabled: Bool,
-        mutedSpeechDetectionAvailable _: Bool
-    ) -> Bool {
-        !voiceProcessingEnabled
     }
 }
 
@@ -328,6 +312,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         case "input.speech_started":
             let isInterruptingAssistant = acceptsAssistantAudio || phase == .speaking
             acceptsAssistantAudio = false
+            audio.setAssistantResponseActive(false)
             audio.stopPlayback()
             assistantDraft = ""
             assistantEmotion = .calm
@@ -372,37 +357,17 @@ final class RealtimeVoiceCallManager: ObservableObject {
     }
 
     private func startAudioCapture() throws {
-        try audio.start(
-            onAudio: { [weak self] data in
-                Task { @MainActor [weak self] in
-                    guard let self, let socket = self.socket, self.phase.isActive else { return }
-                    do {
-                        try await socket.send(.data(data))
-                    } catch {
-                        if !self.isEnding {
-                            self.fail(error)
-                        }
+        try audio.start { [weak self] data in
+            Task { @MainActor [weak self] in
+                guard let self, let socket = self.socket, self.phase.isActive else { return }
+                do {
+                    try await socket.send(.data(data))
+                } catch {
+                    if !self.isEnding {
+                        self.fail(error)
                     }
                 }
-            },
-            onBargeIn: { [weak self] in
-                Task { @MainActor [weak self] in
-                    self?.handleLocalBargeIn()
-                }
             }
-        )
-    }
-
-    private func handleLocalBargeIn() {
-        guard phase.isActive else { return }
-        let shouldCancelResponse = acceptsAssistantAudio || phase == .speaking
-        acceptsAssistantAudio = false
-        audio.stopPlayback()
-        assistantDraft = ""
-        assistantEmotion = .calm
-        phase = .listening
-        if shouldCancelResponse {
-            socket?.send(.string(#"{"type":"response.cancel"}"#)) { _ in }
         }
     }
 
@@ -461,28 +426,27 @@ final class RealtimeVoiceCallManager: ObservableObject {
     }
 }
 
+enum RealtimeAudioProcessingMode: Sendable {
+    case systemAEC
+    case halfDuplexFallback
+}
+
 final class RealtimeCaptureGate: @unchecked Sendable {
     private let lock = NSLock()
-    private var protectsAssistantPlayback = true
     private var manuallyMuted = false
     private var assistantResponseActive = false
-    private var pendingPlaybackBuffers = 0
-    private var tailProtected = false
-    private var generation = 0
+    private var processingMode: RealtimeAudioProcessingMode = .halfDuplexFallback
 
     var canCapture: Bool {
         lock.lock()
         defer { lock.unlock() }
-        // Voice processing already performs acoustic echo cancellation. Dropping every
-        // microphone frame during assistant playback makes speech disappear whenever
-        // the muted-speech callback is delayed or unavailable on a device.
-        return !manuallyMuted
-    }
-
-    var shouldMuteVoiceProcessingInput: Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return manuallyMuted
+        guard !manuallyMuted else { return false }
+        switch processingMode {
+        case .systemAEC:
+            return true
+        case .halfDuplexFallback:
+            return !assistantResponseActive
+        }
     }
 
     var isManuallyMuted: Bool {
@@ -500,96 +464,45 @@ final class RealtimeCaptureGate: @unchecked Sendable {
         return shouldMute
     }
 
-    func setAssistantPlaybackProtectionEnabled(_ enabled: Bool) {
+    func configure(mode: RealtimeAudioProcessingMode) {
         lock.lock()
-        protectsAssistantPlayback = enabled
-        if !enabled {
-            assistantResponseActive = false
-            pendingPlaybackBuffers = 0
-            tailProtected = false
-            generation += 1
-        }
+        processingMode = mode
         lock.unlock()
     }
 
-    @discardableResult
-    func setAssistantResponseActive(_ active: Bool) -> Int? {
+    func setAssistantResponseActive(_ active: Bool) {
         lock.lock()
-        let wasAssistantProtected = isAssistantProtected
         assistantResponseActive = active
-        generation += 1
-        let currentGeneration = generation
-        if active {
-            tailProtected = true
-        }
-        let shouldScheduleTail = !active
-            && wasAssistantProtected
-            && pendingPlaybackBuffers == 0
-        if shouldScheduleTail {
-            tailProtected = true
-        }
         lock.unlock()
-        return shouldScheduleTail ? currentGeneration : nil
-    }
-
-    func beginPlaybackBuffer() {
-        lock.lock()
-        pendingPlaybackBuffers += 1
-        tailProtected = true
-        generation += 1
-        lock.unlock()
-    }
-
-    func finishPlaybackBuffer() -> Int? {
-        lock.lock()
-        guard pendingPlaybackBuffers > 0 else {
-            lock.unlock()
-            return nil
-        }
-        pendingPlaybackBuffers -= 1
-        generation += 1
-        let currentGeneration = generation
-        let shouldScheduleTail = pendingPlaybackBuffers == 0 && !assistantResponseActive
-        lock.unlock()
-        return shouldScheduleTail ? currentGeneration : nil
-    }
-
-    func releaseTail(generation expectedGeneration: Int) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard generation == expectedGeneration,
-              !assistantResponseActive,
-              pendingPlaybackBuffers == 0 else {
-            return false
-        }
-        tailProtected = false
-        return true
-    }
-
-    func beginBargeIn() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !manuallyMuted, isAssistantProtected else { return false }
-        assistantResponseActive = false
-        pendingPlaybackBuffers = 0
-        tailProtected = false
-        generation += 1
-        return true
     }
 
     func reset() {
         lock.lock()
         manuallyMuted = false
         assistantResponseActive = false
-        pendingPlaybackBuffers = 0
-        tailProtected = false
-        generation += 1
+        processingMode = .halfDuplexFallback
+        lock.unlock()
+    }
+}
+
+private final class RealtimeAECReferenceBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private let maximumBytes = 24_000 * MemoryLayout<Int16>.size * 5
+    private var storage = Data()
+
+    func append(_ audio: Data) {
+        lock.lock()
+        storage.append(audio)
+        if storage.count > maximumBytes {
+            storage.removeFirst(storage.count - maximumBytes)
+        }
         lock.unlock()
     }
 
-    private var isAssistantProtected: Bool {
-        protectsAssistantPlayback
-            && (assistantResponseActive || pendingPlaybackBuffers > 0 || tailProtected)
+    func reset() {
+        lock.lock()
+        storage.removeAll(keepingCapacity: true)
+        lock.unlock()
     }
 }
 
@@ -597,6 +510,11 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
     private let captureGate = RealtimeCaptureGate()
+    private let referenceAudio = RealtimeAECReferenceBuffer()
+    private let playbackQueue = DispatchQueue(
+        label: "com.soulmark.realtime.playback",
+        qos: .userInitiated
+    )
     private let playbackFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
         sampleRate: 24_000,
@@ -605,28 +523,16 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
     )!
     private var converter: AVAudioConverter?
     private var hasInputTap = false
-    private var hasMutedSpeechListener = false
-    private let playbackTailDuration: TimeInterval = 0.2
     var isCaptureMuted: Bool {
         get { captureGate.isManuallyMuted }
-        set {
-            _ = captureGate.setManuallyMuted(newValue)
-            applyVoiceProcessingInputMute()
-        }
+        set { _ = captureGate.setManuallyMuted(newValue) }
     }
 
     func setAssistantResponseActive(_ active: Bool) {
-        let tailGeneration = captureGate.setAssistantResponseActive(active)
-        applyVoiceProcessingInputMute()
-        if let tailGeneration {
-            scheduleTailRelease(generation: tailGeneration)
-        }
+        captureGate.setAssistantResponseActive(active)
     }
 
-    func start(
-        onAudio: @escaping @Sendable (Data) -> Void,
-        onBargeIn: @escaping @Sendable () -> Void
-    ) throws {
+    func start(onAudio: @escaping @Sendable (Data) -> Void) throws {
         stop()
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(
@@ -637,42 +543,18 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
         try session.setActive(true)
 
         let input = engine.inputNode
-        if !input.isVoiceProcessingEnabled {
-            do {
+        do {
+            if !input.isVoiceProcessingEnabled {
                 try input.setVoiceProcessingEnabled(true)
-            } catch {
-#if targetEnvironment(simulator)
-                captureGate.setAssistantPlaybackProtectionEnabled(false)
-#else
-                throw RealtimeVoiceError.voiceProcessingUnavailable
-#endif
             }
+            input.isVoiceProcessingBypassed = false
+            input.isVoiceProcessingAGCEnabled = true
+            captureGate.configure(mode: .systemAEC)
+        } catch {
+            // Phase 1 fallback: never upload speaker output to ASR when the current
+            // route cannot create Apple's Voice Processing I/O audio unit.
+            captureGate.configure(mode: .halfDuplexFallback)
         }
-#if !targetEnvironment(simulator)
-        guard input.isVoiceProcessingEnabled else {
-            throw RealtimeVoiceError.voiceProcessingUnavailable
-        }
-#endif
-        if input.isVoiceProcessingEnabled {
-            hasMutedSpeechListener = input.setMutedSpeechActivityEventListener { [weak self] event in
-                guard event == .started,
-                      let self,
-                      self.captureGate.beginBargeIn() else {
-                    return
-                }
-                self.applyVoiceProcessingInputMute()
-                onBargeIn()
-            }
-        }
-        captureGate.setAssistantPlaybackProtectionEnabled(hasMutedSpeechListener)
-#if !targetEnvironment(simulator)
-        guard !RealtimeVoiceStartupPolicy.shouldFail(
-            voiceProcessingEnabled: input.isVoiceProcessingEnabled,
-            mutedSpeechDetectionAvailable: hasMutedSpeechListener
-        ) else {
-            throw RealtimeVoiceError.voiceProcessingUnavailable
-        }
-#endif
 
         if player.engine == nil {
             engine.attach(player)
@@ -701,7 +583,17 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
     }
 
     func play(_ data: Data) {
+        playbackQueue.async { [weak self] in
+            self?.schedulePlayback(data)
+        }
+    }
+
+    private func schedulePlayback(_ data: Data) {
         guard !data.isEmpty, data.count.isMultiple(of: MemoryLayout<Int16>.size) else { return }
+        // Keep a bounded copy of the exact TTS PCM sent to the render path. The
+        // Voice Processing I/O unit receives this same render signal internally
+        // as its far-end AEC reference.
+        referenceAudio.append(data)
         let frameCount = AVAudioFrameCount(data.count / MemoryLayout<Int16>.size)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: playbackFormat, frameCapacity: frameCount),
               let destination = buffer.floatChannelData?[0] else { return }
@@ -713,34 +605,21 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
                 destination[index] = Float(samples[index]) / Float(Int16.max)
             }
         }
-        captureGate.beginPlaybackBuffer()
-        applyVoiceProcessingInputMute()
-        player.scheduleBuffer(
-            buffer,
-            completionCallbackType: .dataPlayedBack
-        ) { [weak self] _ in
-            guard let self else { return }
-            if let tailGeneration = self.captureGate.finishPlaybackBuffer() {
-                self.scheduleTailRelease(generation: tailGeneration)
-            }
-            self.applyVoiceProcessingInputMute()
-        }
+        player.scheduleBuffer(buffer)
         if !player.isPlaying {
             player.play()
         }
     }
 
     func stopPlayback() {
-        player.stop()
-        _ = captureGate.beginBargeIn()
-        applyVoiceProcessingInputMute()
+        playbackQueue.sync {
+            player.stop()
+        }
     }
 
     func stop() {
-        player.stop()
-        if hasMutedSpeechListener {
-            engine.inputNode.setMutedSpeechActivityEventListener(nil)
-            hasMutedSpeechListener = false
+        playbackQueue.sync {
+            player.stop()
         }
         if hasInputTap {
             engine.inputNode.removeTap(onBus: 0)
@@ -749,22 +628,9 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
         engine.stop()
         engine.reset()
         converter = nil
+        referenceAudio.reset()
         captureGate.reset()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-    }
-
-    private func scheduleTailRelease(generation: Int) {
-        DispatchQueue.global(qos: .userInitiated).asyncAfter(
-            deadline: .now() + playbackTailDuration
-        ) { [weak self] in
-            guard let self, self.captureGate.releaseTail(generation: generation) else { return }
-            self.applyVoiceProcessingInputMute()
-        }
-    }
-
-    private func applyVoiceProcessingInputMute() {
-        guard engine.inputNode.isVoiceProcessingEnabled else { return }
-        engine.inputNode.isVoiceProcessingInputMuted = captureGate.shouldMuteVoiceProcessingInput
     }
 
     private func convert(

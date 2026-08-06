@@ -330,28 +330,6 @@ struct AuthenticationView: View {
         .buttonStyle(.plain)
         .disabled(!canSubmit || session.isWorking)
 
-        HStack(spacing: 12) {
-            Rectangle().fill(SoulTheme.cardStroke).frame(height: 1)
-            Text(localizedText("其他方式", "OR"))
-                .font(.system(size: 9, weight: .heavy, design: .monospaced))
-                .foregroundStyle(SoulTheme.tertiaryText)
-            Rectangle().fill(SoulTheme.cardStroke).frame(height: 1)
-        }
-
-        Button {
-            session.reportWeChatSDKNotConfigured()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "message.fill")
-                Text(localizedText("使用微信登录", "Continue with WeChat"))
-            }
-            .font(.system(size: 15, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Color(red: 0.10, green: 0.66, blue: 0.34), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-        .buttonStyle(.plain)
     }
 }
 

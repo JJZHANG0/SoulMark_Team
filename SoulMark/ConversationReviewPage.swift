@@ -569,8 +569,8 @@ private struct AddReviewRecordSheet: View {
             guard let data = audioRecorder.recordingData else { return nil }
             return ReviewMediaAttachment(
                 data: data,
-                filename: "scenario-review.m4a",
-                mimeType: "audio/mp4"
+                filename: "scenario-review.wav",
+                mimeType: "audio/wav"
             )
         case .wechat:
             guard let data = selectedImageData else { return nil }
@@ -1258,7 +1258,9 @@ private final class ReviewAudioRecorder: ObservableObject {
     @Published var recordingData: Data?
     @Published var errorMessage: String?
 
-    private var recorder: AVAudioRecorder?
+    private let engine = AVAudioEngine()
+    private var audioFile: AVAudioFile?
+    private var hasInputTap = false
     private var recordingURL: URL?
     private var timerTask: Task<Void, Never>?
 
@@ -1291,45 +1293,58 @@ private final class ReviewAudioRecorder: ObservableObject {
         do {
             reset()
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(
-                .playAndRecord,
-                mode: .spokenAudio,
-                options: [.defaultToSpeaker]
-            )
+            try session.setCategory(.record, mode: .default, options: [])
             try session.setActive(true)
 
             let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("soulmark-review-\(UUID().uuidString).m4a")
-            let settings: [String: Any] = [
-                AVFormatIDKey: kAudioFormatMPEG4AAC,
-                AVSampleRateKey: 16_000,
-                AVNumberOfChannelsKey: 1,
-                AVEncoderBitRateKey: 64_000,
-            ]
-            let newRecorder = try AVAudioRecorder(url: url, settings: settings)
-            newRecorder.prepareToRecord()
-            guard newRecorder.record() else {
-                throw ReviewMediaError.invalidImage
+                .appendingPathComponent("soulmark-review-\(UUID().uuidString).wav")
+            let input = engine.inputNode
+            let inputFormat = input.outputFormat(forBus: 0)
+            guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+                throw ReviewAudioRecorderError.noInput
             }
-            recorder = newRecorder
+            let file = try AVAudioFile(
+                forWriting: url,
+                settings: inputFormat.settings
+            )
+            audioFile = file
             recordingURL = url
+            input.installTap(
+                onBus: 0,
+                bufferSize: 2_048,
+                format: inputFormat
+            ) { [weak file] buffer, _ in
+                try? file?.write(from: buffer)
+            }
+            hasInputTap = true
+            engine.prepare()
+            try engine.start()
             elapsedSeconds = 0
             isRecording = true
             startTimer()
         } catch {
+            let nsError = error as NSError
             errorMessage = localizedText(
-                "无法开始录音，请稍后重试。",
-                "Recording could not start. Try again."
+                "无法开始录音（\(nsError.domain) \(nsError.code)）。请关闭其他正在使用麦克风的应用后重试。",
+                "Recording could not start (\(nsError.domain) \(nsError.code)). Close other apps using the microphone and try again."
             )
-            stop()
+            stopEngine()
+            isRecording = false
+            if let recordingURL {
+                try? FileManager.default.removeItem(at: recordingURL)
+            }
+            recordingURL = nil
+            try? AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
         }
     }
 
     func stop() {
         timerTask?.cancel()
         timerTask = nil
-        recorder?.stop()
-        recorder = nil
+        stopEngine()
         if isRecording, let recordingURL {
             recordingData = try? Data(contentsOf: recordingURL)
         }
@@ -1350,6 +1365,16 @@ private final class ReviewAudioRecorder: ObservableObject {
         recordingURL = nil
     }
 
+    private func stopEngine() {
+        if hasInputTap {
+            engine.inputNode.removeTap(onBus: 0)
+            hasInputTap = false
+        }
+        engine.stop()
+        engine.reset()
+        audioFile = nil
+    }
+
     private func startTimer() {
         timerTask = Task { @MainActor [weak self] in
             while let self,
@@ -1364,4 +1389,8 @@ private final class ReviewAudioRecorder: ObservableObject {
             }
         }
     }
+}
+
+private enum ReviewAudioRecorderError: Error {
+    case noInput
 }

@@ -1,0 +1,73 @@
+services:
+  db:
+    image: public.ecr.aws/docker/library/postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: soulmark
+      POSTGRES_USER: soulmark
+      POSTGRES_PASSWORD: ${SOULMARK_DB_PASSWORD:?SOULMARK_DB_PASSWORD is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U soulmark -d soulmark"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - soulmark_postgres_data:/var/lib/postgresql/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: .
+      args:
+        BASE_IMAGE: public.ecr.aws/docker/library/python:3.12-slim
+        PIP_INDEX_URL: https://mirrors.aliyun.com/pypi/simple/
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - soulmark_uploads:/app/uploads
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=128m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  proxy:
+    image: public.ecr.aws/docker/library/caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.production:/etc/caddy/Caddyfile:ro
+      - soulmark_caddy_data:/data
+      - soulmark_caddy_config:/config
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  soulmark_postgres_data:
+  soulmark_uploads:
+  soulmark_caddy_data:
+  soulmark_caddy_config:
