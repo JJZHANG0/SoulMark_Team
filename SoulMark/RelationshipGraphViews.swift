@@ -725,6 +725,28 @@ struct RelationshipDetailSheet: View {
                     .lineSpacing(3)
             }
 
+            if !person.informationFields.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedText("相关信息", "Information"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+
+                    ForEach(person.informationFields.filter { !isAgeField($0) }) { field in
+                        HStack {
+                            Text(field.label)
+                                .foregroundStyle(secondaryTextColor)
+                            Spacer()
+                            Text(displayValue(for: field))
+                                .fontWeight(.semibold)
+                                .foregroundStyle(primaryTextColor)
+                        }
+                        .font(.system(size: 14))
+                    }
+                }
+                .padding(14)
+                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
             HStack(spacing: 12) {
                 RelationshipMetric(title: localizedText("亲密度", "Closeness"), value: "\(Int(person.strength * 100))%")
                 RelationshipMetric(title: localizedText("关系类型", "Relationship"), value: person.category.displayTitle)
@@ -900,6 +922,18 @@ struct RelationshipDetailSheet: View {
         } message: {
             Text(localizedText("删除后，\(person.name) 会从关系图谱里移除。", "\(person.name) will be removed from the relationship map."))
         }
+    }
+
+    private func isAgeField(_ field: ContactInformationField) -> Bool {
+        field.label == "年龄" || field.label.caseInsensitiveCompare("Age") == .orderedSame
+    }
+
+    private func displayValue(for field: ContactInformationField) -> String {
+        let isBirthday = field.label == "生日" || field.label.caseInsensitiveCompare("Birthday") == .orderedSame
+        guard isBirthday,
+              let birthday = ContactBirthday.date(from: field.value),
+              let age = ContactBirthday.age(for: birthday) else { return field.value }
+        return localizedText("\(field.value) · \(age)岁", "\(field.value) · Age \(age)")
     }
 }
 
@@ -1510,7 +1544,33 @@ private struct ContactInformationEditor: View {
     var body: some View {
         Section {
             ForEach($fields) { $field in
-                HStack(spacing: 10) {
+                if isBirthdayField(field) {
+                    HStack(spacing: 10) {
+                        Text(field.label)
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        Spacer()
+                        DatePicker(
+                            "",
+                            selection: birthdayBinding(for: $field),
+                            in: ...Date(),
+                            displayedComponents: .date
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
+                    }
+
+                    if let date = ContactBirthday.date(from: field.value),
+                       let age = ContactBirthday.age(for: date) {
+                        HStack {
+                            Text(localizedText("年龄", "Age"))
+                                .foregroundStyle(SoulTheme.secondaryText)
+                            Spacer()
+                            Text(localizedText("\(age)岁", "\(age) years"))
+                                .foregroundStyle(SoulTheme.primaryText)
+                        }
+                    }
+                } else if !isAgeField(field) {
+                    HStack(spacing: 10) {
                     Text(field.label)
                         .foregroundStyle(SoulTheme.secondaryText)
                         .frame(width: 72, alignment: .leading)
@@ -1525,6 +1585,7 @@ private struct ContactInformationEditor: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(localizedText("删除\(field.label)", "Remove \(field.label)"))
+                    }
                 }
             }
 
@@ -1552,6 +1613,25 @@ private struct ContactInformationEditor: View {
         } header: {
             Text(localizedText("相关信息", "Information"))
         }
+    }
+
+    private func isBirthdayField(_ field: ContactInformationField) -> Bool {
+        field.label == "生日" || field.label.caseInsensitiveCompare("Birthday") == .orderedSame
+    }
+
+    private func isAgeField(_ field: ContactInformationField) -> Bool {
+        field.label == "年龄" || field.label.caseInsensitiveCompare("Age") == .orderedSame
+    }
+
+    private func birthdayBinding(for field: Binding<ContactInformationField>) -> Binding<Date> {
+        Binding(
+            get: {
+                ContactBirthday.date(from: field.wrappedValue.value)
+                    ?? Calendar.current.date(byAdding: .year, value: -18, to: Date())
+                    ?? Date()
+            },
+            set: { field.wrappedValue.value = ContactBirthday.storageString(from: $0) }
+        )
     }
 }
 

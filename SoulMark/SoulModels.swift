@@ -419,6 +419,48 @@ struct ContactInformationField: Identifiable, Codable, Equatable {
     }
 }
 
+enum ContactBirthday {
+    static func storageString(from date: Date) -> String {
+        formatter.string(from: date)
+    }
+
+    static func date(from value: String) -> Date? {
+        formatter.date(from: value)
+    }
+
+    static func age(
+        for birthday: Date,
+        on date: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int? {
+        guard birthday <= date else { return nil }
+        return calendar.dateComponents([.year], from: birthday, to: date).year
+    }
+
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter
+    }()
+}
+
+struct WeeklyExpressionSignal {
+    let averageScore: Double?
+
+    var displayScore: String {
+        guard let averageScore else { return "--" }
+        return String(Int(averageScore.rounded()))
+    }
+
+    var progress: Double {
+        guard let averageScore else { return 0 }
+        return min(max(averageScore / 100, 0), 1)
+    }
+}
+
 struct ContactTimelineEvent: Identifiable, Equatable {
     let id: UUID
     let contactID: UUID
@@ -591,11 +633,25 @@ struct ScenarioMessage: Identifiable, Equatable {
 }
 
 struct ScenarioConversationSession: Identifiable, Equatable {
-    let id = UUID()
+    let id: UUID
     let participantID: ScenarioParticipant.ID?
     let participantName: String
     let date: Date
     let messages: [ScenarioMessage]
+
+    init(
+        id: UUID = UUID(),
+        participantID: ScenarioParticipant.ID?,
+        participantName: String,
+        date: Date,
+        messages: [ScenarioMessage]
+    ) {
+        self.id = id
+        self.participantID = participantID
+        self.participantName = participantName
+        self.date = date
+        self.messages = messages
+    }
 
     var dateText: String {
         date.formatted(date: .numeric, time: .shortened)

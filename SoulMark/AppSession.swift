@@ -262,8 +262,47 @@ private struct PracticePayload: Encodable {
     }
 }
 
-private struct PracticeResponseDTO: Decodable {
+struct PracticeRecord: Decodable, Identifiable {
     let id: UUID
+    let participantName: String
+    let modeTitle: String
+    let durationSeconds: Int
+    let userTranscript: String
+    let assistantTranscript: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case participantName = "participant_name"
+        case modeTitle = "mode_title"
+        case durationSeconds = "duration_seconds"
+        case userTranscript = "user_transcript"
+        case assistantTranscript = "assistant_transcript"
+        case createdAt = "created_at"
+    }
+
+    var scenarioConversationSession: ScenarioConversationSession {
+        let userMessages = transcriptLines(userTranscript).map {
+            ScenarioMessage(speaker: localizedText("你", "You"), text: $0, isUser: true)
+        }
+        let assistantMessages = transcriptLines(assistantTranscript).map {
+            ScenarioMessage(speaker: participantName, text: $0, isUser: false)
+        }
+        return ScenarioConversationSession(
+            id: id,
+            participantID: nil,
+            participantName: participantName,
+            date: createdAt,
+            messages: userMessages + assistantMessages
+        )
+    }
+
+    private func transcriptLines(_ transcript: String) -> [String] {
+        transcript
+            .split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 }
 
 private struct ReviewPayload: Encodable {
@@ -585,7 +624,7 @@ private final class SoulAPIClient {
         userTranscript: String,
         assistantTranscript: String
     ) async throws {
-        let _: PracticeResponseDTO = try await request(
+        let _: PracticeRecord = try await request(
             path: "/api/v1/practices",
             method: "POST",
             token: token,
@@ -681,6 +720,18 @@ private final class SoulAPIClient {
 
     func reviews(token: String) async throws -> [RemoteReview] {
         try await request(path: "/api/v1/reviews", token: token)
+    }
+
+    func practices(token: String) async throws -> [PracticeRecord] {
+        try await request(path: "/api/v1/practices", token: token)
+    }
+
+    func deletePractice(token: String, id: UUID) async throws {
+        try await requestVoid(
+            path: "/api/v1/practices/\(id.uuidString)",
+            method: "DELETE",
+            token: token
+        )
     }
 
     func deleteReview(token: String, id: UUID) async throws {
@@ -1233,6 +1284,16 @@ final class AppSession: ObservableObject {
     func loadReviews() async -> [ConversationReviewRecord]? {
         guard let token = tokenStore.read() else { return nil }
         return try? await api.reviews(token: token).compactMap(\.record)
+    }
+
+    func loadPractices() async -> [PracticeRecord]? {
+        guard let token = tokenStore.read() else { return nil }
+        return try? await api.practices(token: token)
+    }
+
+    func deletePractice(_ id: UUID) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.deletePractice(token: token, id: id)
     }
 
     private var sessionIsCurrent: Bool {

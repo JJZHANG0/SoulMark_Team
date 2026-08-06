@@ -15,6 +15,8 @@ struct IntegratedHomePage: View {
 
     let userID: UUID?
     let people: [RelationshipPerson]
+    let practiceCount: Int
+    let averageReviewScore: Double?
     let onOpenRelationshipGraph: () -> Void
     let onOpenScenario: () -> Void
     let onOpenJournal: () -> Void
@@ -293,14 +295,17 @@ struct IntegratedHomePage: View {
     }
 
     private var weeklySignal: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let signal = WeeklyExpressionSignal(averageScore: averageReviewScore)
+        return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(localizedText("本周表达信号", "Weekly Expression Signal"))
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.white)
 
-                    Text(localizedText("你已经完成 3 次练习，清晰度正在上升。", "You completed 3 practices. Your clarity is trending up."))
+                    Text(averageReviewScore == nil
+                        ? localizedText("完成一次复盘后，这里会显示你的平均表达分。", "Complete a review to see your average expression score.")
+                        : localizedText("已完成 \(practiceCount) 次练习，当前分数与复盘平均分同步。", "\(practiceCount) practices completed. This score matches your review average."))
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.white.opacity(0.58))
                         .lineSpacing(3)
@@ -308,7 +313,7 @@ struct IntegratedHomePage: View {
 
                 Spacer()
 
-                Text("78")
+                Text(signal.displayScore)
                     .font(.system(size: 36, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.energy)
             }
@@ -318,7 +323,7 @@ struct IntegratedHomePage: View {
                     Capsule().fill(Color.white.opacity(0.08))
                     Capsule()
                         .fill(SoulTheme.energy)
-                        .frame(width: proxy.size.width * 0.78)
+                        .frame(width: proxy.size.width * signal.progress)
                 }
             }
             .frame(height: 6)
@@ -339,7 +344,9 @@ struct IntegratedProfilePage: View {
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
     @State private var showingAchievements = false
+    @State private var selectedRecentSection: ProfileRecentSection?
 
+    var people: [RelationshipPerson] = []
     var achievementProgress: AchievementProgress = .empty
 
     var body: some View {
@@ -375,6 +382,11 @@ struct IntegratedProfilePage: View {
         }
         .sheet(isPresented: $showingAchievements) {
             AchievementsSheet(progress: achievementProgress)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(item: $selectedRecentSection) { section in
+            ProfileRecentActivitySheet(section: section, people: people)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
@@ -416,11 +428,20 @@ struct IntegratedProfilePage: View {
 
     private var statsBand: some View {
         HStack(spacing: 0) {
-            SoulStatItem(title: localizedText("复盘", "Reviews"), value: String(format: "%02d", achievementProgress.reviewCount), icon: "text.bubble.fill")
+            Button { selectedRecentSection = .reviews } label: {
+                SoulStatItem(title: localizedText("复盘", "Reviews"), value: String(format: "%02d", achievementProgress.reviewCount), icon: "text.bubble.fill")
+            }
+            .buttonStyle(.plain)
             Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            SoulStatItem(title: localizedText("连接", "People"), value: String(format: "%02d", achievementProgress.peopleCount), icon: "person.2.fill")
+            Button { selectedRecentSection = .connections } label: {
+                SoulStatItem(title: localizedText("连接", "People"), value: String(format: "%02d", achievementProgress.peopleCount), icon: "person.2.fill")
+            }
+            .buttonStyle(.plain)
             Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            SoulStatItem(title: localizedText("练习", "Practice"), value: String(format: "%02d", achievementProgress.practiceCount), icon: "bolt.fill")
+            Button { selectedRecentSection = .practices } label: {
+                SoulStatItem(title: localizedText("练习", "Practice"), value: String(format: "%02d", achievementProgress.practiceCount), icon: "bolt.fill")
+            }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, 16)
         .background(SoulGlassCardBackground(accented: true))
@@ -478,6 +499,138 @@ struct IntegratedProfilePage: View {
             .padding(.horizontal, 14)
             .background(SoulGlassCardBackground())
         }
+    }
+}
+
+private enum ProfileRecentSection: String, Identifiable {
+    case reviews
+    case connections
+    case practices
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .reviews: localizedText("最近复盘", "Recent Reviews")
+        case .connections: localizedText("我的连接", "My Connections")
+        case .practices: localizedText("最近练习", "Recent Practice")
+        }
+    }
+}
+
+private struct ProfileRecentActivitySheet: View {
+    @EnvironmentObject private var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+    let section: ProfileRecentSection
+    let people: [RelationshipPerson]
+    @State private var reviews: [ConversationReviewRecord] = []
+    @State private var practices: [PracticeRecord] = []
+    @State private var isLoading = true
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SoulBackground()
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        if isLoading && section != .connections {
+                            ProgressView().tint(SoulTheme.accent).padding(.top, 36)
+                        } else if isEmpty {
+                            ContentUnavailableView(
+                                localizedText("暂时没有记录", "No records yet"),
+                                systemImage: emptyIcon,
+                                description: Text(localizedText("完成一次相关操作后会显示在这里。", "Your latest activity will appear here."))
+                            )
+                            .padding(.top, 24)
+                        } else {
+                            rows
+                        }
+                    }
+                    .padding(18)
+                }
+            }
+            .navigationTitle(section.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(localizedText("完成", "Done")) { dismiss() }
+                }
+            }
+        }
+        .task { await load() }
+    }
+
+    @ViewBuilder
+    private var rows: some View {
+        switch section {
+        case .reviews:
+            ForEach(reviews.prefix(5)) { review in
+                recentRow(
+                    icon: review.source.systemImage,
+                    title: review.title,
+                    subtitle: localizedText("得分 \(review.score) · \(review.date.formatted(date: .abbreviated, time: .omitted))", "Score \(review.score) · \(review.date.formatted(date: .abbreviated, time: .omitted))")
+                )
+            }
+        case .connections:
+            ForEach(people.sorted { $0.strength > $1.strength }.prefix(5)) { person in
+                recentRow(
+                    icon: person.symbol,
+                    title: person.name,
+                    subtitle: "\(person.category.displayTitle) · \(Int(person.strength * 100))%"
+                )
+            }
+        case .practices:
+            ForEach(practices.prefix(5)) { practice in
+                recentRow(
+                    icon: "waveform.and.mic",
+                    title: practice.participantName,
+                    subtitle: "\(practice.modeTitle) · \(practice.createdAt.formatted(date: .abbreviated, time: .shortened))"
+                )
+            }
+        }
+    }
+
+    private func recentRow(icon: String, title: String, subtitle: String) -> some View {
+        HStack(spacing: 13) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(SoulTheme.accent)
+                .frame(width: 42, height: 42)
+                .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.system(size: 15, weight: .bold)).foregroundStyle(SoulTheme.primaryText)
+                Text(subtitle).font(.system(size: 11, weight: .semibold)).foregroundStyle(SoulTheme.secondaryText)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(SoulGlassCardBackground())
+    }
+
+    private var isEmpty: Bool {
+        switch section {
+        case .reviews: reviews.isEmpty
+        case .connections: people.isEmpty
+        case .practices: practices.isEmpty
+        }
+    }
+
+    private var emptyIcon: String {
+        switch section {
+        case .reviews: "text.bubble"
+        case .connections: "person.2"
+        case .practices: "waveform"
+        }
+    }
+
+    @MainActor
+    private func load() async {
+        switch section {
+        case .reviews: reviews = await session.loadReviews() ?? []
+        case .practices: practices = await session.loadPractices() ?? []
+        case .connections: break
+        }
+        isLoading = false
     }
 }
 
@@ -605,7 +758,7 @@ private struct SoulSettingsSheet: View {
                             .pickerStyle(.segmented)
                         }
 
-                        SettingsGroup(title: localizedText("能量色", "Energy Color"), subtitle: localizedText("蓝色冷静锐利，樱粉温柔有力量", "Blue feels sharp and calm; sakura feels warm and bold")) {
+                        SettingsGroup(title: localizedText("能量色", "Energy Color"), subtitle: localizedText("选择适合你的简洁信号色", "Choose a clean signal color that fits you")) {
                             HStack(spacing: 10) {
                                 ThemeChoiceButton(
                                     title: localizedText("深空蓝", "Orbit Blue"),
@@ -623,6 +776,15 @@ private struct SoulSettingsSheet: View {
                                     isSelected: preferences.genderTheme == "female"
                                 ) {
                                     preferences.genderTheme = "female"
+                                }
+
+                                ThemeChoiceButton(
+                                    title: localizedText("松石绿", "Jade Green"),
+                                    systemImage: "leaf.fill",
+                                    color: Color(red: 0.08, green: 0.48, blue: 0.36),
+                                    isSelected: preferences.genderTheme == "green"
+                                ) {
+                                    preferences.genderTheme = "green"
                                 }
                             }
                         }
@@ -713,7 +875,7 @@ private struct SoulSettingsSheet: View {
 
                 Spacer()
 
-                Text(preferences.genderTheme == "male" ? localizedText("深空蓝信号", "Orbit Blue Signal") : localizedText("樱花粉信号", "Sakura Pink Signal"))
+                Text(themePreviewTitle)
                     .font(.system(size: 21, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
 
@@ -729,6 +891,14 @@ private struct SoulSettingsSheet: View {
         }
         .frame(height: 180)
         .clipped()
+    }
+
+    private var themePreviewTitle: String {
+        switch preferences.genderTheme {
+        case "female": localizedText("樱花粉信号", "Sakura Pink Signal")
+        case "green": localizedText("松石绿信号", "Jade Green Signal")
+        default: localizedText("深空蓝信号", "Orbit Blue Signal")
+        }
     }
 }
 
@@ -771,25 +941,29 @@ private struct ThemeChoiceButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 9) {
+            VStack(spacing: 7) {
                 Image(systemName: systemImage)
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(color)
 
                 Text(title)
-                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .font(.system(size: 11, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
 
-                Spacer()
-
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isSelected ? color : SoulTheme.tertiaryText)
             }
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity)
-            .frame(height: 46)
+            .frame(height: 72)
             .background(isSelected ? color.opacity(0.12) : SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(isSelected ? color.opacity(0.48) : .clear, lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(isSelected ? color : SoulTheme.tertiaryText)
+                    .padding(8)
+            }
         }
         .buttonStyle(.plain)
     }

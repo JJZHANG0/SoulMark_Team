@@ -13,6 +13,44 @@ import UIKit
 
 struct SoulMarkTests {
 
+    @Test func contactBirthdayFormatsDateAndCalculatesCompletedYears() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let birthday = try #require(calendar.date(from: DateComponents(year: 2000, month: 8, day: 20)))
+        let beforeBirthday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 6)))
+        let afterBirthday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 21)))
+
+        #expect(ContactBirthday.storageString(from: birthday) == "2000/08/20")
+        #expect(ContactBirthday.age(for: birthday, on: beforeBirthday, calendar: calendar) == 25)
+        #expect(ContactBirthday.age(for: birthday, on: afterBirthday, calendar: calendar) == 26)
+        #expect(ContactBirthday.date(from: "2000/08/20") == birthday)
+    }
+
+    @Test func weeklyExpressionSignalUsesReviewAverageAndClampsProgress() {
+        #expect(WeeklyExpressionSignal(averageScore: nil).displayScore == "--")
+        #expect(WeeklyExpressionSignal(averageScore: 78.4).displayScore == "78")
+        #expect(WeeklyExpressionSignal(averageScore: 120).progress == 1)
+        #expect(WeeklyExpressionSignal(averageScore: -4).progress == 0)
+    }
+
+    @Test func persistedPracticeRestoresScenarioConversationAndIdentity() {
+        let practiceID = UUID()
+        let record = PracticeRecord(
+            id: practiceID,
+            participantName: "Wren",
+            modeTitle: "边界表达",
+            durationSeconds: 42,
+            userTranscript: "我需要一点自己的时间。",
+            assistantTranscript: "我理解，我们晚点再聊。",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let session = record.scenarioConversationSession
+
+        #expect(session.id == practiceID)
+        #expect(session.messages.map(\.text) == ["我需要一点自己的时间。", "我理解，我们晚点再聊。"])
+        #expect(session.messages.map(\.isUser) == [true, false])
+    }
+
     @Test func realtimeVoiceURLUsesWebSocketSchemeAndGatewayPath() throws {
         let local = try RealtimeVoiceServiceConfiguration.websocketURL(from: "http://192.168.1.20:8000")
         let production = try RealtimeVoiceServiceConfiguration.websocketURL(from: "https://api.soulmark.app")

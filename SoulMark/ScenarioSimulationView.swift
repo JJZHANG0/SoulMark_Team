@@ -12,8 +12,10 @@ private enum ScenarioPendingSheet {
 }
 
 struct ScenarioSimulationView: View {
+    @EnvironmentObject private var session: AppSession
     let relationshipPeople: [RelationshipPerson]
     let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
+    let onPracticeDeleted: () -> Void
 
     @State private var participants: [ScenarioParticipant]
     @State private var unlockedParticipantIDs: [ScenarioParticipant.ID]
@@ -29,6 +31,7 @@ struct ScenarioSimulationView: View {
     @State private var conversation: [ScenarioMessage] = []
     @State private var conversationHistory: [ScenarioConversationSession] = []
     @State private var isShowingHistory = false
+    @State private var historyErrorMessage: String?
     @State private var isShowingParticipantPicker = false
     @State private var conversationScrollTarget = UUID()
     @State private var isShowingGuidance = false
@@ -41,10 +44,12 @@ struct ScenarioSimulationView: View {
     init(
         relationshipPeople: [RelationshipPerson],
         focusedPersonID: RelationshipPerson.ID? = nil,
-        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in }
+        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in },
+        onPracticeDeleted: @escaping () -> Void = {}
     ) {
         self.relationshipPeople = relationshipPeople
         self.onPracticeSubmitted = onPracticeSubmitted
+        self.onPracticeDeleted = onPracticeDeleted
         let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
         let earliestRelationshipIDs = relationshipPeople
@@ -77,7 +82,10 @@ struct ScenarioSimulationView: View {
             VStack(spacing: 0) {
                 ScenarioHeader(
                     onShowHistory: {
-                        isShowingHistory = true
+                        Task {
+                            await loadConversationHistory()
+                            isShowingHistory = true
+                        }
                     },
                     onNewHeartTalk: startHeartTalk,
                     onNewConversation: startNewConversation,
@@ -250,6 +258,17 @@ struct ScenarioSimulationView: View {
                 .presentationDetents([.height(330)])
                 .presentationDragIndicator(.visible)
         }
+        .alert(
+            localizedText("历史记录操作失败", "History Update Failed"),
+            isPresented: Binding(
+                get: { historyErrorMessage != nil },
+                set: { if !$0 { historyErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { historyErrorMessage = nil }
+        } message: {
+            Text(historyErrorMessage ?? "")
+        }
     }
 
     private var voiceControl: some View {
@@ -387,16 +406,7 @@ struct ScenarioSimulationView: View {
     }
 
     private var conversationSessions: [ScenarioConversationSession] {
-        let currentSession = conversation.isEmpty ? [] : [
-            ScenarioConversationSession(
-                participantID: selectedParticipantID,
-                participantName: selectedParticipant.name,
-                date: Date(),
-                messages: conversation
-            )
-        ]
-
-        return currentSession + conversationHistory
+        conversationHistory
     }
 
     private func sendMessage() {
@@ -478,14 +488,24 @@ struct ScenarioSimulationView: View {
     }
 
     private func deleteConversationSession(_ session: ScenarioConversationSession) {
-        let oldCount = conversationHistory.count
-        conversationHistory.removeAll { $0.id == session.id }
-
-        if oldCount == conversationHistory.count,
-           session.participantName == selectedParticipant.name,
-           session.messages == conversation {
-            resetConversation()
+        Task {
+            do {
+                try await self.session.deletePractice(session.id)
+                conversationHistory.removeAll { $0.id == session.id }
+                onPracticeDeleted()
+            } catch {
+                historyErrorMessage = error.localizedDescription
+            }
         }
+    }
+
+    @MainActor
+    private func loadConversationHistory() async {
+        guard let records = await session.loadPractices() else {
+            historyErrorMessage = localizedText("暂时无法读取历史对话。", "Unable to load conversation history right now.")
+            return
+        }
+        conversationHistory = records.map(\.scenarioConversationSession)
     }
 
     private func switchToParticipant(_ participant: ScenarioParticipant) {
@@ -494,18 +514,15 @@ struct ScenarioSimulationView: View {
             return
         }
         guard selectedParticipantID != participant.id else { return }
-        saveCurrentConversationIfNeeded()
         selectedParticipantID = participant.id
         resetConversation()
     }
 
     private func startNewConversation() {
-        saveCurrentConversationIfNeeded()
         resetConversation()
     }
 
     private func startHeartTalk() {
-        saveCurrentConversationIfNeeded()
         selectedModeID = modes.first { $0.id == "boundary" }?.id ?? selectedModeID
         conversation = [
             ScenarioMessage(speaker: "AI", text: localizedText("心对话已开启。你可以先说最真实的感受，不需要一次说完。", "Heart talk is open. Start with the most honest feeling; you do not need to say everything at once."), isUser: false)
@@ -532,14 +549,12 @@ struct ScenarioSimulationView: View {
             return
         }
 
-        saveCurrentConversationIfNeeded()
         if let targetParticipant {
             selectedParticipantID = targetParticipant.id
         }
         conversation = session.messages
         draftMessage = ""
         endVoiceCall(reportPractice: false)
-        conversationHistory.removeAll { $0.id == session.id }
         isShowingHistory = false
         conversationScrollTarget = UUID()
     }
@@ -551,19 +566,6 @@ struct ScenarioSimulationView: View {
         conversationScrollTarget = UUID()
     }
 
-    private func saveCurrentConversationIfNeeded() {
-        guard !conversation.isEmpty else { return }
-
-        conversationHistory.insert(
-            ScenarioConversationSession(
-                participantID: selectedParticipantID,
-                participantName: selectedParticipant.name,
-                date: Date(),
-                messages: conversation
-            ),
-            at: 0
-        )
-    }
 }
 
 private struct ScenarioHeader: View {
@@ -977,6 +979,7 @@ private struct ScenarioHistorySheet: View {
     let onDelete: (ScenarioConversationSession) -> Void
 
     @State private var searchText = ""
+    @State private var pendingDeletion: ScenarioConversationSession?
 
     private var filteredSessions: [ScenarioConversationSession] {
         sessions.filter { $0.matches(searchText) }
@@ -1038,7 +1041,7 @@ private struct ScenarioHistorySheet: View {
                                         .background(SoulTheme.accentSoft, in: Capsule())
 
                                     Button(role: .destructive) {
-                                        onDelete(session)
+                                        pendingDeletion = session
                                     } label: {
                                         Image(systemName: "trash.fill")
                                             .font(.system(size: 12, weight: .bold))
@@ -1078,6 +1081,26 @@ private struct ScenarioHistorySheet: View {
             .background(SoulTheme.pageGradient)
             .navigationTitle(localizedText("以前对话", "Past Conversations"))
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                localizedText("删除这条历史对话？", "Delete This Conversation?"),
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let pendingDeletion {
+                    Button(localizedText("确认删除", "Delete Conversation"), role: .destructive) {
+                        onDelete(pendingDeletion)
+                        self.pendingDeletion = nil
+                    }
+                }
+                Button(localizedText("取消", "Cancel"), role: .cancel) {
+                    pendingDeletion = nil
+                }
+            } message: {
+                Text(localizedText("删除后无法恢复，请确认这不是误触。", "This cannot be undone. Please confirm it was intentional."))
+            }
         }
     }
 }
