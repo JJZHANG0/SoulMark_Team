@@ -72,9 +72,9 @@ Add a small scenario-only presentation model that maps realtime call phase and s
 
 ### Realtime protocol
 
-Extend assistant response events with an optional `emotion` string. The backend derives a single supported emotion for each assistant response and sends it at response start. Existing clients remain compatible because the field is optional.
+Send an optional `assistant.emotion` event as soon as the first meaningful assistant transcript fragment is available. The response starts in `calm`, then the backend derives a supported emotion from the assistant's own words and updates the animation during the opening phrase. Existing clients remain compatible because the new event is optional.
 
-The client updates animation state immediately when `assistant.response_started` arrives. Audio playback, transcript delivery, and interruption messages keep their existing behavior.
+The client enters calm speaking state when `assistant.response_started` arrives and applies `assistant.emotion` when available. Audio playback, transcript delivery, and interruption messages keep their existing behavior.
 
 ### Animated mascot view
 
@@ -90,11 +90,12 @@ Keep `SoulMascotFigure` unchanged for existing static call sites. Add a scenario
 
 1. User speech sets the realtime phase to listening.
 2. Backend completes input processing and prepares the assistant response.
-3. Backend emits response start with an optional emotion.
-4. Realtime manager publishes speaking phase plus decoded emotion.
-5. Scenario screen derives a mascot animation state.
-6. Animated mascot transitions without affecting the audio pipeline.
-7. Interruption or response completion immediately moves the mascot back to listening.
+3. Backend emits response start; the client begins with calm speaking motion.
+4. The first meaningful assistant transcript fragment produces an optional `assistant.emotion` event.
+5. Realtime manager publishes speaking phase plus decoded emotion.
+6. Scenario screen derives a mascot animation state.
+7. Animated mascot transitions without affecting the audio pipeline.
+8. Interruption or response completion immediately moves the mascot back to listening.
 
 ## Error Handling
 
