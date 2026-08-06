@@ -688,7 +688,7 @@ enum ReviewSource: String, CaseIterable, Identifiable {
 
     var systemImage: String {
         switch self {
-        case .scenario: "figure.wave"
+        case .scenario: "waveform.and.mic"
         case .wechat: "message.fill"
         case .manual: "square.and.pencil"
         }
