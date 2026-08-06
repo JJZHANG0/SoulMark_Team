@@ -34,3 +34,21 @@ async def test_profile_requires_authentication(client: AsyncClient) -> None:
 
     assert response.status_code == 401
     assert response.json()["error"]["code"] == "not_authenticated"
+
+
+async def test_user_can_export_and_delete_account(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    exported = await client.get("/api/v1/users/me/export", headers=auth_headers)
+
+    assert exported.status_code == 200
+    assert exported.json()["user"]["display_name"] == "Profile Owner"
+    assert exported.json()["contacts"] == []
+    assert exported.json()["contact_events"] == []
+    assert exported.json()["practices"] == []
+    assert exported.json()["reviews"] == []
+
+    deleted = await client.delete("/api/v1/users/me", headers=auth_headers)
+    assert deleted.status_code == 204
+    assert (await client.get("/api/v1/users/me", headers=auth_headers)).status_code == 401

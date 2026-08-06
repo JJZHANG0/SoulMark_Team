@@ -1633,14 +1633,29 @@ private struct ContactInformationEditor: View {
                         Text(field.label)
                             .foregroundStyle(SoulTheme.secondaryText)
                         Spacer()
-                        DatePicker(
-                            "",
-                            selection: birthdayBinding(for: $field),
-                            in: ...Date(),
-                            displayedComponents: .date
-                        )
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
+
+                        if ContactBirthday.date(from: field.value) != nil {
+                            DatePicker(
+                                "",
+                                selection: birthdayBinding(for: $field),
+                                in: ...Date(),
+                                displayedComponents: .date
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                        } else {
+                            Button(localizedText("选择生日", "Choose Birthday")) {
+                                field.value = ContactBirthday.storageString(from: Date())
+                            }
+                        }
+
+                        Button(role: .destructive) {
+                            fields.removeAll { $0.id == field.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(localizedText("删除生日", "Remove Birthday"))
                     }
 
                     if let date = ContactBirthday.date(from: field.value),
@@ -1710,9 +1725,7 @@ private struct ContactInformationEditor: View {
     private func birthdayBinding(for field: Binding<ContactInformationField>) -> Binding<Date> {
         Binding(
             get: {
-                ContactBirthday.date(from: field.wrappedValue.value)
-                    ?? Calendar.current.date(byAdding: .year, value: -18, to: Date())
-                    ?? Date()
+                ContactBirthday.date(from: field.wrappedValue.value) ?? Date()
             },
             set: { field.wrappedValue.value = ContactBirthday.storageString(from: $0) }
         )

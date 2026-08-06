@@ -13,6 +13,13 @@ enum FreeRelationshipPolicy {
     }
 }
 
+enum PublicUserIDFormatter {
+    static func string(_ value: Int?) -> String {
+        guard let value, value > 0 else { return "0000" }
+        return value < 10_000 ? String(format: "%04d", value) : String(value)
+    }
+}
+
 enum ScenarioParticipantAccessPolicy {
     static let freeLimit = 2
 
