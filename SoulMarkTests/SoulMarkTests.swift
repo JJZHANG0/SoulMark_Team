@@ -38,6 +38,17 @@ struct SoulMarkTests {
         #expect(ContactBirthday.date(from: "2000/08/20") == birthday)
     }
 
+    @Test func defaultBirthdayStaysEmptyUntilUserChoosesOne() throws {
+        let birthday = try #require(
+            ContactInformationField.defaults.first {
+                $0.label == "生日" || $0.label.caseInsensitiveCompare("Birthday") == .orderedSame
+            }
+        )
+
+        #expect(birthday.value.isEmpty)
+        #expect(ContactBirthday.date(from: birthday.value) == nil)
+    }
+
     @Test func weeklyExpressionSignalUsesReviewAverageAndClampsProgress() {
         #expect(WeeklyExpressionSignal(averageScore: nil).displayScore == "--")
         #expect(WeeklyExpressionSignal(averageScore: 78.4).displayScore == "78")

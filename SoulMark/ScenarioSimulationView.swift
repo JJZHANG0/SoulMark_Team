@@ -87,7 +87,6 @@ struct ScenarioSimulationView: View {
                             isShowingHistory = true
                         }
                     },
-                    onNewHeartTalk: startHeartTalk,
                     onNewConversation: startNewConversation,
                     onChangeParticipant: {
                         isShowingParticipantPicker = true
@@ -524,16 +523,6 @@ struct ScenarioSimulationView: View {
         resetConversation()
     }
 
-    private func startHeartTalk() {
-        selectedModeID = modes.first { $0.id == "boundary" }?.id ?? selectedModeID
-        conversation = [
-            ScenarioMessage(speaker: "AI", text: localizedText("心对话已开启。你可以先说最真实的感受，不需要一次说完。", "Heart talk is open. Start with the most honest feeling; you do not need to say everything at once."), isUser: false)
-        ]
-        draftMessage = ""
-        endVoiceCall(reportPractice: false)
-        conversationScrollTarget = UUID()
-    }
-
     private func continueConversation(_ session: ScenarioConversationSession) {
         let targetParticipant: ScenarioParticipant?
         if let participantID = session.participantID,
@@ -804,7 +793,6 @@ private struct ScenarioVisorStyle {
 
 private struct ScenarioHeader: View {
     let onShowHistory: () -> Void
-    let onNewHeartTalk: () -> Void
     let onNewConversation: () -> Void
     let onChangeParticipant: () -> Void
     let onShowGuidance: () -> Void
@@ -817,16 +805,9 @@ private struct ScenarioHeader: View {
         ) {
             HStack(spacing: 8) {
                 SoulIconButton(systemImage: "clock.arrow.circlepath", action: onShowHistory)
+                SoulIconButton(systemImage: "plus.message.fill", action: onNewConversation)
 
                 Menu {
-                    Button(action: onNewHeartTalk) {
-                        Label(localizedText("心情倾诉", "Heart Talk"), systemImage: "heart.text.square.fill")
-                    }
-
-                    Button(action: onNewConversation) {
-                        Label(localizedText("新对话", "New Chat"), systemImage: "plus.message.fill")
-                    }
-
                     Button(action: onChangeParticipant) {
                         Label(localizedText("切换对象", "Switch Partner"), systemImage: "person.2.fill")
                     }
@@ -1747,21 +1728,55 @@ private struct ScenarioModePickerSheet: View {
                     }
 
                     Button(action: onAddMode) {
-                        Label(
-                            localizedText("创建自定义模式", "Create Custom Mode"),
-                            systemImage: "plus.circle.fill"
-                        )
-                        .font(.system(size: 15, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.accent)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 50)
+                        HStack(spacing: 14) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundStyle(SoulTheme.accent)
+                                .frame(width: 42, height: 42)
+                                .background(
+                                    SoulTheme.accentSoft,
+                                    in: RoundedRectangle(
+                                        cornerRadius: SoulTheme.compactCornerRadius,
+                                        style: .continuous
+                                    )
+                                )
+
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(localizedText("创建自定义模式", "Create Custom Mode"))
+                                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(SoulTheme.primaryText)
+
+                                Text(localizedText(
+                                    "设置名称和专属对话指导",
+                                    "Set a name and custom conversation guidance"
+                                ))
+                                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                .foregroundStyle(SoulTheme.secondaryText)
+                                .lineLimit(2)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            Image(systemName: "plus.circle.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(SoulTheme.accent)
+                        }
+                        .padding(12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
-                            SoulTheme.accentSoft,
+                            SoulTheme.cardFill,
                             in: RoundedRectangle(
                                 cornerRadius: SoulTheme.controlCornerRadius,
                                 style: .continuous
                             )
                         )
+                        .overlay {
+                            RoundedRectangle(
+                                cornerRadius: SoulTheme.controlCornerRadius,
+                                style: .continuous
+                            )
+                            .stroke(SoulTheme.cardStroke, lineWidth: 1)
+                        }
                     }
                     .buttonStyle(.plain)
                 }
