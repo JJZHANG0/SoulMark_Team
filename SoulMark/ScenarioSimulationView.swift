@@ -5,14 +5,24 @@
 
 import SwiftUI
 
+private enum ScenarioPendingSheet {
+    case addParticipant
+    case addMode
+    case upgrade
+}
+
 struct ScenarioSimulationView: View {
     let relationshipPeople: [RelationshipPerson]
     let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
 
     @State private var participants: [ScenarioParticipant]
+    @State private var unlockedParticipantIDs: [ScenarioParticipant.ID]
     @State private var selectedParticipantID: ScenarioParticipant.ID?
     @State private var isAddingParticipant = false
     @State private var isAddingMode = false
+    @State private var isShowingModePicker = false
+    @State private var isShowingUpgradePrompt = false
+    @State private var pendingSheet: ScenarioPendingSheet?
     @State private var modes = ScenarioMode.defaultModes
     @State private var selectedModeID = ScenarioMode.defaultModes[0].id
     @State private var draftMessage = ""
@@ -37,8 +47,18 @@ struct ScenarioSimulationView: View {
         self.onPracticeSubmitted = onPracticeSubmitted
         let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
+        let earliestRelationshipIDs = relationshipPeople
+            .prefix(ScenarioParticipantAccessPolicy.freeLimit)
+            .map { $0.id.uuidString }
+        let initialUnlockedIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: earliestRelationshipIDs,
+            participantIDs: initialParticipants.map(\.id)
+        )
+        _unlockedParticipantIDs = State(initialValue: initialUnlockedIDs)
         let focusedID = focusedPersonID?.uuidString
-        let selectedID = initialParticipants.contains { $0.id == focusedID } ? focusedID : initialParticipants.first?.id
+        let selectedID = focusedID.map { initialUnlockedIDs.contains($0) } == true
+            ? focusedID
+            : initialParticipants.first?.id
         _selectedParticipantID = State(initialValue: selectedID)
     }
 
@@ -56,8 +76,6 @@ struct ScenarioSimulationView: View {
 
             VStack(spacing: 0) {
                 ScenarioHeader(
-                    selectedModeID: $selectedModeID,
-                    modes: modes,
                     onShowHistory: {
                         isShowingHistory = true
                     },
@@ -65,9 +83,6 @@ struct ScenarioSimulationView: View {
                     onNewConversation: startNewConversation,
                     onChangeParticipant: {
                         isShowingParticipantPicker = true
-                    },
-                    onAddMode: {
-                        isAddingMode = true
                     },
                     onShowGuidance: {
                         isShowingGuidance = true
@@ -110,6 +125,16 @@ struct ScenarioSimulationView: View {
                 }
             }
         }
+        .overlay(alignment: .topTrailing) {
+            ScenarioModeQuickSwitch(mode: selectedMode) {
+                isShowingModePicker = true
+            }
+            .padding(.top, 126)
+            .padding(.trailing, 14)
+        }
+        .onAppear {
+            isShowingModePicker = true
+        }
         .onChange(of: relationshipPeople) { _, _ in
             syncRelationshipParticipants()
         }
@@ -130,20 +155,30 @@ struct ScenarioSimulationView: View {
         .onDisappear {
             endVoiceCall(reportPractice: false)
         }
-        .sheet(isPresented: $isAddingParticipant) {
+        .sheet(isPresented: $isAddingParticipant, onDismiss: presentPendingSheetIfNeeded) {
             AddScenarioParticipantSheet { name, note, relationshipLabel in
+                guard ScenarioParticipantAccessPolicy.canAddParticipant(
+                    currentCount: participants.count
+                ) else {
+                    pendingSheet = .upgrade
+                    return
+                }
                 let participant = ScenarioParticipant.custom(
                     name: name,
                     note: note,
                     relationshipLabel: relationshipLabel
                 )
                 participants.append(participant)
+                unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+                    existing: unlockedParticipantIDs,
+                    participantIDs: participants.map(\.id)
+                )
                 switchToParticipant(participant)
             }
             .presentationDetents([.height(360)])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isAddingMode) {
+        .sheet(isPresented: $isAddingMode, onDismiss: presentPendingSheetIfNeeded) {
             AddScenarioModeSheet { title, guidance in
                 modes.addCustomMode(title: title, guidance: guidance)
                 selectedModeID = modes.last?.id ?? selectedModeID
@@ -151,24 +186,35 @@ struct ScenarioSimulationView: View {
             .presentationDetents([.height(320)])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingParticipantPicker) {
+        .sheet(
+            isPresented: $isShowingParticipantPicker,
+            onDismiss: presentPendingSheetIfNeeded
+        ) {
             ScenarioParticipantPickerSheet(
                 participants: participants,
                 selectedID: selectedParticipantID,
+                isUnlocked: isParticipantUnlocked,
                 onSelect: { participant in
-                    switchToParticipant(participant)
-                    isShowingParticipantPicker = false
+                    if isParticipantUnlocked(participant) {
+                        switchToParticipant(participant)
+                        isShowingParticipantPicker = false
+                    } else {
+                        pendingSheet = .upgrade
+                        isShowingParticipantPicker = false
+                    }
                 },
                 onAdd: {
+                    pendingSheet = ScenarioParticipantAccessPolicy.canAddParticipant(
+                        currentCount: participants.count
+                    ) ? .addParticipant : .upgrade
                     isShowingParticipantPicker = false
-                    isAddingParticipant = true
                 },
                 onDeleteCustom: deleteCustomParticipant
             )
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingHistory) {
+        .sheet(isPresented: $isShowingHistory, onDismiss: presentPendingSheetIfNeeded) {
             ScenarioHistorySheet(
                 sessions: conversationSessions,
                 currentParticipantName: selectedParticipant.name,
@@ -181,6 +227,27 @@ struct ScenarioSimulationView: View {
         .sheet(isPresented: $isShowingGuidance) {
             ScenarioGuidanceSheet(mode: selectedMode)
                 .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingModePicker, onDismiss: presentPendingSheetIfNeeded) {
+            ScenarioModePickerSheet(
+                modes: modes,
+                selectedModeID: selectedModeID,
+                onSelect: { mode in
+                    selectedModeID = mode.id
+                    isShowingModePicker = false
+                },
+                onAddMode: {
+                    pendingSheet = .addMode
+                    isShowingModePicker = false
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isShowingUpgradePrompt) {
+            ScenarioParticipantUpgradeSheet()
+                .presentationDetents([.height(330)])
                 .presentationDragIndicator(.visible)
         }
     }
@@ -364,6 +431,10 @@ struct ScenarioSimulationView: View {
     private func deleteCustomParticipant(_ participant: ScenarioParticipant) {
         participants.deleteCustomParticipant(participant.id)
         participants = participants.withSoulFallback()
+        unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: unlockedParticipantIDs,
+            participantIDs: participants.map(\.id)
+        )
 
         if selectedParticipantID == participant.id {
             selectedParticipantID = participants.first?.id
@@ -374,10 +445,35 @@ struct ScenarioSimulationView: View {
     private func syncRelationshipParticipants() {
         let customParticipants = participants.filter(\.isCustom)
         participants = (relationshipPeople.scenarioParticipants() + customParticipants).withSoulFallback()
+        unlockedParticipantIDs = ScenarioParticipantAccessPolicy.reconciledUnlockedIDs(
+            existing: unlockedParticipantIDs,
+            participantIDs: participants.map(\.id)
+        )
 
-        if !participants.contains(where: { $0.id == selectedParticipantID }) {
+        if let selectedParticipantID,
+           unlockedParticipantIDs.contains(selectedParticipantID) {
+            return
+        } else {
             selectedParticipantID = participants.first?.id
             resetConversation()
+        }
+    }
+
+    private func isParticipantUnlocked(_ participant: ScenarioParticipant) -> Bool {
+        unlockedParticipantIDs.contains(participant.id)
+    }
+
+    private func presentPendingSheetIfNeeded() {
+        guard let pendingSheet else { return }
+        self.pendingSheet = nil
+
+        switch pendingSheet {
+        case .addParticipant:
+            isAddingParticipant = true
+        case .addMode:
+            isAddingMode = true
+        case .upgrade:
+            isShowingUpgradePrompt = true
         }
     }
 
@@ -393,6 +489,10 @@ struct ScenarioSimulationView: View {
     }
 
     private func switchToParticipant(_ participant: ScenarioParticipant) {
+        guard isParticipantUnlocked(participant) else {
+            pendingSheet = .upgrade
+            return
+        }
         guard selectedParticipantID != participant.id else { return }
         saveCurrentConversationIfNeeded()
         selectedParticipantID = participant.id
@@ -416,12 +516,25 @@ struct ScenarioSimulationView: View {
     }
 
     private func continueConversation(_ session: ScenarioConversationSession) {
-        saveCurrentConversationIfNeeded()
+        let targetParticipant: ScenarioParticipant?
         if let participantID = session.participantID,
-           participants.contains(where: { $0.id == participantID }) {
-            selectedParticipantID = participantID
+           let participant = participants.first(where: { $0.id == participantID }) {
+            targetParticipant = participant
         } else if let participant = participants.first(where: { $0.name == session.participantName }) {
-            selectedParticipantID = participant.id
+            targetParticipant = participant
+        } else {
+            targetParticipant = nil
+        }
+
+        if let targetParticipant, !isParticipantUnlocked(targetParticipant) {
+            pendingSheet = .upgrade
+            isShowingHistory = false
+            return
+        }
+
+        saveCurrentConversationIfNeeded()
+        if let targetParticipant {
+            selectedParticipantID = targetParticipant.id
         }
         conversation = session.messages
         draftMessage = ""
@@ -454,13 +567,10 @@ struct ScenarioSimulationView: View {
 }
 
 private struct ScenarioHeader: View {
-    @Binding var selectedModeID: ScenarioMode.ID
-    let modes: [ScenarioMode]
     let onShowHistory: () -> Void
     let onNewHeartTalk: () -> Void
     let onNewConversation: () -> Void
     let onChangeParticipant: () -> Void
-    let onAddMode: () -> Void
     let onShowGuidance: () -> Void
 
     var body: some View {
@@ -485,24 +595,8 @@ private struct ScenarioHeader: View {
                         Label(localizedText("切换对象", "Switch Partner"), systemImage: "person.2.fill")
                     }
 
-                    Menu {
-                        ForEach(modes) { mode in
-                            Button {
-                                selectedModeID = mode.id
-                            } label: {
-                                Label(mode.displayTitle, systemImage: selectedModeID == mode.id ? "checkmark.circle.fill" : mode.systemImage)
-                            }
-                        }
-                    } label: {
-                        Label(localizedText("选择模式", "Choose Mode"), systemImage: "rectangle.3.group.fill")
-                    }
-
                     Button(action: onShowGuidance) {
                         Label(localizedText("完整指导", "Full Guidance"), systemImage: "lightbulb.max.fill")
-                    }
-
-                    Button(action: onAddMode) {
-                        Label(localizedText("自定义模式", "Custom Mode"), systemImage: "slider.horizontal.3")
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -518,6 +612,49 @@ private struct ScenarioHeader: View {
         .padding(.horizontal, 18)
         .padding(.top, 18)
         .padding(.bottom, 6)
+    }
+}
+
+private struct ScenarioModeQuickSwitch: View {
+    let mode: ScenarioMode
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 5) {
+                Image(systemName: mode.systemImage)
+                    .font(.system(size: 15, weight: .bold))
+
+                Text(mode.displayTitle)
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .frame(width: 50)
+
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .black))
+            }
+            .foregroundStyle(SoulTheme.accent)
+            .padding(.vertical, 10)
+            .frame(width: 64)
+            .background(
+                .ultraThinMaterial,
+                in: RoundedRectangle(
+                    cornerRadius: SoulTheme.controlCornerRadius,
+                    style: .continuous
+                )
+            )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: SoulTheme.controlCornerRadius,
+                    style: .continuous
+                )
+                .stroke(SoulTheme.accent.opacity(0.34), lineWidth: 1)
+            }
+            .shadow(color: SoulTheme.accent.opacity(0.12), radius: 10, x: 0, y: 5)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(localizedText("切换模拟模式", "Switch simulation mode"))
     }
 }
 
@@ -674,6 +811,7 @@ private struct ScenarioParticipantRail: View {
 private struct ScenarioParticipantPickerSheet: View {
     let participants: [ScenarioParticipant]
     let selectedID: ScenarioParticipant.ID?
+    let isUnlocked: (ScenarioParticipant) -> Bool
     let onSelect: (ScenarioParticipant) -> Void
     let onAdd: () -> Void
     let onDeleteCustom: (ScenarioParticipant) -> Void
@@ -688,6 +826,30 @@ private struct ScenarioParticipantPickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "lock.shield.fill")
+                            .foregroundStyle(SoulTheme.accent)
+
+                        Text(
+                            localizedText(
+                                "免费版可使用前 2 位对象，更多对象需要升级。",
+                                "The first 2 partners are included; more require an upgrade."
+                            )
+                        )
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SoulTheme.secondaryText)
+
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    .background(
+                        SoulTheme.accentSoft,
+                        in: RoundedRectangle(
+                            cornerRadius: SoulTheme.compactCornerRadius,
+                            style: .continuous
+                        )
+                    )
+
                     ForEach(groupedParticipants, id: \.0) { groupName, people in
                         VStack(alignment: .leading, spacing: 10) {
                             Text(groupName)
@@ -701,15 +863,54 @@ private struct ScenarioParticipantPickerSheet: View {
                                             onSelect(participant)
                                         } label: {
                                             VStack(spacing: 7) {
-                                                ScenarioAvatar(participant: participant, size: 48)
+                                                ZStack(alignment: .bottomTrailing) {
+                                                    ScenarioAvatar(
+                                                        participant: participant,
+                                                        size: 48
+                                                    )
+                                                    .saturation(
+                                                        isUnlocked(participant) ? 1 : 0.15
+                                                    )
+                                                    .opacity(
+                                                        isUnlocked(participant) ? 1 : 0.55
+                                                    )
+
+                                                    if !isUnlocked(participant) {
+                                                        Image(systemName: "lock.fill")
+                                                            .font(
+                                                                .system(
+                                                                    size: 9,
+                                                                    weight: .black
+                                                                )
+                                                            )
+                                                            .foregroundStyle(Color.white)
+                                                            .frame(width: 20, height: 20)
+                                                            .background(
+                                                                SoulTheme.accent,
+                                                                in: Circle()
+                                                            )
+                                                    }
+                                                }
 
                                                 Text(participant.name)
                                                     .font(.system(size: 12, weight: .bold))
                                                     .foregroundStyle(primaryTextColor)
                                                     .lineLimit(1)
+
+                                                if !isUnlocked(participant) {
+                                                    Text(localizedText("需升级", "Upgrade"))
+                                                        .font(
+                                                            .system(
+                                                                size: 9,
+                                                                weight: .heavy,
+                                                                design: .rounded
+                                                            )
+                                                        )
+                                                        .foregroundStyle(SoulTheme.accent)
+                                                }
                                             }
                                             .frame(maxWidth: .infinity)
-                                            .frame(height: 88)
+                                            .frame(height: 104)
                                             .background(
                                                 selectedID == participant.id
                                                 ? participant.color.opacity(0.18)
@@ -742,7 +943,16 @@ private struct ScenarioParticipantPickerSheet: View {
                     }
 
                     Button(action: onAdd) {
-                        Label(localizedText("创建自定义对象", "Create Custom Partner"), systemImage: "plus")
+                        Label(
+                            ScenarioParticipantAccessPolicy.canAddParticipant(
+                                currentCount: participants.count
+                            )
+                                ? localizedText("创建自定义对象", "Create Custom Partner")
+                                : localizedText("解锁更多对话对象", "Unlock More Partners"),
+                            systemImage: ScenarioParticipantAccessPolicy.canAddParticipant(
+                                currentCount: participants.count
+                            ) ? "plus" : "lock.fill"
+                        )
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
@@ -1168,6 +1378,223 @@ private struct ScenarioModePicker: View {
             }
             .padding(.vertical, 2)
         }
+    }
+}
+
+private struct ScenarioModePickerSheet: View {
+    let modes: [ScenarioMode]
+    let selectedModeID: ScenarioMode.ID
+    let onSelect: (ScenarioMode) -> Void
+    let onAddMode: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(
+                        localizedText(
+                            "选择这次想练习的对话方式",
+                            "Choose how you want to practice this conversation"
+                        )
+                    )
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
+
+                    ForEach(modes) { mode in
+                        Button {
+                            onSelect(mode)
+                        } label: {
+                            HStack(spacing: 14) {
+                                Image(systemName: mode.systemImage)
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(
+                                        selectedModeID == mode.id
+                                            ? Color.white
+                                            : SoulTheme.accent
+                                    )
+                                    .frame(width: 42, height: 42)
+                                    .background(
+                                        selectedModeID == mode.id
+                                            ? SoulTheme.accent
+                                            : SoulTheme.accentSoft,
+                                        in: RoundedRectangle(
+                                            cornerRadius: SoulTheme.compactCornerRadius,
+                                            style: .continuous
+                                        )
+                                    )
+
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(mode.displayTitle)
+                                        .font(
+                                            .system(
+                                                size: 15,
+                                                weight: .heavy,
+                                                design: .rounded
+                                            )
+                                        )
+                                        .foregroundStyle(SoulTheme.primaryText)
+
+                                    Text(mode.displayGuidance)
+                                        .font(
+                                            .system(
+                                                size: 11,
+                                                weight: .semibold,
+                                                design: .rounded
+                                            )
+                                        )
+                                        .foregroundStyle(SoulTheme.secondaryText)
+                                        .lineLimit(2)
+                                }
+
+                                Spacer(minLength: 8)
+
+                                Image(
+                                    systemName: selectedModeID == mode.id
+                                        ? "checkmark.circle.fill"
+                                        : "circle"
+                                )
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(
+                                    selectedModeID == mode.id
+                                        ? SoulTheme.accent
+                                        : SoulTheme.cardStroke
+                                )
+                            }
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(
+                                selectedModeID == mode.id
+                                    ? SoulTheme.accentSoft
+                                    : SoulTheme.cardFill,
+                                in: RoundedRectangle(
+                                    cornerRadius: SoulTheme.controlCornerRadius,
+                                    style: .continuous
+                                )
+                            )
+                            .overlay {
+                                RoundedRectangle(
+                                    cornerRadius: SoulTheme.controlCornerRadius,
+                                    style: .continuous
+                                )
+                                .stroke(
+                                    selectedModeID == mode.id
+                                        ? SoulTheme.accent.opacity(0.44)
+                                        : SoulTheme.cardStroke,
+                                    lineWidth: 1
+                                )
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: onAddMode) {
+                        Label(
+                            localizedText("创建自定义模式", "Create Custom Mode"),
+                            systemImage: "plus.circle.fill"
+                        )
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.accent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            SoulTheme.accentSoft,
+                            in: RoundedRectangle(
+                                cornerRadius: SoulTheme.controlCornerRadius,
+                                style: .continuous
+                            )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(20)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("选择模拟模式", "Choose Simulation Mode"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(localizedText("关闭", "Close")) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ScenarioParticipantUpgradeSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "person.2.badge.plus.fill")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(Color.white)
+                .frame(width: 72, height: 72)
+                .background(SoulTheme.accent, in: Circle())
+                .shadow(
+                    color: SoulTheme.accent.opacity(0.25),
+                    radius: 14,
+                    x: 0,
+                    y: 8
+                )
+
+            VStack(spacing: 8) {
+                Text(
+                    localizedText(
+                        "更多对话对象需要升级",
+                        "Upgrade for More Partners"
+                    )
+                )
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+                .multilineTextAlignment(.center)
+
+                Text(
+                    localizedText(
+                        "免费版支持 2 位情景模拟对象。升级后即可解锁更多对象。",
+                        "The free plan supports 2 simulation partners. Upgrade to unlock more."
+                    )
+                )
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(SoulTheme.secondaryText)
+                .multilineTextAlignment(.center)
+            }
+
+            Button {
+                dismiss()
+            } label: {
+                Label(
+                    localizedText("了解升级", "Explore Upgrade"),
+                    systemImage: "lock.open.fill"
+                )
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    SoulTheme.accent,
+                    in: RoundedRectangle(
+                        cornerRadius: SoulTheme.controlCornerRadius,
+                        style: .continuous
+                    )
+                )
+            }
+            .buttonStyle(.plain)
+
+            Text(
+                localizedText(
+                    "当前仅作付费提示，不会发起扣款。",
+                    "This is only an upgrade notice; no payment will be started."
+                )
+            )
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .foregroundStyle(SoulTheme.secondaryText)
+        }
+        .padding(24)
+        .background(SoulTheme.pageGradient)
     }
 }
 

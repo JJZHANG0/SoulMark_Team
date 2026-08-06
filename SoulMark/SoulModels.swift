@@ -13,6 +13,44 @@ enum FreeRelationshipPolicy {
     }
 }
 
+enum ScenarioParticipantAccessPolicy {
+    static let freeLimit = 2
+
+    static func isUnlocked(index: Int) -> Bool {
+        index >= 0 && index < freeLimit
+    }
+
+    static func isUnlocked(
+        participantID: ScenarioParticipant.ID,
+        in participantIDs: [ScenarioParticipant.ID]
+    ) -> Bool {
+        guard let index = participantIDs.firstIndex(of: participantID) else {
+            return false
+        }
+        return isUnlocked(index: index)
+    }
+
+    static func canAddParticipant(currentCount: Int) -> Bool {
+        currentCount < freeLimit
+    }
+
+    static func reconciledUnlockedIDs(
+        existing: [ScenarioParticipant.ID],
+        participantIDs: [ScenarioParticipant.ID]
+    ) -> [ScenarioParticipant.ID] {
+        let availableIDs = Set(participantIDs)
+        var unlockedIDs = existing.filter(availableIDs.contains)
+
+        for participantID in participantIDs where unlockedIDs.count < freeLimit {
+            if !unlockedIDs.contains(participantID) {
+                unlockedIDs.append(participantID)
+            }
+        }
+
+        return Array(unlockedIDs.prefix(freeLimit))
+    }
+}
+
 struct RelationshipLabelLayout: Equatable {
     let horizontalDirection: Int
 }
