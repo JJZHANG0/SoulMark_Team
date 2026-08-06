@@ -157,7 +157,9 @@ struct ScenarioSimulationView: View {
         }
         .sheet(isPresented: $isAddingParticipant, onDismiss: presentPendingSheetIfNeeded) {
             AddScenarioParticipantSheet { name, note, relationshipLabel in
-                guard ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: participants.count) else {
+                guard ScenarioParticipantAccessPolicy.canAddParticipant(
+                    currentCount: participants.count
+                ) else {
                     pendingSheet = .upgrade
                     return
                 }
@@ -184,7 +186,10 @@ struct ScenarioSimulationView: View {
             .presentationDetents([.height(320)])
             .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $isShowingParticipantPicker, onDismiss: presentPendingSheetIfNeeded) {
+        .sheet(
+            isPresented: $isShowingParticipantPicker,
+            onDismiss: presentPendingSheetIfNeeded
+        ) {
             ScenarioParticipantPickerSheet(
                 participants: participants,
                 selectedID: selectedParticipantID,
@@ -199,13 +204,10 @@ struct ScenarioSimulationView: View {
                     }
                 },
                 onAdd: {
-                    if ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: participants.count) {
-                        pendingSheet = .addParticipant
-                        isShowingParticipantPicker = false
-                    } else {
-                        pendingSheet = .upgrade
-                        isShowingParticipantPicker = false
-                    }
+                    pendingSheet = ScenarioParticipantAccessPolicy.canAddParticipant(
+                        currentCount: participants.count
+                    ) ? .addParticipant : .upgrade
+                    isShowingParticipantPicker = false
                 },
                 onDeleteCustom: deleteCustomParticipant
             )
@@ -635,11 +637,20 @@ private struct ScenarioModeQuickSwitch: View {
             .foregroundStyle(SoulTheme.accent)
             .padding(.vertical, 10)
             .frame(width: 64)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(SoulTheme.accent.opacity(0.34), lineWidth: 1)
+            .background(
+                .ultraThinMaterial,
+                in: RoundedRectangle(
+                    cornerRadius: SoulTheme.controlCornerRadius,
+                    style: .continuous
+                )
             )
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: SoulTheme.controlCornerRadius,
+                    style: .continuous
+                )
+                .stroke(SoulTheme.accent.opacity(0.34), lineWidth: 1)
+            }
             .shadow(color: SoulTheme.accent.opacity(0.12), radius: 10, x: 0, y: 5)
         }
         .buttonStyle(.plain)
@@ -819,17 +830,25 @@ private struct ScenarioParticipantPickerSheet: View {
                         Image(systemName: "lock.shield.fill")
                             .foregroundStyle(SoulTheme.accent)
 
-                        Text(localizedText(
-                            "免费版可使用前 2 位对象，更多对象需要升级。",
-                            "The first 2 partners are included; more require an upgrade."
-                        ))
+                        Text(
+                            localizedText(
+                                "免费版可使用前 2 位对象，更多对象需要升级。",
+                                "The first 2 partners are included; more require an upgrade."
+                            )
+                        )
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(SoulTheme.secondaryText)
 
                         Spacer(minLength: 0)
                     }
                     .padding(12)
-                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 12))
+                    .background(
+                        SoulTheme.accentSoft,
+                        in: RoundedRectangle(
+                            cornerRadius: SoulTheme.compactCornerRadius,
+                            style: .continuous
+                        )
+                    )
 
                     ForEach(groupedParticipants, id: \.0) { groupName, people in
                         VStack(alignment: .leading, spacing: 10) {
@@ -845,16 +864,31 @@ private struct ScenarioParticipantPickerSheet: View {
                                         } label: {
                                             VStack(spacing: 7) {
                                                 ZStack(alignment: .bottomTrailing) {
-                                                    ScenarioAvatar(participant: participant, size: 48)
-                                                        .saturation(isUnlocked(participant) ? 1 : 0.15)
-                                                        .opacity(isUnlocked(participant) ? 1 : 0.55)
+                                                    ScenarioAvatar(
+                                                        participant: participant,
+                                                        size: 48
+                                                    )
+                                                    .saturation(
+                                                        isUnlocked(participant) ? 1 : 0.15
+                                                    )
+                                                    .opacity(
+                                                        isUnlocked(participant) ? 1 : 0.55
+                                                    )
 
                                                     if !isUnlocked(participant) {
                                                         Image(systemName: "lock.fill")
-                                                            .font(.system(size: 9, weight: .black))
+                                                            .font(
+                                                                .system(
+                                                                    size: 9,
+                                                                    weight: .black
+                                                                )
+                                                            )
                                                             .foregroundStyle(Color.white)
                                                             .frame(width: 20, height: 20)
-                                                            .background(SoulTheme.accent, in: Circle())
+                                                            .background(
+                                                                SoulTheme.accent,
+                                                                in: Circle()
+                                                            )
                                                     }
                                                 }
 
@@ -865,7 +899,13 @@ private struct ScenarioParticipantPickerSheet: View {
 
                                                 if !isUnlocked(participant) {
                                                     Text(localizedText("需升级", "Upgrade"))
-                                                        .font(.system(size: 9, weight: .heavy, design: .rounded))
+                                                        .font(
+                                                            .system(
+                                                                size: 9,
+                                                                weight: .heavy,
+                                                                design: .rounded
+                                                            )
+                                                        )
                                                         .foregroundStyle(SoulTheme.accent)
                                                 }
                                             }
@@ -904,12 +944,14 @@ private struct ScenarioParticipantPickerSheet: View {
 
                     Button(action: onAdd) {
                         Label(
-                            ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: participants.count)
+                            ScenarioParticipantAccessPolicy.canAddParticipant(
+                                currentCount: participants.count
+                            )
                                 ? localizedText("创建自定义对象", "Create Custom Partner")
                                 : localizedText("解锁更多对话对象", "Unlock More Partners"),
-                            systemImage: ScenarioParticipantAccessPolicy.canAddParticipant(currentCount: participants.count)
-                                ? "plus"
-                                : "lock.fill"
+                            systemImage: ScenarioParticipantAccessPolicy.canAddParticipant(
+                                currentCount: participants.count
+                            ) ? "plus" : "lock.fill"
                         )
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(Color.white)
@@ -1087,7 +1129,7 @@ private struct ScenarioControlCard: View {
                 .buttonStyle(.plain)
             }
 
-            ScenarioInlineModePicker(
+            ScenarioModePicker(
                 selectedModeID: $selectedModeID,
                 modes: modes,
                 onAddMode: onAddMode
@@ -1297,7 +1339,7 @@ private struct GuidanceBullet: View {
     }
 }
 
-private struct ScenarioInlineModePicker: View {
+private struct ScenarioModePicker: View {
     @Binding var selectedModeID: ScenarioMode.ID
     let modes: [ScenarioMode]
     let onAddMode: () -> Void
@@ -1315,7 +1357,9 @@ private struct ScenarioInlineModePicker: View {
                             .padding(.horizontal, 11)
                             .frame(height: 36)
                             .background(
-                                selectedModeID == mode.id ? SoulTheme.accentSoft : SoulTheme.cardFill,
+                                selectedModeID == mode.id
+                                ? SoulTheme.accentSoft
+                                : SoulTheme.cardFill,
                                 in: Capsule()
                             )
                     }
@@ -1332,6 +1376,7 @@ private struct ScenarioInlineModePicker: View {
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.vertical, 2)
         }
     }
 }
@@ -1348,70 +1393,121 @@ private struct ScenarioModePickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text(localizedText("选择这次想练习的对话方式", "Choose how you want to practice this conversation"))
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
-                        .foregroundStyle(SoulTheme.secondaryText)
+                    Text(
+                        localizedText(
+                            "选择这次想练习的对话方式",
+                            "Choose how you want to practice this conversation"
+                        )
+                    )
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
 
-                ForEach(modes) { mode in
-                    Button {
+                    ForEach(modes) { mode in
+                        Button {
                             onSelect(mode)
-                    } label: {
+                        } label: {
                             HStack(spacing: 14) {
                                 Image(systemName: mode.systemImage)
                                     .font(.system(size: 18, weight: .bold))
-                                    .foregroundStyle(selectedModeID == mode.id ? Color.white : SoulTheme.accent)
+                                    .foregroundStyle(
+                                        selectedModeID == mode.id
+                                            ? Color.white
+                                            : SoulTheme.accent
+                                    )
                                     .frame(width: 42, height: 42)
                                     .background(
-                                        selectedModeID == mode.id ? SoulTheme.accent : SoulTheme.accentSoft,
-                                        in: RoundedRectangle(cornerRadius: 12)
+                                        selectedModeID == mode.id
+                                            ? SoulTheme.accent
+                                            : SoulTheme.accentSoft,
+                                        in: RoundedRectangle(
+                                            cornerRadius: SoulTheme.compactCornerRadius,
+                                            style: .continuous
+                                        )
                                     )
 
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(mode.displayTitle)
-                                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                        .font(
+                                            .system(
+                                                size: 15,
+                                                weight: .heavy,
+                                                design: .rounded
+                                            )
+                                        )
                                         .foregroundStyle(SoulTheme.primaryText)
 
                                     Text(mode.displayGuidance)
-                                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                                        .font(
+                                            .system(
+                                                size: 11,
+                                                weight: .semibold,
+                                                design: .rounded
+                                            )
+                                        )
                                         .foregroundStyle(SoulTheme.secondaryText)
                                         .lineLimit(2)
                                 }
 
                                 Spacer(minLength: 8)
 
-                                Image(systemName: selectedModeID == mode.id ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundStyle(selectedModeID == mode.id ? SoulTheme.accent : SoulTheme.cardStroke)
+                                Image(
+                                    systemName: selectedModeID == mode.id
+                                        ? "checkmark.circle.fill"
+                                        : "circle"
+                                )
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(
+                                    selectedModeID == mode.id
+                                        ? SoulTheme.accent
+                                        : SoulTheme.cardStroke
+                                )
                             }
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 selectedModeID == mode.id
-                                ? SoulTheme.accentSoft
-                                : SoulTheme.cardFill,
-                                in: RoundedRectangle(cornerRadius: 14)
+                                    ? SoulTheme.accentSoft
+                                    : SoulTheme.cardFill,
+                                in: RoundedRectangle(
+                                    cornerRadius: SoulTheme.controlCornerRadius,
+                                    style: .continuous
+                                )
                             )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .stroke(
-                                        selectedModeID == mode.id ? SoulTheme.accent.opacity(0.44) : SoulTheme.cardStroke,
-                                        lineWidth: 1
-                                    )
+                            .overlay {
+                                RoundedRectangle(
+                                    cornerRadius: SoulTheme.controlCornerRadius,
+                                    style: .continuous
+                                )
+                                .stroke(
+                                    selectedModeID == mode.id
+                                        ? SoulTheme.accent.opacity(0.44)
+                                        : SoulTheme.cardStroke,
+                                    lineWidth: 1
+                                )
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button(action: onAddMode) {
+                        Label(
+                            localizedText("创建自定义模式", "Create Custom Mode"),
+                            systemImage: "plus.circle.fill"
+                        )
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.accent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            SoulTheme.accentSoft,
+                            in: RoundedRectangle(
+                                cornerRadius: SoulTheme.controlCornerRadius,
+                                style: .continuous
                             )
+                        )
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button(action: onAddMode) {
-                        Label(localizedText("创建自定义模式", "Create Custom Mode"), systemImage: "plus.circle.fill")
-                        .font(.system(size: 15, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.accent)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
-            }
                 .padding(20)
             }
             .background(SoulTheme.pageGradient)
@@ -1438,18 +1534,30 @@ private struct ScenarioParticipantUpgradeSheet: View {
                 .foregroundStyle(Color.white)
                 .frame(width: 72, height: 72)
                 .background(SoulTheme.accent, in: Circle())
-                .shadow(color: SoulTheme.accent.opacity(0.25), radius: 14, x: 0, y: 8)
+                .shadow(
+                    color: SoulTheme.accent.opacity(0.25),
+                    radius: 14,
+                    x: 0,
+                    y: 8
+                )
 
             VStack(spacing: 8) {
-                Text(localizedText("更多对话对象需要升级", "Upgrade for More Partners"))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(SoulTheme.primaryText)
-                    .multilineTextAlignment(.center)
+                Text(
+                    localizedText(
+                        "更多对话对象需要升级",
+                        "Upgrade for More Partners"
+                    )
+                )
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+                .multilineTextAlignment(.center)
 
-                Text(localizedText(
-                    "免费版支持 2 位情景模拟对象。升级后即可解锁更多对象。",
-                    "The free plan supports 2 simulation partners. Upgrade to unlock more."
-                ))
+                Text(
+                    localizedText(
+                        "免费版支持 2 位情景模拟对象。升级后即可解锁更多对象。",
+                        "The free plan supports 2 simulation partners. Upgrade to unlock more."
+                    )
+                )
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(SoulTheme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -1458,18 +1566,32 @@ private struct ScenarioParticipantUpgradeSheet: View {
             Button {
                 dismiss()
             } label: {
-                Label(localizedText("了解升级", "Explore Upgrade"), systemImage: "lock.open.fill")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 14))
+                Label(
+                    localizedText("了解升级", "Explore Upgrade"),
+                    systemImage: "lock.open.fill"
+                )
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(
+                    SoulTheme.accent,
+                    in: RoundedRectangle(
+                        cornerRadius: SoulTheme.controlCornerRadius,
+                        style: .continuous
+                    )
+                )
             }
             .buttonStyle(.plain)
 
-            Text(localizedText("当前仅作付费提示，不会发起扣款。", "This is only an upgrade notice; no payment will be started."))
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(SoulTheme.secondaryText)
+            Text(
+                localizedText(
+                    "当前仅作付费提示，不会发起扣款。",
+                    "This is only an upgrade notice; no payment will be started."
+                )
+            )
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .foregroundStyle(SoulTheme.secondaryText)
         }
         .padding(24)
         .background(SoulTheme.pageGradient)

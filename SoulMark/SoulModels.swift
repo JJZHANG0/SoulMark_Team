@@ -20,7 +20,10 @@ enum ScenarioParticipantAccessPolicy {
         index >= 0 && index < freeLimit
     }
 
-    static func isUnlocked(participantID: String, in participantIDs: [String]) -> Bool {
+    static func isUnlocked(
+        participantID: ScenarioParticipant.ID,
+        in participantIDs: [ScenarioParticipant.ID]
+    ) -> Bool {
         guard let index = participantIDs.firstIndex(of: participantID) else {
             return false
         }
@@ -31,7 +34,10 @@ enum ScenarioParticipantAccessPolicy {
         currentCount < freeLimit
     }
 
-    static func reconciledUnlockedIDs(existing: [String], participantIDs: [String]) -> [String] {
+    static func reconciledUnlockedIDs(
+        existing: [ScenarioParticipant.ID],
+        participantIDs: [ScenarioParticipant.ID]
+    ) -> [ScenarioParticipant.ID] {
         let availableIDs = Set(participantIDs)
         var unlockedIDs = existing.filter(availableIDs.contains)
 

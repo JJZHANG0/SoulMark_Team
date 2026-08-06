@@ -101,6 +101,7 @@ enum RealtimeVoiceServiceConfiguration {
 enum RealtimeVoiceError: LocalizedError {
     case invalidBackendURL
     case microphoneDenied
+    case voiceProcessingUnavailable
     case invalidServerMessage
     case server(String)
 
@@ -110,6 +111,11 @@ enum RealtimeVoiceError: LocalizedError {
             localizedText("语音服务地址无效，请在设置中检查。", "The voice service address is invalid. Check Settings.")
         case .microphoneDenied:
             localizedText("需要麦克风权限才能开始通话。", "Microphone access is required to start a call.")
+        case .voiceProcessingUnavailable:
+            localizedText(
+                "当前音频设备无法启用通话回声消除，请更换音频设备后重试。",
+                "Echo cancellation is unavailable for the current audio device. Try another audio device."
+            )
         case .invalidServerMessage:
             localizedText("语音服务返回了无法识别的数据。", "The voice service returned an invalid message.")
         case .server(let message):
@@ -140,6 +146,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
     private var receiveTask: Task<Void, Never>?
     private var durationTask: Task<Void, Never>?
     private var isEnding = false
+    private var acceptsAssistantAudio = false
 
     var durationText: String {
         String(format: "%02d:%02d", elapsedSeconds / 60, elapsedSeconds % 60)
@@ -157,6 +164,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         elapsedSeconds = 0
         isMuted = false
         isEnding = false
+        acceptsAssistantAudio = false
         phase = .connecting
 
         do {
@@ -237,7 +245,9 @@ final class RealtimeVoiceCallManager: ObservableObject {
                 let message = try await webSocket.receive()
                 switch message {
                 case .data(let data):
-                    audio.play(data)
+                    if acceptsAssistantAudio {
+                        audio.play(data)
+                    }
                 case .string(let text):
                     try handleServerText(text)
                 @unknown default:
@@ -262,12 +272,21 @@ final class RealtimeVoiceCallManager: ObservableObject {
             phase = .listening
             startDurationTimer()
         case "input.speech_started":
+            let isInterruptingAssistant = acceptsAssistantAudio || phase == .speaking
+            acceptsAssistantAudio = false
             audio.stopPlayback()
             assistantDraft = ""
             phase = .listening
+            if isInterruptingAssistant {
+                socket?.send(.string(#"{"type":"response.cancel"}"#)) { _ in }
+            }
         case "assistant.response_started":
+            acceptsAssistantAudio = true
+            audio.setAssistantResponseActive(true)
             phase = .speaking
         case "assistant.response_completed":
+            acceptsAssistantAudio = false
+            audio.setAssistantResponseActive(false)
             phase = .listening
         case "user.transcript.completed":
             publishTranscript(role: .user, text: event.text)
@@ -295,17 +314,36 @@ final class RealtimeVoiceCallManager: ObservableObject {
     }
 
     private func startAudioCapture() throws {
-        try audio.start { [weak self] data in
-            Task { @MainActor [weak self] in
-                guard let self, let socket = self.socket, self.phase.isActive else { return }
-                do {
-                    try await socket.send(.data(data))
-                } catch {
-                    if !self.isEnding {
-                        self.fail(error)
+        try audio.start(
+            onAudio: { [weak self] data in
+                Task { @MainActor [weak self] in
+                    guard let self, let socket = self.socket, self.phase.isActive else { return }
+                    do {
+                        try await socket.send(.data(data))
+                    } catch {
+                        if !self.isEnding {
+                            self.fail(error)
+                        }
                     }
                 }
+            },
+            onBargeIn: { [weak self] in
+                Task { @MainActor [weak self] in
+                    self?.handleLocalBargeIn()
+                }
             }
+        )
+    }
+
+    private func handleLocalBargeIn() {
+        guard phase.isActive else { return }
+        let shouldCancelResponse = acceptsAssistantAudio || phase == .speaking
+        acceptsAssistantAudio = false
+        audio.stopPlayback()
+        assistantDraft = ""
+        phase = .listening
+        if shouldCancelResponse {
+            socket?.send(.string(#"{"type":"response.cancel"}"#)) { _ in }
         }
     }
 
@@ -338,12 +376,143 @@ final class RealtimeVoiceCallManager: ObservableObject {
         audio.stop()
         assistantDraft = ""
         isMuted = false
+        acceptsAssistantAudio = false
+    }
+}
+
+final class RealtimeCaptureGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var protectsAssistantPlayback = true
+    private var manuallyMuted = false
+    private var assistantResponseActive = false
+    private var pendingPlaybackBuffers = 0
+    private var tailProtected = false
+    private var generation = 0
+
+    var canCapture: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return !manuallyMuted && !isAssistantProtected
+    }
+
+    var shouldMuteVoiceProcessingInput: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return manuallyMuted || isAssistantProtected
+    }
+
+    var isManuallyMuted: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return manuallyMuted
+    }
+
+    @discardableResult
+    func setManuallyMuted(_ muted: Bool) -> Bool {
+        lock.lock()
+        manuallyMuted = muted
+        let shouldMute = manuallyMuted || isAssistantProtected
+        lock.unlock()
+        return shouldMute
+    }
+
+    func setAssistantPlaybackProtectionEnabled(_ enabled: Bool) {
+        lock.lock()
+        protectsAssistantPlayback = enabled
+        if !enabled {
+            assistantResponseActive = false
+            pendingPlaybackBuffers = 0
+            tailProtected = false
+            generation += 1
+        }
+        lock.unlock()
+    }
+
+    @discardableResult
+    func setAssistantResponseActive(_ active: Bool) -> Int? {
+        lock.lock()
+        let wasAssistantProtected = isAssistantProtected
+        assistantResponseActive = active
+        generation += 1
+        let currentGeneration = generation
+        if active {
+            tailProtected = true
+        }
+        let shouldScheduleTail = !active
+            && wasAssistantProtected
+            && pendingPlaybackBuffers == 0
+        if shouldScheduleTail {
+            tailProtected = true
+        }
+        lock.unlock()
+        return shouldScheduleTail ? currentGeneration : nil
+    }
+
+    func beginPlaybackBuffer() {
+        lock.lock()
+        pendingPlaybackBuffers += 1
+        tailProtected = true
+        generation += 1
+        lock.unlock()
+    }
+
+    func finishPlaybackBuffer() -> Int? {
+        lock.lock()
+        guard pendingPlaybackBuffers > 0 else {
+            lock.unlock()
+            return nil
+        }
+        pendingPlaybackBuffers -= 1
+        generation += 1
+        let currentGeneration = generation
+        let shouldScheduleTail = pendingPlaybackBuffers == 0 && !assistantResponseActive
+        lock.unlock()
+        return shouldScheduleTail ? currentGeneration : nil
+    }
+
+    func releaseTail(generation expectedGeneration: Int) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard generation == expectedGeneration,
+              !assistantResponseActive,
+              pendingPlaybackBuffers == 0 else {
+            return false
+        }
+        tailProtected = false
+        return true
+    }
+
+    func beginBargeIn() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !manuallyMuted, isAssistantProtected else { return false }
+        assistantResponseActive = false
+        pendingPlaybackBuffers = 0
+        tailProtected = false
+        generation += 1
+        return true
+    }
+
+    func reset() {
+        lock.lock()
+        manuallyMuted = false
+        assistantResponseActive = false
+        pendingPlaybackBuffers = 0
+        tailProtected = false
+        generation += 1
+        lock.unlock()
+    }
+
+    private var isAssistantProtected: Bool {
+        protectsAssistantPlayback
+            && (assistantResponseActive || pendingPlaybackBuffers > 0 || tailProtected)
     }
 }
 
 private final class RealtimeAudioEngine: @unchecked Sendable {
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
+    private let captureGate = RealtimeCaptureGate()
     private let playbackFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32,
         sampleRate: 24_000,
@@ -352,24 +521,78 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
     )!
     private var converter: AVAudioConverter?
     private var hasInputTap = false
-    var isCaptureMuted = false
+    private var hasMutedSpeechListener = false
+    private let playbackTailDuration: TimeInterval = 0.2
+    var isCaptureMuted: Bool {
+        get { captureGate.isManuallyMuted }
+        set {
+            _ = captureGate.setManuallyMuted(newValue)
+            applyVoiceProcessingInputMute()
+        }
+    }
 
-    func start(onAudio: @escaping @Sendable (Data) -> Void) throws {
+    func setAssistantResponseActive(_ active: Bool) {
+        let tailGeneration = captureGate.setAssistantResponseActive(active)
+        applyVoiceProcessingInputMute()
+        if let tailGeneration {
+            scheduleTailRelease(generation: tailGeneration)
+        }
+    }
+
+    func start(
+        onAudio: @escaping @Sendable (Data) -> Void,
+        onBargeIn: @escaping @Sendable () -> Void
+    ) throws {
         stop()
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(
             .playAndRecord,
             mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetooth]
+            options: [.defaultToSpeaker, .allowBluetoothHFP]
         )
         try session.setActive(true)
+
+        let input = engine.inputNode
+        if !input.isVoiceProcessingEnabled {
+            do {
+                try input.setVoiceProcessingEnabled(true)
+            } catch {
+#if targetEnvironment(simulator)
+                captureGate.setAssistantPlaybackProtectionEnabled(false)
+#else
+                throw RealtimeVoiceError.voiceProcessingUnavailable
+#endif
+            }
+        }
+#if !targetEnvironment(simulator)
+        guard input.isVoiceProcessingEnabled else {
+            throw RealtimeVoiceError.voiceProcessingUnavailable
+        }
+#endif
+        if input.isVoiceProcessingEnabled {
+            hasMutedSpeechListener = input.setMutedSpeechActivityEventListener { [weak self] event in
+                guard event == .started,
+                      let self,
+                      self.captureGate.beginBargeIn() else {
+                    return
+                }
+                self.applyVoiceProcessingInputMute()
+                onBargeIn()
+            }
+        }
+#if targetEnvironment(simulator)
+        captureGate.setAssistantPlaybackProtectionEnabled(hasMutedSpeechListener)
+#else
+        guard hasMutedSpeechListener else {
+            throw RealtimeVoiceError.voiceProcessingUnavailable
+        }
+#endif
 
         if player.engine == nil {
             engine.attach(player)
         }
         engine.connect(player, to: engine.mainMixerNode, format: playbackFormat)
 
-        let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
         guard let captureFormat = AVAudioFormat(
             commonFormat: .pcmFormatInt16,
@@ -382,7 +605,7 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
         self.converter = converter
 
         input.installTap(onBus: 0, bufferSize: 4_096, format: inputFormat) { [weak self] buffer, _ in
-            guard let self, !self.isCaptureMuted,
+            guard let self, self.captureGate.canCapture,
                   let data = self.convert(buffer, using: converter, to: captureFormat) else { return }
             onAudio(data)
         }
@@ -404,7 +627,18 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
                 destination[index] = Float(samples[index]) / Float(Int16.max)
             }
         }
-        player.scheduleBuffer(buffer)
+        captureGate.beginPlaybackBuffer()
+        applyVoiceProcessingInputMute()
+        player.scheduleBuffer(
+            buffer,
+            completionCallbackType: .dataPlayedBack
+        ) { [weak self] _ in
+            guard let self else { return }
+            if let tailGeneration = self.captureGate.finishPlaybackBuffer() {
+                self.scheduleTailRelease(generation: tailGeneration)
+            }
+            self.applyVoiceProcessingInputMute()
+        }
         if !player.isPlaying {
             player.play()
         }
@@ -412,10 +646,16 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
 
     func stopPlayback() {
         player.stop()
+        _ = captureGate.beginBargeIn()
+        applyVoiceProcessingInputMute()
     }
 
     func stop() {
         player.stop()
+        if hasMutedSpeechListener {
+            engine.inputNode.setMutedSpeechActivityEventListener(nil)
+            hasMutedSpeechListener = false
+        }
         if hasInputTap {
             engine.inputNode.removeTap(onBus: 0)
             hasInputTap = false
@@ -423,7 +663,22 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
         engine.stop()
         engine.reset()
         converter = nil
+        captureGate.reset()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    private func scheduleTailRelease(generation: Int) {
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(
+            deadline: .now() + playbackTailDuration
+        ) { [weak self] in
+            guard let self, self.captureGate.releaseTail(generation: generation) else { return }
+            self.applyVoiceProcessingInputMute()
+        }
+    }
+
+    private func applyVoiceProcessingInputMute() {
+        guard engine.inputNode.isVoiceProcessingEnabled else { return }
+        engine.inputNode.isVoiceProcessingInputMuted = captureGate.shouldMuteVoiceProcessingInput
     }
 
     private func convert(

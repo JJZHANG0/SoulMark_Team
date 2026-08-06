@@ -21,6 +21,69 @@ struct SoulMarkTests {
         #expect(production.absoluteString == "wss://api.soulmark.app/api/v1/realtime/scenario")
     }
 
+    @Test func realtimeCaptureGateBlocksPlaybackEchoButAllowsBargeIn() {
+        let gate = RealtimeCaptureGate()
+
+        #expect(gate.canCapture)
+        gate.setAssistantResponseActive(true)
+        gate.beginPlaybackBuffer()
+        #expect(!gate.canCapture)
+        #expect(gate.shouldMuteVoiceProcessingInput)
+
+        #expect(gate.beginBargeIn())
+        #expect(gate.canCapture)
+        #expect(!gate.shouldMuteVoiceProcessingInput)
+    }
+
+    @Test func realtimeCaptureGateStillHonorsManualMute() {
+        let gate = RealtimeCaptureGate()
+        gate.setManuallyMuted(true)
+        gate.setAssistantResponseActive(true)
+        #expect(!gate.canCapture)
+        #expect(!gate.beginBargeIn())
+
+        gate.setManuallyMuted(false)
+        #expect(!gate.canCapture)
+    }
+
+    @Test func realtimeCaptureGateProtectsQueuedAudioAndPlaybackTail() {
+        let gate = RealtimeCaptureGate()
+
+        gate.setAssistantResponseActive(true)
+        gate.beginPlaybackBuffer()
+        #expect(gate.setAssistantResponseActive(false) == nil)
+
+        let generation = gate.finishPlaybackBuffer()
+        #expect(generation != nil)
+        #expect(!gate.canCapture)
+
+        #expect(gate.releaseTail(generation: generation!))
+        #expect(gate.canCapture)
+    }
+
+    @Test func completedEventAfterBargeInDoesNotMuteUserAgain() {
+        let gate = RealtimeCaptureGate()
+
+        gate.setAssistantResponseActive(true)
+        gate.beginPlaybackBuffer()
+        #expect(gate.beginBargeIn())
+
+        #expect(gate.setAssistantResponseActive(false) == nil)
+        #expect(gate.canCapture)
+    }
+
+    @Test func realtimeCaptureGateFallsBackToFullDuplexWithoutMutedSpeechDetection() {
+        let gate = RealtimeCaptureGate()
+
+        gate.setAssistantPlaybackProtectionEnabled(false)
+        gate.setAssistantResponseActive(true)
+        gate.beginPlaybackBuffer()
+
+        #expect(gate.canCapture)
+        #expect(!gate.shouldMuteVoiceProcessingInput)
+        #expect(!gate.beginBargeIn())
+    }
+
     @Test func relationshipFiltersReturnExpectedPeople() async throws {
         let people = RelationshipSampleData.people
 
