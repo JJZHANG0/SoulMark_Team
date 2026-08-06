@@ -63,6 +63,10 @@ enum SoulTheme {
         SoulPreferencesStore.shared.genderTheme == "male"
     }
 
+    static var isGreen: Bool {
+        SoulPreferencesStore.shared.genderTheme == "green"
+    }
+
     static var background: Color {
         isNight ? Color(red: 0.035, green: 0.040, blue: 0.050) : Color(red: 0.945, green: 0.953, blue: 0.965)
     }
@@ -92,6 +96,9 @@ enum SoulTheme {
     }
 
     static var accent: Color {
+        if isGreen {
+            return isNight ? Color(red: 0.20, green: 0.72, blue: 0.55) : Color(red: 0.08, green: 0.48, blue: 0.36)
+        }
         if isMale {
             return isNight ? Color(red: 0.14, green: 0.58, blue: 0.98) : Color(red: 0.04, green: 0.43, blue: 0.82)
         }
@@ -100,6 +107,9 @@ enum SoulTheme {
     }
 
     static var energy: Color {
+        if isGreen {
+            return isNight ? Color(red: 0.42, green: 0.88, blue: 0.70) : Color(red: 0.16, green: 0.64, blue: 0.48)
+        }
         if isMale {
             return isNight ? Color(red: 0.18, green: 0.93, blue: 0.94) : Color(red: 0.02, green: 0.64, blue: 0.72)
         }
@@ -108,13 +118,18 @@ enum SoulTheme {
     }
 
     static var support: Color {
-        isMale ? Color(red: 0.34, green: 0.78, blue: 0.86) : Color(red: 0.98, green: 0.70, blue: 0.80)
+        if isGreen {
+            return Color(red: 0.48, green: 0.78, blue: 0.65)
+        }
+        return isMale ? Color(red: 0.34, green: 0.78, blue: 0.86) : Color(red: 0.98, green: 0.70, blue: 0.80)
     }
 
     static var pageGradient: LinearGradient {
         let lower = isNight
             ? Color(red: 0.055, green: 0.060, blue: 0.075)
-            : (isMale ? Color(red: 0.91, green: 0.94, blue: 0.965) : Color(red: 0.97, green: 0.92, blue: 0.94))
+            : (isGreen
+                ? Color(red: 0.91, green: 0.95, blue: 0.93)
+                : (isMale ? Color(red: 0.91, green: 0.94, blue: 0.965) : Color(red: 0.97, green: 0.92, blue: 0.94)))
         return LinearGradient(colors: [background, lower], startPoint: .top, endPoint: .bottom)
     }
 

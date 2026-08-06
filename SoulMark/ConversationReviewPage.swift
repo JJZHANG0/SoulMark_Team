@@ -108,7 +108,7 @@ struct ConversationReviewPage: View {
                     language: SoulPreferencesStore.shared.language,
                     media: media
                 )
-                let record = try await session.recordReview(analysis.record)
+                let record = try await session.recordReview(analysis)
                 await MainActor.run {
                     records.insert(record, at: 0)
                     onRecordCountChange(records.count)
@@ -135,7 +135,8 @@ struct ConversationReviewPage: View {
                     title: title,
                     details: details,
                     occurredAt: occurredAt,
-                    imageData: imageData
+                    imageData: imageData,
+                    skipRelationshipUpdate: true
                 )
             }
             .presentationDetents([.large])

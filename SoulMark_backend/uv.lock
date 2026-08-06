@@ -1805,6 +1805,7 @@ dependencies = [
     { name = "dashscope" },
     { name = "email-validator" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pillow" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pwdlib", extra = ["argon2"] },
@@ -1819,7 +1820,6 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "aiosqlite" },
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1836,7 +1836,7 @@ requires-dist = [
     { name = "dashscope", specifier = ">=1.24,<2.0" },
     { name = "email-validator", specifier = ">=2.2,<3.0" },
     { name = "fastapi", specifier = ">=0.115,<1.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.28,<1.0" },
+    { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14,<2.0" },
     { name = "pillow", specifier = ">=11.0,<13.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2,<4.0" },

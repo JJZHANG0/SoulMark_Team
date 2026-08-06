@@ -47,3 +47,29 @@ class ConversationReview(Base):
     advice: Mapped[str] = mapped_column(Text)
     detailed_advice: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ReviewRelationshipImpact(Base):
+    __tablename__ = "review_relationship_impacts"
+
+    review_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("conversation_reviews.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    contact_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("contacts.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    owner_id: Mapped[UUID] = mapped_column(
+        Uuid,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
+    trust_delta: Mapped[int] = mapped_column(Integer, default=0)
+    emotional_depth_delta: Mapped[int] = mapped_column(Integer, default=0)
+    reciprocity_delta: Mapped[int] = mapped_column(Integer, default=0)
+    support_delta: Mapped[int] = mapped_column(Integer, default=0)
+    strength_delta: Mapped[int] = mapped_column(Integer, default=0)
+    explanation: Mapped[str | None] = mapped_column(Text, nullable=True)

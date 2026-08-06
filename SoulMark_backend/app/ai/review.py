@@ -8,7 +8,12 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.schemas.activity import ReviewAnalysisRequest, ReviewAnalysisResponse
+from app.schemas.activity import (
+    RelationshipProfile,
+    RelationshipSignal,
+    ReviewAnalysisRequest,
+    ReviewAnalysisResponse,
+)
 
 
 def _review_prompt(payload: ReviewAnalysisRequest, memory_context: str = "") -> str:
@@ -31,9 +36,23 @@ def _review_prompt(payload: ReviewAnalysisRequest, memory_context: str = "") -> 
   "brief_advice": "以我的第一视角写一到两句话建议",
   "detailed_advice": "以我的视角写详细建议，包含优点、改进点和下次可采用的表达",
   "related_contact_names": ["列出事件中明确出现的所有已登记人物准确姓名，没有则为空数组"],
+  "relationship_signals": [
+    {{
+      "contact_name": "对应的已登记人物准确姓名",
+      "trust_delta": -1到1之间，表示这件事让信任降低或增加多少,
+      "emotional_depth_delta": -1到1之间，表示情感理解和袒露的变化,
+      "reciprocity_delta": -1到1之间，表示双方投入和回应是否平衡,
+      "support_delta": -1到1之间，表示支持、照顾和可靠性的变化,
+      "confidence": 0到1之间,
+      "explanation": "一句具体说明，只依据记录中真实发生的行为"
+    }}
+  ],
   "event_details": "像我的随手记录，用第一人称写清发生了什么；自然具体，不分析、不评价"
 }}
 
+relationship_signals 必须为每一位 related_contact_names 中的人分别给出，不要直接决定亲密度总分。
+普通联系应接近 0；只有明确的支持、袒露、失信、伤害或有效修复才产生较明显变化。
+发生冲突不一定降低全部维度：坦诚表达和有效修复可以提升理解或信任。
 标题和 event_details 要像真人日记或备忘录，不要出现“该事件”“本次沟通”“体现了”
 “关系得到修复”“双方进行了”等报告式、AI式表达，也不要为了完整而重复同一事实。
 
@@ -94,6 +113,17 @@ def _normalize_analysis(raw: Any) -> dict[str, Any]:
     else:
         legacy_name = normalized.get("related_contact_name")
         normalized["related_contact_names"] = [legacy_name] if legacy_name else []
+    signals = normalized.get("relationship_signals")
+    valid_signals: list[dict[str, Any]] = []
+    if isinstance(signals, list):
+        for signal in signals:
+            try:
+                valid_signals.append(
+                    RelationshipSignal.model_validate(signal).model_dump()
+                )
+            except ValidationError:
+                continue
+    normalized["relationship_signals"] = valid_signals
     return normalized
 
 
@@ -315,6 +345,170 @@ async def analyze_review(
     memory_context: str = "",
 ) -> ReviewAnalysisResponse:
     return await asyncio.to_thread(_call_qwen, payload, settings, memory_context)
+
+
+def _call_relationship_signal(
+    *,
+    contact_name: str,
+    relationship_label: str,
+    current_strength: int,
+    contact_memory: str,
+    title: str,
+    details: str,
+    settings: Settings,
+) -> RelationshipSignal:
+    prompt = f"""
+你正在为 SoulMark 分析一条已经由用户记录的人际事件。
+只提取这件事对关系的变化信号，不直接决定亲密度总分，不评价人格，也不要补写未发生的事情。
+普通日常事件应接近 0；明确支持、袒露、失信、伤害或有效修复才产生明显变化。
+冲突不一定让全部维度下降：坦诚沟通与有效修复可以提升理解或信任。
+
+人物：{contact_name}
+关系：{relationship_label}
+当前亲密度：{current_strength}/100
+已有关系记忆：{contact_memory or "暂无"}
+事件标题：{title}
+事件详情：{details}
+
+只返回 JSON：
+{{
+  "contact_name": "{contact_name}",
+  "trust_delta": -1到1之间,
+  "emotional_depth_delta": -1到1之间,
+  "reciprocity_delta": -1到1之间,
+  "support_delta": -1到1之间,
+  "confidence": 0到1之间,
+  "explanation": "一句具体、克制的依据说明"
+}}
+""".strip()
+    text = _call_model(
+        settings,
+        model=settings.qwen_review_model,
+        messages=[
+            {
+                "role": "system",
+                "content": [{"text": "Extract one relationship signal as JSON."}],
+            },
+            {"role": "user", "content": [{"text": prompt}]},
+        ],
+        structured=True,
+    )
+    try:
+        raw = json.loads(text)
+        if isinstance(raw, dict):
+            raw["contact_name"] = contact_name
+        return RelationshipSignal.model_validate(raw)
+    except (json.JSONDecodeError, TypeError, ValidationError) as exc:
+        raise AppError(
+            "relationship_signal_invalid",
+            "The relationship signal could not be analyzed.",
+            502,
+        ) from exc
+
+
+async def analyze_relationship_event(
+    *,
+    contact_name: str,
+    relationship_label: str,
+    current_strength: int,
+    contact_memory: str,
+    title: str,
+    details: str,
+    settings: Settings,
+) -> RelationshipSignal:
+    return await asyncio.to_thread(
+        _call_relationship_signal,
+        contact_name=contact_name,
+        relationship_label=relationship_label,
+        current_strength=current_strength,
+        contact_memory=contact_memory,
+        title=title,
+        details=details,
+        settings=settings,
+    )
+
+
+def _call_relationship_profile(
+    *,
+    contact_name: str,
+    relationship_label: str,
+    contact_memory: str,
+    events_text: str,
+    reviews_text: str,
+    settings: Settings,
+) -> RelationshipProfile:
+    prompt = f"""
+你正在根据用户长期记录的完整历史，评估用户与一个人物当前的关系亲密度。
+只依据给出的事件和沟通复盘，不根据“好友、家人”等关系标签直接赠送分数，不补写事实。
+四项均为0到100的整数：50代表证据中性；高分必须有持续且明确的正向证据，低分必须有明确负向证据。
+记录数量刚达到门槛时也应保持克制，避免仅凭单次强烈事件给出极端分数。
+
+人物：{contact_name}
+关系标签（仅作语境，不作为初始分）：{relationship_label}
+人物记忆：{contact_memory or "暂无"}
+
+事件时间线：
+{events_text}
+
+相关沟通复盘：
+{reviews_text or "暂无"}
+
+只返回 JSON：
+{{
+  "trust_score": 0到100的整数,
+  "emotional_depth_score": 0到100的整数,
+  "reciprocity_score": 0到100的整数,
+  "support_score": 0到100的整数,
+  "explanation": "简要说明四项判断所依据的长期行为证据"
+}}
+""".strip()
+    text = _call_model(
+        settings,
+        model=settings.qwen_review_model,
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "text": (
+                            "Evaluate a relationship profile from longitudinal "
+                            "evidence as JSON."
+                        )
+                    }
+                ],
+            },
+            {"role": "user", "content": [{"text": prompt}]},
+        ],
+        structured=True,
+    )
+    try:
+        return RelationshipProfile.model_validate(json.loads(text))
+    except (json.JSONDecodeError, TypeError, ValidationError) as exc:
+        raise AppError(
+            "relationship_profile_invalid",
+            "The relationship profile could not be analyzed.",
+            502,
+        ) from exc
+
+
+async def analyze_relationship_profile(
+    *,
+    contact_name: str,
+    relationship_label: str,
+    contact_memory: str,
+    events_text: str,
+    reviews_text: str,
+    settings: Settings,
+) -> RelationshipProfile:
+    return await asyncio.to_thread(
+        _call_relationship_profile,
+        contact_name=contact_name,
+        relationship_label=relationship_label,
+        contact_memory=contact_memory,
+        events_text=events_text,
+        reviews_text=reviews_text,
+        settings=settings,
+    )
 
 
 async def analyze_review_media(

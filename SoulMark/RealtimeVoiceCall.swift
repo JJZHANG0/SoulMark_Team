@@ -34,6 +34,38 @@ enum RealtimeVoiceCallPhase: Equatable {
     }
 }
 
+enum ScenarioEmotion: String, Equatable {
+    case calm
+    case happy
+    case caring
+    case serious
+    case encouraging
+
+    init(serverValue: String?) {
+        self = serverValue.flatMap(Self.init(rawValue:)) ?? .calm
+    }
+}
+
+enum ScenarioMascotAnimationState: Equatable {
+    case idle
+    case listening
+    case thinking
+    case speaking(ScenarioEmotion)
+    case failed
+}
+
+extension RealtimeVoiceCallPhase {
+    func mascotAnimationState(emotion: ScenarioEmotion) -> ScenarioMascotAnimationState {
+        switch self {
+        case .idle: .idle
+        case .connecting: .thinking
+        case .listening: .listening
+        case .speaking: .speaking(emotion)
+        case .failed: .failed
+        }
+    }
+}
+
 struct RealtimeTranscriptEvent: Identifiable, Equatable {
     enum Role {
         case user
@@ -124,12 +156,22 @@ enum RealtimeVoiceError: LocalizedError {
     }
 }
 
+enum RealtimeVoiceStartupPolicy {
+    static func shouldFail(
+        voiceProcessingEnabled: Bool,
+        mutedSpeechDetectionAvailable _: Bool
+    ) -> Bool {
+        !voiceProcessingEnabled
+    }
+}
+
 private struct RealtimeServerEvent: Decodable {
     let type: String
     let text: String?
     let code: String?
     let message: String?
     let recoverable: Bool?
+    let emotion: String?
 }
 
 @MainActor
@@ -138,6 +180,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
     @Published private(set) var elapsedSeconds = 0
     @Published private(set) var isMuted = false
     @Published private(set) var assistantDraft = ""
+    @Published private(set) var assistantEmotion: ScenarioEmotion = .calm
     @Published private(set) var latestTranscript: RealtimeTranscriptEvent?
     @Published private(set) var errorMessage: String?
 
@@ -161,6 +204,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         guard !phase.isActive else { return }
         errorMessage = nil
         assistantDraft = ""
+        assistantEmotion = .calm
         elapsedSeconds = 0
         isMuted = false
         isEnding = false
@@ -276,6 +320,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
             acceptsAssistantAudio = false
             audio.stopPlayback()
             assistantDraft = ""
+            assistantEmotion = .calm
             phase = .listening
             if isInterruptingAssistant {
                 socket?.send(.string(#"{"type":"response.cancel"}"#)) { _ in }
@@ -283,7 +328,10 @@ final class RealtimeVoiceCallManager: ObservableObject {
         case "assistant.response_started":
             acceptsAssistantAudio = true
             audio.setAssistantResponseActive(true)
+            assistantEmotion = .calm
             phase = .speaking
+        case "assistant.emotion":
+            assistantEmotion = ScenarioEmotion(serverValue: event.emotion)
         case "assistant.response_completed":
             acceptsAssistantAudio = false
             audio.setAssistantResponseActive(false)
@@ -341,6 +389,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         acceptsAssistantAudio = false
         audio.stopPlayback()
         assistantDraft = ""
+        assistantEmotion = .calm
         phase = .listening
         if shouldCancelResponse {
             socket?.send(.string(#"{"type":"response.cancel"}"#)) { _ in }
@@ -375,6 +424,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         socket = nil
         audio.stop()
         assistantDraft = ""
+        assistantEmotion = .calm
         isMuted = false
         acceptsAssistantAudio = false
     }
@@ -580,10 +630,12 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
                 onBargeIn()
             }
         }
-#if targetEnvironment(simulator)
         captureGate.setAssistantPlaybackProtectionEnabled(hasMutedSpeechListener)
-#else
-        guard hasMutedSpeechListener else {
+#if !targetEnvironment(simulator)
+        guard !RealtimeVoiceStartupPolicy.shouldFail(
+            voiceProcessingEnabled: input.isVoiceProcessingEnabled,
+            mutedSpeechDetectionAvailable: hasMutedSpeechListener
+        ) else {
             throw RealtimeVoiceError.voiceProcessingUnavailable
         }
 #endif

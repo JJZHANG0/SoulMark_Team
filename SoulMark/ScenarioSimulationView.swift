@@ -12,8 +12,10 @@ private enum ScenarioPendingSheet {
 }
 
 struct ScenarioSimulationView: View {
+    @EnvironmentObject private var session: AppSession
     let relationshipPeople: [RelationshipPerson]
     let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
+    let onPracticeDeleted: () -> Void
 
     @State private var participants: [ScenarioParticipant]
     @State private var unlockedParticipantIDs: [ScenarioParticipant.ID]
@@ -29,6 +31,7 @@ struct ScenarioSimulationView: View {
     @State private var conversation: [ScenarioMessage] = []
     @State private var conversationHistory: [ScenarioConversationSession] = []
     @State private var isShowingHistory = false
+    @State private var historyErrorMessage: String?
     @State private var isShowingParticipantPicker = false
     @State private var conversationScrollTarget = UUID()
     @State private var isShowingGuidance = false
@@ -41,10 +44,12 @@ struct ScenarioSimulationView: View {
     init(
         relationshipPeople: [RelationshipPerson],
         focusedPersonID: RelationshipPerson.ID? = nil,
-        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in }
+        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in },
+        onPracticeDeleted: @escaping () -> Void = {}
     ) {
         self.relationshipPeople = relationshipPeople
         self.onPracticeSubmitted = onPracticeSubmitted
+        self.onPracticeDeleted = onPracticeDeleted
         let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
         let earliestRelationshipIDs = relationshipPeople
@@ -77,7 +82,10 @@ struct ScenarioSimulationView: View {
             VStack(spacing: 0) {
                 ScenarioHeader(
                     onShowHistory: {
-                        isShowingHistory = true
+                        Task {
+                            await loadConversationHistory()
+                            isShowingHistory = true
+                        }
                     },
                     onNewHeartTalk: startHeartTalk,
                     onNewConversation: startNewConversation,
@@ -92,9 +100,11 @@ struct ScenarioSimulationView: View {
                 VStack(spacing: 0) {
                     Spacer(minLength: 8)
 
-                    SoulMascotFigure(
+                    ScenarioAnimatedMascot(
                         height: voiceCall.phase.isActive || !conversation.isEmpty ? 175 : 238,
-                        haloIntensity: 1.12
+                        state: voiceCall.phase.mascotAnimationState(
+                            emotion: voiceCall.assistantEmotion
+                        )
                     )
                     .animation(.easeInOut(duration: 0.24), value: voiceCall.phase.isActive)
 
@@ -250,6 +260,17 @@ struct ScenarioSimulationView: View {
                 .presentationDetents([.height(330)])
                 .presentationDragIndicator(.visible)
         }
+        .alert(
+            localizedText("历史记录操作失败", "History Update Failed"),
+            isPresented: Binding(
+                get: { historyErrorMessage != nil },
+                set: { if !$0 { historyErrorMessage = nil } }
+            )
+        ) {
+            Button(localizedText("知道了", "OK")) { historyErrorMessage = nil }
+        } message: {
+            Text(historyErrorMessage ?? "")
+        }
     }
 
     private var voiceControl: some View {
@@ -387,16 +408,7 @@ struct ScenarioSimulationView: View {
     }
 
     private var conversationSessions: [ScenarioConversationSession] {
-        let currentSession = conversation.isEmpty ? [] : [
-            ScenarioConversationSession(
-                participantID: selectedParticipantID,
-                participantName: selectedParticipant.name,
-                date: Date(),
-                messages: conversation
-            )
-        ]
-
-        return currentSession + conversationHistory
+        conversationHistory
     }
 
     private func sendMessage() {
@@ -478,14 +490,24 @@ struct ScenarioSimulationView: View {
     }
 
     private func deleteConversationSession(_ session: ScenarioConversationSession) {
-        let oldCount = conversationHistory.count
-        conversationHistory.removeAll { $0.id == session.id }
-
-        if oldCount == conversationHistory.count,
-           session.participantName == selectedParticipant.name,
-           session.messages == conversation {
-            resetConversation()
+        Task {
+            do {
+                try await self.session.deletePractice(session.id)
+                conversationHistory.removeAll { $0.id == session.id }
+                onPracticeDeleted()
+            } catch {
+                historyErrorMessage = error.localizedDescription
+            }
         }
+    }
+
+    @MainActor
+    private func loadConversationHistory() async {
+        guard let records = await session.loadPractices() else {
+            historyErrorMessage = localizedText("暂时无法读取历史对话。", "Unable to load conversation history right now.")
+            return
+        }
+        conversationHistory = records.map(\.scenarioConversationSession)
     }
 
     private func switchToParticipant(_ participant: ScenarioParticipant) {
@@ -494,18 +516,15 @@ struct ScenarioSimulationView: View {
             return
         }
         guard selectedParticipantID != participant.id else { return }
-        saveCurrentConversationIfNeeded()
         selectedParticipantID = participant.id
         resetConversation()
     }
 
     private func startNewConversation() {
-        saveCurrentConversationIfNeeded()
         resetConversation()
     }
 
     private func startHeartTalk() {
-        saveCurrentConversationIfNeeded()
         selectedModeID = modes.first { $0.id == "boundary" }?.id ?? selectedModeID
         conversation = [
             ScenarioMessage(speaker: "AI", text: localizedText("心对话已开启。你可以先说最真实的感受，不需要一次说完。", "Heart talk is open. Start with the most honest feeling; you do not need to say everything at once."), isUser: false)
@@ -532,14 +551,12 @@ struct ScenarioSimulationView: View {
             return
         }
 
-        saveCurrentConversationIfNeeded()
         if let targetParticipant {
             selectedParticipantID = targetParticipant.id
         }
         conversation = session.messages
         draftMessage = ""
         endVoiceCall(reportPractice: false)
-        conversationHistory.removeAll { $0.id == session.id }
         isShowingHistory = false
         conversationScrollTarget = UUID()
     }
@@ -551,18 +568,237 @@ struct ScenarioSimulationView: View {
         conversationScrollTarget = UUID()
     }
 
-    private func saveCurrentConversationIfNeeded() {
-        guard !conversation.isEmpty else { return }
+}
 
-        conversationHistory.insert(
-            ScenarioConversationSession(
-                participantID: selectedParticipantID,
-                participantName: selectedParticipant.name,
-                date: Date(),
-                messages: conversation
-            ),
-            at: 0
-        )
+private struct ScenarioAnimatedMascot: View {
+    private static let sourceAspectRatio: CGFloat = 683 / 1536
+
+    let height: CGFloat
+    let state: ScenarioMascotAnimationState
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: reduceMotion)) { context in
+            let phase = reduceMotion ? 0 : context.date.timeIntervalSinceReferenceDate
+            let motion = ScenarioMascotMotion(state: state, phase: phase)
+
+            ZStack {
+                Image("SoulMascot")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: height)
+                    .shadow(color: SoulTheme.energy.opacity(0.28), radius: 9, x: 0, y: 2)
+
+                ScenarioVisorLight(
+                    state: state,
+                    phase: phase,
+                    reduceMotion: reduceMotion
+                )
+                .frame(
+                    width: height * Self.sourceAspectRatio,
+                    height: height
+                )
+            }
+            .frame(
+                width: height * Self.sourceAspectRatio,
+                height: height
+            )
+            .scaleEffect(motion.scale)
+            .rotationEffect(.degrees(motion.rotation))
+            .offset(x: motion.x, y: motion.y)
+            .animation(.easeInOut(duration: 0.32), value: state)
+        }
+        .frame(height: height)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ScenarioMascotMotion {
+    let x: CGFloat
+    let y: CGFloat
+    let rotation: Double
+    let scale: CGFloat
+
+    init(state: ScenarioMascotAnimationState, phase: TimeInterval) {
+        let slow = CGFloat(sin(phase * 1.35))
+        let speech = CGFloat(sin(phase * 3.4))
+
+        switch state {
+        case .idle:
+            x = 0
+            y = slow * 2
+            rotation = Double(slow) * 0.25
+            scale = 1 + slow * 0.003
+        case .listening:
+            x = -1
+            y = 1 + slow * 0.7
+            rotation = -0.8 + Double(slow) * 0.18
+            scale = 1.002
+        case .thinking:
+            x = slow * 0.8
+            y = 0
+            rotation = Double(slow) * 0.45
+            scale = 1
+        case .speaking(let emotion):
+            switch emotion {
+            case .calm:
+                x = 0
+                y = speech * 1.2
+                rotation = Double(speech) * 0.3
+                scale = 1 + speech * 0.002
+            case .happy:
+                x = 0
+                y = -1.4 + speech * 1.5
+                rotation = Double(speech) * 0.55
+                scale = 1.005 + speech * 0.002
+            case .caring:
+                x = -0.6
+                y = slow * 0.9
+                rotation = -1 + Double(slow) * 0.22
+                scale = 1.002
+            case .serious:
+                x = 0
+                y = speech * 0.4
+                rotation = Double(speech) * 0.08
+                scale = 1
+            case .encouraging:
+                x = 0
+                y = -0.8 + speech * 1.3
+                rotation = Double(speech) * 0.35
+                scale = 1.003 + speech * 0.002
+            }
+        case .failed:
+            x = 0
+            y = 1
+            rotation = 0
+            scale = 1
+        }
+    }
+}
+
+private struct ScenarioVisorLight: View {
+    let state: ScenarioMascotAnimationState
+    let phase: TimeInterval
+    let reduceMotion: Bool
+
+    var body: some View {
+        GeometryReader { proxy in
+            let style = ScenarioVisorStyle(state: state, phase: phase, reduceMotion: reduceMotion)
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [style.color.opacity(0.45), style.color, style.color.opacity(0.55)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .frame(width: proxy.size.height * style.width, height: max(2, proxy.size.height * 0.004))
+                .scaleEffect(x: style.scaleX, y: style.scaleY)
+                .opacity(style.opacity)
+                .shadow(color: style.color.opacity(0.82), radius: style.glowRadius)
+                .rotationEffect(.degrees(-1.2))
+                .position(
+                    x: proxy.size.width * 0.638 + style.scanOffset,
+                    y: proxy.size.height * 0.159
+                )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+private struct ScenarioVisorStyle {
+    let color: Color
+    let width: CGFloat
+    let opacity: Double
+    let scaleX: CGFloat
+    let scaleY: CGFloat
+    let glowRadius: CGFloat
+    let scanOffset: CGFloat
+
+    init(state: ScenarioMascotAnimationState, phase: TimeInterval, reduceMotion: Bool) {
+        let slow = reduceMotion ? 0 : CGFloat(sin(phase * 1.7))
+        let speech = reduceMotion ? 0 : CGFloat(sin(phase * 4.2))
+        let scan = reduceMotion ? 0 : CGFloat(sin(phase * 2.2))
+
+        switch state {
+        case .idle:
+            color = SoulTheme.energy
+            width = 0.105
+            opacity = 0.72 + Double(slow) * 0.12
+            scaleX = 1
+            scaleY = 1
+            glowRadius = 5
+            scanOffset = 0
+        case .listening:
+            color = SoulTheme.energy
+            width = 0.092
+            opacity = 0.9
+            scaleX = 1 + slow * 0.025
+            scaleY = 0.78
+            glowRadius = 6
+            scanOffset = scan * 0.8
+        case .thinking:
+            color = SoulTheme.accent
+            width = 0.07
+            opacity = 0.88
+            scaleX = 1
+            scaleY = 0.8
+            glowRadius = 7
+            scanOffset = scan * 4
+        case .speaking(let emotion):
+            switch emotion {
+            case .calm:
+                color = SoulTheme.energy
+                width = 0.105
+                opacity = 0.9 + Double(speech) * 0.08
+                scaleX = 1 + speech * 0.025
+                scaleY = 1
+                glowRadius = 7
+                scanOffset = 0
+            case .happy:
+                color = Color(red: 0.20, green: 0.92, blue: 0.64)
+                width = 0.116
+                opacity = 0.96
+                scaleX = 1 + speech * 0.04
+                scaleY = 1.22 + speech * 0.08
+                glowRadius = 9
+                scanOffset = 0
+            case .caring:
+                color = Color(red: 0.28, green: 0.82, blue: 0.78)
+                width = 0.1
+                opacity = 0.82 + Double(slow) * 0.1
+                scaleX = 1 + slow * 0.018
+                scaleY = 0.92
+                glowRadius = 7
+                scanOffset = 0
+            case .serious:
+                color = SoulTheme.accent
+                width = 0.085
+                opacity = 0.8
+                scaleX = 1
+                scaleY = 0.62
+                glowRadius = 4
+                scanOffset = 0
+            case .encouraging:
+                color = SoulTheme.energy
+                width = 0.112
+                opacity = 0.92 + Double(speech) * 0.07
+                scaleX = 1 + speech * 0.035
+                scaleY = 1.08
+                glowRadius = 9
+                scanOffset = 0
+            }
+        case .failed:
+            color = SoulTheme.warning
+            width = 0.078
+            opacity = 0.58
+            scaleX = 1
+            scaleY = 0.7
+            glowRadius = 3
+            scanOffset = 0
+        }
     }
 }
 
@@ -977,6 +1213,7 @@ private struct ScenarioHistorySheet: View {
     let onDelete: (ScenarioConversationSession) -> Void
 
     @State private var searchText = ""
+    @State private var pendingDeletion: ScenarioConversationSession?
 
     private var filteredSessions: [ScenarioConversationSession] {
         sessions.filter { $0.matches(searchText) }
@@ -1038,7 +1275,7 @@ private struct ScenarioHistorySheet: View {
                                         .background(SoulTheme.accentSoft, in: Capsule())
 
                                     Button(role: .destructive) {
-                                        onDelete(session)
+                                        pendingDeletion = session
                                     } label: {
                                         Image(systemName: "trash.fill")
                                             .font(.system(size: 12, weight: .bold))
@@ -1078,6 +1315,26 @@ private struct ScenarioHistorySheet: View {
             .background(SoulTheme.pageGradient)
             .navigationTitle(localizedText("以前对话", "Past Conversations"))
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog(
+                localizedText("删除这条历史对话？", "Delete This Conversation?"),
+                isPresented: Binding(
+                    get: { pendingDeletion != nil },
+                    set: { if !$0 { pendingDeletion = nil } }
+                ),
+                titleVisibility: .visible
+            ) {
+                if let pendingDeletion {
+                    Button(localizedText("确认删除", "Delete Conversation"), role: .destructive) {
+                        onDelete(pendingDeletion)
+                        self.pendingDeletion = nil
+                    }
+                }
+                Button(localizedText("取消", "Cancel"), role: .cancel) {
+                    pendingDeletion = nil
+                }
+            } message: {
+                Text(localizedText("删除后无法恢复，请确认这不是误触。", "This cannot be undone. Please confirm it was intentional."))
+            }
         }
     }
 }

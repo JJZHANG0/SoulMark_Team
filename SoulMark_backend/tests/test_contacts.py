@@ -1,6 +1,7 @@
 import base64
 
 from httpx import AsyncClient
+from pytest import MonkeyPatch
 
 PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
@@ -53,7 +54,8 @@ async def test_user_can_manage_owned_contact(
     )
     assert updated.status_code == 200
     assert updated.json()["relationship_label"] == "Best Friend"
-    assert updated.json()["strength"] == 95
+    assert updated.json()["strength"] == 0
+    assert updated.json()["intimacy_calculated"] is False
 
     deleted = await client.delete(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
     assert deleted.status_code == 204
@@ -220,6 +222,84 @@ async def test_contact_event_timeline_is_persistent_and_owner_scoped(
         headers=other_headers,
     )
     assert hidden.status_code == 404
+
+
+async def test_contact_events_unlock_full_history_intimacy_at_ten(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    from app.schemas.activity import RelationshipProfile
+    from app.services import intimacy
+
+    analyzed_histories: list[str] = []
+
+    async def fake_profile(*args: object, **kwargs: object) -> RelationshipProfile:
+        analyzed_histories.append(str(kwargs["events_text"]))
+        return RelationshipProfile(
+            trust_score=80,
+            emotional_depth_score=70,
+            reciprocity_score=60,
+            support_score=90,
+            explanation="十件事件体现了持续的信任、回应和支持。",
+        )
+
+    monkeypatch.setattr(intimacy, "analyze_relationship_profile", fake_profile)
+    contact = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json=CONTACT_PAYLOAD,
+    )
+    contact_id = contact.json()["id"]
+    event_ids: list[str] = []
+    for index in range(9):
+        created = await client.post(
+            f"/api/v1/contacts/{contact_id}/events",
+            headers=auth_headers,
+            json={
+                "title": f"事件 {index + 1}",
+                "details": f"这是第 {index + 1} 件关系事件。",
+                "occurred_at": f"2026-07-{index + 1:02d}T10:00:00Z",
+            },
+        )
+        assert created.status_code == 201
+        event_ids.append(created.json()["id"])
+
+    pending = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert pending.json()["event_count"] == 9
+    assert pending.json()["strength"] == 0
+    assert pending.json()["intimacy_calculated"] is False
+    assert analyzed_histories == []
+
+    tenth = await client.post(
+        f"/api/v1/contacts/{contact_id}/events",
+        headers=auth_headers,
+        json={
+            "title": "事件 10",
+            "details": "这是第十件关系事件。",
+            "occurred_at": "2026-07-10T10:00:00Z",
+        },
+    )
+    assert tenth.status_code == 201
+    event_ids.append(tenth.json()["id"])
+
+    updated = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert updated.json()["event_count"] == 10
+    assert updated.json()["intimacy_calculated"] is True
+    assert updated.json()["strength"] == 75
+    assert len(analyzed_histories) == 1
+    assert "事件 1" in analyzed_histories[0]
+    assert "事件 10" in analyzed_histories[0]
+
+    deleted = await client.delete(
+        f"/api/v1/contacts/{contact_id}/events/{event_ids[-1]}",
+        headers=auth_headers,
+    )
+    assert deleted.status_code == 204
+    restored = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert restored.json()["event_count"] == 9
+    assert restored.json()["strength"] == 0
+    assert restored.json()["intimacy_calculated"] is False
 
 
 async def test_other_user_cannot_manage_contact_avatar(client: AsyncClient) -> None:

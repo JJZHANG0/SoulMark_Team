@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, File, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import CurrentUser
+from app.core.config import get_settings
+from app.core.errors import AppError
 from app.db.session import get_db
 from app.schemas.contact import ContactCreate, ContactResponse, ContactUpdate
 from app.schemas.contact_event import ContactEventCreate, ContactEventResponse
@@ -24,6 +26,7 @@ from app.services.contacts import (
     update_contact_event_image,
 )
 from app.services.event_image_storage import EventImageStorage, get_event_image_storage
+from app.services.intimacy import recalculate_contact_intimacy
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
@@ -36,6 +39,20 @@ async def get_contacts(
     current_user: CurrentUser, session: DatabaseSession
 ) -> list[ContactResponse]:
     contacts = await list_contacts(session, current_user.id)
+    for index, contact in enumerate(contacts):
+        if contact.event_count >= 10 and not contact.intimacy_calculated:
+            try:
+                contacts[index] = (
+                    await recalculate_contact_intimacy(
+                        session,
+                        current_user.id,
+                        contact.id,
+                        get_settings(),
+                    )
+                    or contact
+                )
+            except AppError:
+                pass
     return [ContactResponse.model_validate(contact) for contact in contacts]
 
 
@@ -56,6 +73,19 @@ async def get_contact(
     session: DatabaseSession,
 ) -> ContactResponse:
     contact = await get_owned_contact(session, current_user.id, contact_id)
+    if contact.event_count >= 10 and not contact.intimacy_calculated:
+        try:
+            contact = (
+                await recalculate_contact_intimacy(
+                    session,
+                    current_user.id,
+                    contact_id,
+                    get_settings(),
+                )
+                or contact
+            )
+        except AppError:
+            pass
     return ContactResponse.model_validate(contact)
 
 
@@ -142,6 +172,15 @@ async def post_contact_event(
     session: DatabaseSession,
 ) -> ContactEventResponse:
     event = await create_contact_event(session, current_user.id, contact_id, payload)
+    try:
+        await recalculate_contact_intimacy(
+            session,
+            current_user.id,
+            contact_id,
+            get_settings(),
+        )
+    except AppError:
+        pass
     return ContactEventResponse.model_validate(event)
 
 
@@ -187,4 +226,13 @@ async def remove_contact_event(
         event_id,
         image_storage,
     )
+    try:
+        await recalculate_contact_intimacy(
+            session,
+            current_user.id,
+            contact_id,
+            get_settings(),
+        )
+    except AppError:
+        pass
     return Response(status_code=status.HTTP_204_NO_CONTENT)

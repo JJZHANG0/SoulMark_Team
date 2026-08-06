@@ -10,6 +10,7 @@ from app.api.dependencies import CurrentUser
 from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.session import get_db
+from app.models.activity import ReviewRelationshipImpact
 from app.models.contact import Contact
 from app.schemas.activity import (
     DashboardStats,
@@ -31,6 +32,7 @@ from app.services.activity import (
     list_reviews,
 )
 from app.services.ai_memory import build_user_memory_context
+from app.services.intimacy import recalculate_contact_intimacy
 
 router = APIRouter(tags=["activity"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
@@ -55,12 +57,22 @@ async def resolve_review_contact(
     contacts_by_name = {
         contact.name.strip().casefold(): contact for contact in contacts
     }
+    signals_by_name = {
+        signal.contact_name.strip().casefold(): signal
+        for signal in analysis.relationship_signals
+    }
     matches: list[ReviewRelatedContact] = []
     matched_ids: set[UUID] = set()
     for name in suggested_names:
         contact = contacts_by_name.get(name.casefold())
         if contact is not None and contact.id not in matched_ids:
-            matches.append(ReviewRelatedContact(id=contact.id, name=contact.name))
+            matches.append(
+                ReviewRelatedContact(
+                    id=contact.id,
+                    name=contact.name,
+                    relationship_signal=signals_by_name.get(contact.name.strip().casefold()),
+                )
+            )
             matched_ids.add(contact.id)
     first = matches[0] if matches else None
     return analysis.model_copy(
@@ -106,7 +118,53 @@ async def get_reviews(current_user: CurrentUser, session: DatabaseSession) -> li
 async def post_review(
     payload: ReviewCreate, current_user: CurrentUser, session: DatabaseSession
 ) -> ReviewResponse:
-    return ReviewResponse.model_validate(await create_review(session, current_user.id, payload))
+    contact_ids = {impact.contact_id for impact in payload.relationship_impacts}
+    before_scores = {
+        contact.id: (
+            contact.trust_score,
+            contact.emotional_depth_score,
+            contact.reciprocity_score,
+            contact.support_score,
+            contact.strength,
+        )
+        for contact in (
+            await session.scalars(
+                select(Contact).where(
+                    Contact.owner_id == current_user.id,
+                    Contact.id.in_(contact_ids),
+                )
+            )
+        ).all()
+    }
+    review = await create_review(session, current_user.id, payload)
+    for contact_id in contact_ids:
+        try:
+            contact = await recalculate_contact_intimacy(
+                session,
+                current_user.id,
+                contact_id,
+                get_settings(),
+            )
+            before = before_scores.get(contact_id)
+            if contact is not None and before is not None:
+                stored_impact = await session.scalar(
+                    select(ReviewRelationshipImpact).where(
+                        ReviewRelationshipImpact.review_id == review.id,
+                        ReviewRelationshipImpact.contact_id == contact_id,
+                    )
+                )
+                if stored_impact is not None:
+                    stored_impact.trust_delta = contact.trust_score - before[0]
+                    stored_impact.emotional_depth_delta = (
+                        contact.emotional_depth_score - before[1]
+                    )
+                    stored_impact.reciprocity_delta = contact.reciprocity_score - before[2]
+                    stored_impact.support_delta = contact.support_score - before[3]
+                    stored_impact.strength_delta = contact.strength - before[4]
+                    await session.commit()
+        except AppError:
+            pass
+    return ReviewResponse.model_validate(review)
 
 
 @router.post("/reviews/analyze", response_model=ReviewAnalysisResponse)

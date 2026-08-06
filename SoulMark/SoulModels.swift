@@ -358,6 +358,8 @@ struct RelationshipPerson: Identifiable, Equatable {
     let memory: String
     var avatarURL: String? = nil
     var informationFields: [ContactInformationField] = []
+    var eventCount: Int = 0
+    var intimacyCalculated: Bool = false
 
     static func == (lhs: RelationshipPerson, rhs: RelationshipPerson) -> Bool {
         lhs.id == rhs.id
@@ -416,6 +418,48 @@ struct ContactInformationField: Identifiable, Codable, Equatable {
             .init(label: localizedText("性别", "Gender"), placeholder: localizedText("输入性别", "Enter gender")),
             .init(label: localizedText("年龄", "Age"), placeholder: localizedText("输入年龄", "Enter age"))
         ]
+    }
+}
+
+enum ContactBirthday {
+    static func storageString(from date: Date) -> String {
+        formatter.string(from: date)
+    }
+
+    static func date(from value: String) -> Date? {
+        formatter.date(from: value)
+    }
+
+    static func age(
+        for birthday: Date,
+        on date: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Int? {
+        guard birthday <= date else { return nil }
+        return calendar.dateComponents([.year], from: birthday, to: date).year
+    }
+
+    private static let formatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter
+    }()
+}
+
+struct WeeklyExpressionSignal {
+    let averageScore: Double?
+
+    var displayScore: String {
+        guard let averageScore else { return "--" }
+        return String(Int(averageScore.rounded()))
+    }
+
+    var progress: Double {
+        guard let averageScore else { return 0 }
+        return min(max(averageScore / 100, 0), 1)
     }
 }
 
@@ -591,11 +635,25 @@ struct ScenarioMessage: Identifiable, Equatable {
 }
 
 struct ScenarioConversationSession: Identifiable, Equatable {
-    let id = UUID()
+    let id: UUID
     let participantID: ScenarioParticipant.ID?
     let participantName: String
     let date: Date
     let messages: [ScenarioMessage]
+
+    init(
+        id: UUID = UUID(),
+        participantID: ScenarioParticipant.ID?,
+        participantName: String,
+        date: Date,
+        messages: [ScenarioMessage]
+    ) {
+        self.id = id
+        self.participantID = participantID
+        self.participantName = participantName
+        self.date = date
+        self.messages = messages
+    }
 
     var dateText: String {
         date.formatted(date: .numeric, time: .shortened)
@@ -684,9 +742,29 @@ struct ConversationReviewRecord: Identifiable, Equatable {
     }
 }
 
+struct RelationshipSignalPayload: Codable, Equatable {
+    let contactName: String
+    let trustDelta: Double
+    let emotionalDepthDelta: Double
+    let reciprocityDelta: Double
+    let supportDelta: Double
+    let confidence: Double
+    let explanation: String
+
+    enum CodingKeys: String, CodingKey {
+        case confidence, explanation
+        case contactName = "contact_name"
+        case trustDelta = "trust_delta"
+        case emotionalDepthDelta = "emotional_depth_delta"
+        case reciprocityDelta = "reciprocity_delta"
+        case supportDelta = "support_delta"
+    }
+}
+
 struct ReviewSuggestedContact: Identifiable, Equatable {
     let id: UUID
     let name: String
+    let relationshipSignal: RelationshipSignalPayload?
 }
 
 struct ReviewTimelineSuggestion: Identifiable, Equatable {
@@ -803,7 +881,7 @@ extension Array where Element == RelationshipPerson {
                 name: name.trimmingCharacters(in: .whitespacesAndNewlines),
                 note: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? localizedText("新的关系", "New relationship") : note.trimmingCharacters(in: .whitespacesAndNewlines),
                 category: category,
-                strength: 0.46,
+                strength: 0,
                 position: position,
                 avatarColors: [category.color.opacity(0.86), Color.white.opacity(0.52)],
                 symbol: "person.fill",

@@ -13,12 +13,83 @@ import UIKit
 
 struct SoulMarkTests {
 
+    @Test func scenarioEmotionFallsBackToCalm() {
+        #expect(ScenarioEmotion(serverValue: "happy") == .happy)
+        #expect(ScenarioEmotion(serverValue: "unexpected") == .calm)
+        #expect(ScenarioEmotion(serverValue: nil) == .calm)
+    }
+
+    @Test func realtimePhaseHasPriorityOverEmotion() {
+        #expect(RealtimeVoiceCallPhase.idle.mascotAnimationState(emotion: .happy) == .idle)
+        #expect(RealtimeVoiceCallPhase.listening.mascotAnimationState(emotion: .happy) == .listening)
+        #expect(RealtimeVoiceCallPhase.speaking.mascotAnimationState(emotion: .caring) == .speaking(.caring))
+        #expect(RealtimeVoiceCallPhase.failed("offline").mascotAnimationState(emotion: .happy) == .failed)
+    }
+
+    @Test func contactBirthdayFormatsDateAndCalculatesCompletedYears() throws {
+        let calendar = Calendar(identifier: .gregorian)
+        let birthday = try #require(calendar.date(from: DateComponents(year: 2000, month: 8, day: 20)))
+        let beforeBirthday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 6)))
+        let afterBirthday = try #require(calendar.date(from: DateComponents(year: 2026, month: 8, day: 21)))
+
+        #expect(ContactBirthday.storageString(from: birthday) == "2000/08/20")
+        #expect(ContactBirthday.age(for: birthday, on: beforeBirthday, calendar: calendar) == 25)
+        #expect(ContactBirthday.age(for: birthday, on: afterBirthday, calendar: calendar) == 26)
+        #expect(ContactBirthday.date(from: "2000/08/20") == birthday)
+    }
+
+    @Test func weeklyExpressionSignalUsesReviewAverageAndClampsProgress() {
+        #expect(WeeklyExpressionSignal(averageScore: nil).displayScore == "--")
+        #expect(WeeklyExpressionSignal(averageScore: 78.4).displayScore == "78")
+        #expect(WeeklyExpressionSignal(averageScore: 120).progress == 1)
+        #expect(WeeklyExpressionSignal(averageScore: -4).progress == 0)
+    }
+
+    @Test func persistedPracticeRestoresScenarioConversationAndIdentity() {
+        let practiceID = UUID()
+        let record = PracticeRecord(
+            id: practiceID,
+            participantName: "Wren",
+            modeTitle: "边界表达",
+            durationSeconds: 42,
+            userTranscript: "我需要一点自己的时间。",
+            assistantTranscript: "我理解，我们晚点再聊。",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let session = record.scenarioConversationSession
+
+        #expect(session.id == practiceID)
+        #expect(session.messages.map(\.text) == ["我需要一点自己的时间。", "我理解，我们晚点再聊。"])
+        #expect(session.messages.map(\.isUser) == [true, false])
+    }
+
     @Test func realtimeVoiceURLUsesWebSocketSchemeAndGatewayPath() throws {
         let local = try RealtimeVoiceServiceConfiguration.websocketURL(from: "http://192.168.1.20:8000")
         let production = try RealtimeVoiceServiceConfiguration.websocketURL(from: "https://api.soulmark.app")
 
         #expect(local.absoluteString == "ws://192.168.1.20:8000/api/v1/realtime/scenario")
         #expect(production.absoluteString == "wss://api.soulmark.app/api/v1/realtime/scenario")
+    }
+
+    @Test func relationshipSignalUsesBackendFieldNames() throws {
+        let signal = RelationshipSignalPayload(
+            contactName: "Wren",
+            trustDelta: 0.8,
+            emotionalDepthDelta: 0.6,
+            reciprocityDelta: 0.4,
+            supportDelta: 0.7,
+            confidence: 0.9,
+            explanation: "坦诚交流得到了认真回应。"
+        )
+        let object = try #require(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(signal))
+                as? [String: Any]
+        )
+
+        #expect(object["contact_name"] as? String == "Wren")
+        #expect(object["emotional_depth_delta"] as? Double == 0.6)
+        #expect(object["support_delta"] as? Double == 0.7)
     }
 
     @Test func realtimeCaptureGateBlocksPlaybackEchoButAllowsBargeIn() {
@@ -82,6 +153,17 @@ struct SoulMarkTests {
         #expect(gate.canCapture)
         #expect(!gate.shouldMuteVoiceProcessingInput)
         #expect(!gate.beginBargeIn())
+    }
+
+    @Test func realtimeVoiceStartupDoesNotRequireMutedSpeechDetection() {
+        #expect(!RealtimeVoiceStartupPolicy.shouldFail(
+            voiceProcessingEnabled: true,
+            mutedSpeechDetectionAvailable: false
+        ))
+        #expect(RealtimeVoiceStartupPolicy.shouldFail(
+            voiceProcessingEnabled: false,
+            mutedSpeechDetectionAvailable: true
+        ))
     }
 
     @Test func relationshipFiltersReturnExpectedPeople() async throws {
@@ -395,6 +477,8 @@ struct SoulMarkTests {
           "relationship_label": "friend",
           "notes": "Friend",
           "strength": 80,
+          "event_count": 10,
+          "intimacy_calculated": true,
           "position_x": 0.4,
           "position_y": 0.6,
           "symbol": "person.fill",
@@ -406,6 +490,8 @@ struct SoulMarkTests {
         let contact = try JSONDecoder().decode(RemoteContact.self, from: Data(json.utf8))
 
         #expect(contact.relationshipPerson.avatarURL == "/media/avatars/wren.jpg")
+        #expect(contact.relationshipPerson.eventCount == 10)
+        #expect(contact.relationshipPerson.intimacyCalculated)
     }
 
     @Test func backendMediaURLResolvesRelativeAndAbsoluteAddresses() throws {

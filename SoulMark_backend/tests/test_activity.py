@@ -3,7 +3,7 @@ from pytest import MonkeyPatch
 
 from app.ai.review import _ensure_first_person, _normalize_analysis
 from app.api.v1 import activity as activity_api
-from app.schemas.activity import ReviewAnalysisResponse
+from app.schemas.activity import RelationshipSignal, ReviewAnalysisResponse
 
 
 async def test_practices_reviews_and_stats_persist_for_owner(
@@ -102,6 +102,7 @@ async def test_review_analysis_returns_structured_qwen_result(
         "related_contact_id": None,
         "related_contact_names": [],
         "related_contacts": [],
+        "relationship_signals": [],
         "event_details": None,
     }
 
@@ -125,6 +126,27 @@ def test_review_analysis_normalizes_structured_advice_sections() -> None:
         "做得好的地方\n• 先陈述事实\n• 愿意倾听\n\n"
         "下次可以这样说\n我希望我们可以先确认彼此的理解。"
     )
+
+
+def test_review_analysis_ignores_invalid_optional_relationship_signal() -> None:
+    normalized = _normalize_analysis(
+        {
+            "title": "一次沟通",
+            "score": 82,
+            "reason": "表达了感受。",
+            "brief_advice": "说明需要。",
+            "detailed_advice": "提出请求。",
+            "relationship_signals": [
+                {
+                    "contact_name": "Wren",
+                    "trust_delta": 4,
+                    "explanation": "",
+                }
+            ],
+        }
+    )
+
+    assert normalized["relationship_signals"] == []
 
 
 def test_review_analysis_rewrites_generated_summary_to_first_person() -> None:
@@ -197,6 +219,147 @@ async def test_review_delete_persists(
 
     assert deleted.status_code == 204
     assert (await client.get("/api/v1/reviews", headers=auth_headers)).json() == []
+
+
+async def test_review_does_not_calculate_intimacy_before_ten_events(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    contact = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json={
+            "name": "Wren",
+            "relationship_label": "朋友",
+            "strength": 80,
+        },
+    )
+    contact_id = contact.json()["id"]
+
+    review = await client.post(
+        "/api/v1/reviews",
+        headers=auth_headers,
+        json={
+            "title": "坦诚沟通",
+            "source": "manual",
+            "transcript": "我和 Wren 坦诚地说清了误会。",
+            "score": 86,
+            "reason": "表达清晰",
+            "advice": "继续保持",
+            "detailed_advice": "继续直接表达感受和需要。",
+            "relationship_impacts": [
+                {
+                    "contact_id": contact_id,
+                    "relationship_signal": {
+                        "contact_name": "Wren",
+                        "trust_delta": 1,
+                        "emotional_depth_delta": 1,
+                        "reciprocity_delta": 1,
+                        "support_delta": 1,
+                        "confidence": 1,
+                        "explanation": "双方完成了一次坦诚且互相回应的沟通。",
+                    },
+                }
+            ],
+        },
+    )
+
+    assert review.status_code == 201
+    updated = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert updated.json()["strength"] == 0
+    assert updated.json()["intimacy_calculated"] is False
+
+    deleted = await client.delete(
+        f"/api/v1/reviews/{review.json()['id']}",
+        headers=auth_headers,
+    )
+
+    assert deleted.status_code == 204
+    restored = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert restored.json()["strength"] == 0
+
+
+async def test_deleting_review_exactly_reverses_its_calculated_impact(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+    monkeypatch: MonkeyPatch,
+) -> None:
+    from app.schemas.activity import RelationshipProfile
+    from app.services import intimacy
+
+    analysis_calls = 0
+
+    async def fake_profile(*args: object, **kwargs: object) -> RelationshipProfile:
+        nonlocal analysis_calls
+        analysis_calls += 1
+        score = 40 if kwargs["reviews_text"] else 60
+        return RelationshipProfile(
+            trust_score=score,
+            emotional_depth_score=score,
+            reciprocity_score=score,
+            support_score=score,
+            explanation="固定测试结果。",
+        )
+
+    monkeypatch.setattr(intimacy, "analyze_relationship_profile", fake_profile)
+    contact = await client.post(
+        "/api/v1/contacts",
+        headers=auth_headers,
+        json={"name": "Wren", "relationship_label": "朋友"},
+    )
+    contact_id = contact.json()["id"]
+    for index in range(10):
+        response = await client.post(
+            f"/api/v1/contacts/{contact_id}/events",
+            headers=auth_headers,
+            json={
+                "title": f"事件 {index + 1}",
+                "details": "一件关系事件。",
+                "occurred_at": f"2026-06-{index + 1:02d}T10:00:00Z",
+            },
+        )
+        assert response.status_code == 201
+
+    review = await client.post(
+        "/api/v1/reviews",
+        headers=auth_headers,
+        json={
+            "title": "一次负面沟通",
+            "source": "manual",
+            "transcript": "我和 Wren 发生了冲突。",
+            "score": 40,
+            "reason": "沟通造成了伤害。",
+            "advice": "先冷静下来。",
+            "detailed_advice": "尝试修复。",
+            "relationship_impacts": [
+                {
+                    "contact_id": contact_id,
+                    "relationship_signal": {
+                        "contact_name": "Wren",
+                        "trust_delta": -1,
+                        "emotional_depth_delta": -1,
+                        "reciprocity_delta": -1,
+                        "support_delta": -1,
+                        "confidence": 1,
+                        "explanation": "冲突降低了关系质量。",
+                    },
+                }
+            ],
+        },
+    )
+    assert review.status_code == 201
+    lowered = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert lowered.json()["strength"] == 40
+
+    deleted = await client.delete(
+        f"/api/v1/reviews/{review.json()['id']}",
+        headers=auth_headers,
+    )
+
+    assert deleted.status_code == 204
+    restored = await client.get(f"/api/v1/contacts/{contact_id}", headers=auth_headers)
+    assert restored.json()["strength"] == 60
+    assert analysis_calls == 2
 
 
 async def test_review_ai_memory_contains_only_current_users_relationships(
@@ -312,6 +475,17 @@ async def test_review_suggestion_resolves_only_owned_exact_contact(
             brief_advice="先确认感受。",
             detailed_advice="下一次先停顿再回应。",
             related_contact_names=["Wren", "Oscar", "Not Registered"],
+            relationship_signals=[
+                RelationshipSignal(
+                    contact_name="Wren",
+                    trust_delta=-0.4,
+                    emotional_depth_delta=0.2,
+                    reciprocity_delta=-0.3,
+                    support_delta=0,
+                    confidence=0.8,
+                    explanation="争执降低了信任，但彼此仍表达了真实感受。",
+                )
+            ],
             event_details="我和 Wren、Oscar 在雨天因为迟到发生争执。",
         )
 
@@ -331,7 +505,23 @@ async def test_review_suggestion_resolves_only_owned_exact_contact(
     assert response.json()["related_contact_name"] == "Wren"
     assert response.json()["related_contact_names"] == ["Wren", "Oscar"]
     assert response.json()["related_contacts"] == [
-        {"id": contact.json()["id"], "name": "Wren"},
-        {"id": second_contact.json()["id"], "name": "Oscar"},
+        {
+            "id": contact.json()["id"],
+            "name": "Wren",
+            "relationship_signal": {
+                "contact_name": "Wren",
+                "trust_delta": -0.4,
+                "emotional_depth_delta": 0.2,
+                "reciprocity_delta": -0.3,
+                "support_delta": 0.0,
+                "confidence": 0.8,
+                "explanation": "争执降低了信任，但彼此仍表达了真实感受。",
+            },
+        },
+        {
+            "id": second_contact.json()["id"],
+            "name": "Oscar",
+            "relationship_signal": None,
+        },
     ]
     assert response.json()["event_details"] == "我和 Wren、Oscar 在雨天因为迟到发生争执。"

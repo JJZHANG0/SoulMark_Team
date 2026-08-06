@@ -23,6 +23,29 @@ class PracticeResponse(PracticeCreate):
     model_config = ConfigDict(from_attributes=True)
 
 
+class RelationshipSignal(BaseModel):
+    contact_name: str = Field(min_length=1, max_length=100)
+    trust_delta: float = Field(ge=-1, le=1)
+    emotional_depth_delta: float = Field(ge=-1, le=1)
+    reciprocity_delta: float = Field(ge=-1, le=1)
+    support_delta: float = Field(ge=-1, le=1)
+    confidence: float = Field(default=0.7, ge=0, le=1)
+    explanation: str = Field(min_length=1, max_length=1000)
+
+
+class RelationshipProfile(BaseModel):
+    trust_score: int = Field(ge=0, le=100)
+    emotional_depth_score: int = Field(ge=0, le=100)
+    reciprocity_score: int = Field(ge=0, le=100)
+    support_score: int = Field(ge=0, le=100)
+    explanation: str = Field(min_length=1, max_length=2000)
+
+
+class ReviewRelationshipImpactCreate(BaseModel):
+    contact_id: UUID
+    relationship_signal: RelationshipSignal
+
+
 class ReviewCreate(BaseModel):
     practice_id: UUID | None = None
     title: str = Field(min_length=1, max_length=160)
@@ -32,6 +55,11 @@ class ReviewCreate(BaseModel):
     reason: str = Field(min_length=1, max_length=4000)
     advice: str = Field(min_length=1, max_length=4000)
     detailed_advice: str = Field(default="暂无详细建议。", min_length=1, max_length=20_000)
+    relationship_impacts: list[ReviewRelationshipImpactCreate] = Field(
+        default_factory=list,
+        max_length=20,
+        exclude=True,
+    )
 
 
 class ReviewResponse(ReviewCreate):
@@ -51,6 +79,7 @@ class ReviewAnalysisRequest(BaseModel):
 class ReviewRelatedContact(BaseModel):
     id: UUID
     name: str = Field(min_length=1, max_length=100)
+    relationship_signal: RelationshipSignal | None = None
 
 
 class ReviewAnalysisResponse(BaseModel):
@@ -64,6 +93,7 @@ class ReviewAnalysisResponse(BaseModel):
     related_contact_id: UUID | None = None
     related_contact_names: list[str] = Field(default_factory=list, max_length=20)
     related_contacts: list[ReviewRelatedContact] = Field(default_factory=list, max_length=20)
+    relationship_signals: list[RelationshipSignal] = Field(default_factory=list, max_length=20)
     event_details: str | None = Field(default=None, max_length=20_000)
 
 

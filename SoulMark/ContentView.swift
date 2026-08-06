@@ -52,6 +52,7 @@ struct ContentView: View {
     @State private var showingMembershipUpgrade = false
     @State private var practiceCount = 0
     @State private var reviewCount = 0
+    @State private var averageReviewScore: Double?
     @State private var relationshipErrorMessage: String?
 
     private var availableCategories: [RelationshipCategory] {
@@ -94,13 +95,11 @@ struct ContentView: View {
         .tint(SoulTheme.accent)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
         .task {
-            if let syncedPeople = await session.loadContacts() {
-                people = syncedPeople
-            }
-            if let stats = await session.loadStats() {
-                practiceCount = stats.practicesCount
-                reviewCount = stats.reviewsCount
-            }
+            await reloadContacts()
+            await refreshStats()
+        }
+        .onChange(of: session.contactsRevision) {
+            Task { await reloadContacts() }
         }
     }
 
@@ -111,6 +110,8 @@ struct ContentView: View {
             IntegratedHomePage(
                 userID: session.user?.id,
                 people: people,
+                practiceCount: practiceCount,
+                averageReviewScore: averageReviewScore,
                 onOpenRelationshipGraph: {
                     selectedSection = .relationshipGraph
                 },
@@ -138,15 +139,27 @@ struct ContentView: View {
                             messages: messages
                         )
                     }
+                },
+                onPracticeDeleted: {
+                    Task { await refreshStats() }
                 }
             )
         case .journal:
             ConversationReviewPage { count in
                 reviewCount = count
+                Task { await refreshStats() }
             }
         case .profile:
-            IntegratedProfilePage(achievementProgress: achievementProgress)
+            IntegratedProfilePage(people: people, achievementProgress: achievementProgress)
         }
+    }
+
+    @MainActor
+    private func refreshStats() async {
+        guard let stats = await session.loadStats() else { return }
+        practiceCount = stats.practicesCount
+        reviewCount = stats.reviewsCount
+        averageReviewScore = stats.averageReviewScore
     }
 
     private var relationshipGraphPage: some View {
@@ -385,6 +398,15 @@ struct ContentView: View {
         guard let index = people.firstIndex(where: { $0.id == updated.id }) else { return }
         people[index] = updated
         selectedPerson = updated
+    }
+
+    private func reloadContacts() async {
+        guard let syncedPeople = await session.loadContacts() else { return }
+        let selectedID = selectedPerson?.id
+        people = syncedPeople
+        if let selectedID {
+            selectedPerson = syncedPeople.first { $0.id == selectedID }
+        }
     }
 }
 

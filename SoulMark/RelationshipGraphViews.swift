@@ -725,10 +725,54 @@ struct RelationshipDetailSheet: View {
                     .lineSpacing(3)
             }
 
-            HStack(spacing: 12) {
-                RelationshipMetric(title: localizedText("亲密度", "Closeness"), value: "\(Int(person.strength * 100))%")
-                RelationshipMetric(title: localizedText("关系类型", "Relationship"), value: person.category.displayTitle)
-                RelationshipMetric(title: localizedText("建议", "Suggestion"), value: person.strength > 0.7 ? localizedText("保持联系", "Keep in touch") : localizedText("轻触达", "Light check-in"))
+            if !person.informationFields.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(localizedText("相关信息", "Information"))
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(primaryTextColor)
+
+                    ForEach(person.informationFields.filter { !isAgeField($0) }) { field in
+                        HStack {
+                            Text(field.label)
+                                .foregroundStyle(secondaryTextColor)
+                            Spacer()
+                            Text(displayValue(for: field))
+                                .fontWeight(.semibold)
+                                .foregroundStyle(primaryTextColor)
+                        }
+                        .font(.system(size: 14))
+                    }
+                }
+                .padding(14)
+                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+
+            if person.intimacyCalculated {
+                HStack(spacing: 12) {
+                    RelationshipMetric(title: localizedText("亲密度", "Closeness"), value: "\(Int(person.strength * 100))%")
+                    RelationshipMetric(title: localizedText("关系类型", "Relationship"), value: person.category.displayTitle)
+                    RelationshipMetric(title: localizedText("建议", "Suggestion"), value: person.strength > 0.7 ? localizedText("保持联系", "Keep in touch") : localizedText("轻触达", "Light check-in"))
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        localizedText("亲密度尚未生成", "Closeness is not available yet"),
+                        systemImage: "chart.bar.doc.horizontal"
+                    )
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(primaryTextColor)
+
+                    Text(localizedText(
+                        "再记录 \(max(0, 10 - person.eventCount)) 件事件。累计 10 件后，SoulMark 会结合事件时间线和相关复盘生成亲密度。",
+                        "Add \(max(0, 10 - person.eventCount)) more events. At 10 events, SoulMark will calculate closeness from the timeline and related reviews."
+                    ))
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(secondaryTextColor)
+                    .lineSpacing(3)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
 
             VStack(alignment: .leading, spacing: 10) {
@@ -822,7 +866,14 @@ struct RelationshipDetailSheet: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(item: $selectedTimelineEvent) { event in
-            ContactTimelineEventDetail(event: event)
+            ContactTimelineEventDetail(event: event) {
+                try await session.deleteContactEvent(
+                    contactID: person.id,
+                    eventID: event.id
+                )
+                timelineEvents.removeAll { $0.id == event.id }
+                selectedTimelineEvent = nil
+            }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
@@ -900,6 +951,18 @@ struct RelationshipDetailSheet: View {
         } message: {
             Text(localizedText("删除后，\(person.name) 会从关系图谱里移除。", "\(person.name) will be removed from the relationship map."))
         }
+    }
+
+    private func isAgeField(_ field: ContactInformationField) -> Bool {
+        field.label == "年龄" || field.label.caseInsensitiveCompare("Age") == .orderedSame
+    }
+
+    private func displayValue(for field: ContactInformationField) -> String {
+        let isBirthday = field.label == "生日" || field.label.caseInsensitiveCompare("Birthday") == .orderedSame
+        guard isBirthday,
+              let birthday = ContactBirthday.date(from: field.value),
+              let age = ContactBirthday.age(for: birthday) else { return field.value }
+        return localizedText("\(field.value) · \(age)岁", "\(field.value) · Age \(age)")
     }
 }
 
@@ -1005,7 +1068,11 @@ private struct ContactTimelineSection: View {
 
 private struct ContactTimelineEventDetail: View {
     let event: ContactTimelineEvent
+    let onDelete: () async throws -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var isConfirmingDelete = false
+    @State private var isDeleting = false
+    @State private var deletionError: String?
 
     var body: some View {
         NavigationStack {
@@ -1050,6 +1117,22 @@ private struct ContactTimelineEventDetail: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(18)
                         .background(SoulGlassCardBackground())
+
+                    Button(role: .destructive) {
+                        isConfirmingDelete = true
+                    } label: {
+                        Label(localizedText("删除此事件", "Delete Event"), systemImage: "trash")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(SoulTheme.danger)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                SoulTheme.danger.opacity(0.14),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isDeleting)
                 }
                 .padding(20)
             }
@@ -1060,6 +1143,41 @@ private struct ContactTimelineEventDetail: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(localizedText("完成", "Done")) { dismiss() }
                 }
+            }
+            .confirmationDialog(
+                localizedText("删除这个事件？", "Delete this event?"),
+                isPresented: $isConfirmingDelete,
+                titleVisibility: .visible
+            ) {
+                Button(localizedText("删除事件", "Delete Event"), role: .destructive) {
+                    isDeleting = true
+                    Task {
+                        do {
+                            try await onDelete()
+                            dismiss()
+                        } catch {
+                            isDeleting = false
+                            deletionError = error.localizedDescription
+                        }
+                    }
+                }
+                Button(localizedText("取消", "Cancel"), role: .cancel) {}
+            } message: {
+                Text(localizedText(
+                    "删除后无法恢复，亲密度会根据剩余记录更新。",
+                    "This cannot be undone. Closeness will update from the remaining history."
+                ))
+            }
+            .alert(
+                localizedText("删除失败", "Delete Failed"),
+                isPresented: Binding(
+                    get: { deletionError != nil },
+                    set: { if !$0 { deletionError = nil } }
+                )
+            ) {
+                Button(localizedText("知道了", "OK")) { deletionError = nil }
+            } message: {
+                Text(deletionError ?? "")
             }
         }
     }
@@ -1510,21 +1628,48 @@ private struct ContactInformationEditor: View {
     var body: some View {
         Section {
             ForEach($fields) { $field in
-                HStack(spacing: 10) {
-                    Text(field.label)
-                        .foregroundStyle(SoulTheme.secondaryText)
-                        .frame(width: 72, alignment: .leading)
-
-                    TextField(field.placeholder, text: $field.value)
-                        .multilineTextAlignment(.trailing)
-
-                    Button(role: .destructive) {
-                        fields.removeAll { $0.id == field.id }
-                    } label: {
-                        Image(systemName: "minus.circle.fill")
+                if isBirthdayField(field) {
+                    HStack(spacing: 10) {
+                        Text(field.label)
+                            .foregroundStyle(SoulTheme.secondaryText)
+                        Spacer()
+                        DatePicker(
+                            "",
+                            selection: birthdayBinding(for: $field),
+                            in: ...Date(),
+                            displayedComponents: .date
+                        )
+                        .labelsHidden()
+                        .datePickerStyle(.compact)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(localizedText("删除\(field.label)", "Remove \(field.label)"))
+
+                    if let date = ContactBirthday.date(from: field.value),
+                       let age = ContactBirthday.age(for: date) {
+                        HStack {
+                            Text(localizedText("年龄", "Age"))
+                                .foregroundStyle(SoulTheme.secondaryText)
+                            Spacer()
+                            Text(localizedText("\(age)岁", "\(age) years"))
+                                .foregroundStyle(SoulTheme.primaryText)
+                        }
+                    }
+                } else if !isAgeField(field) {
+                    HStack(spacing: 10) {
+                        Text(field.label)
+                            .foregroundStyle(SoulTheme.secondaryText)
+                            .frame(width: 72, alignment: .leading)
+
+                        TextField(field.placeholder, text: $field.value)
+                            .multilineTextAlignment(.trailing)
+
+                        Button(role: .destructive) {
+                            fields.removeAll { $0.id == field.id }
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(localizedText("删除\(field.label)", "Remove \(field.label)"))
+                    }
                 }
             }
 
@@ -1552,6 +1697,25 @@ private struct ContactInformationEditor: View {
         } header: {
             Text(localizedText("相关信息", "Information"))
         }
+    }
+
+    private func isBirthdayField(_ field: ContactInformationField) -> Bool {
+        field.label == "生日" || field.label.caseInsensitiveCompare("Birthday") == .orderedSame
+    }
+
+    private func isAgeField(_ field: ContactInformationField) -> Bool {
+        field.label == "年龄" || field.label.caseInsensitiveCompare("Age") == .orderedSame
+    }
+
+    private func birthdayBinding(for field: Binding<ContactInformationField>) -> Binding<Date> {
+        Binding(
+            get: {
+                ContactBirthday.date(from: field.wrappedValue.value)
+                    ?? Calendar.current.date(byAdding: .year, value: -18, to: Date())
+                    ?? Date()
+            },
+            set: { field.wrappedValue.value = ContactBirthday.storageString(from: $0) }
+        )
     }
 }
 

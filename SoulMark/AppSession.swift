@@ -116,6 +116,8 @@ struct RemoteContact: Codable {
     let relationshipLabel: String
     let notes: String?
     let strength: Int
+    let eventCount: Int
+    let intimacyCalculated: Bool
     let positionX: Double
     let positionY: Double
     let symbol: String
@@ -124,6 +126,8 @@ struct RemoteContact: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, notes, strength, symbol, memory
+        case eventCount = "event_count"
+        case intimacyCalculated = "intimacy_calculated"
         case relationshipLabel = "relationship_label"
         case positionX = "position_x"
         case positionY = "position_y"
@@ -144,7 +148,9 @@ struct RemoteContact: Codable {
             symbol: symbol,
             memory: storedDetails.memory,
             avatarURL: avatarURL,
-            informationFields: storedDetails.fields
+            informationFields: storedDetails.fields,
+            eventCount: eventCount,
+            intimacyCalculated: intimacyCalculated
         )
     }
 }
@@ -204,16 +210,28 @@ private struct ContactEventPayload: Encodable {
     let title: String
     let details: String
     let occurredAt: String
+    let relationshipSignal: RelationshipSignalPayload?
+    let skipRelationshipUpdate: Bool
 
     enum CodingKeys: String, CodingKey {
         case title, details
         case occurredAt = "occurred_at"
+        case relationshipSignal = "relationship_signal"
+        case skipRelationshipUpdate = "skip_relationship_update"
     }
 
-    init(title: String, details: String, occurredAt: Date) {
+    init(
+        title: String,
+        details: String,
+        occurredAt: Date,
+        relationshipSignal: RelationshipSignalPayload?,
+        skipRelationshipUpdate: Bool
+    ) {
         self.title = title
         self.details = details
         self.occurredAt = ISO8601DateFormatter().string(from: occurredAt)
+        self.relationshipSignal = relationshipSignal
+        self.skipRelationshipUpdate = skipRelationshipUpdate
     }
 }
 
@@ -262,8 +280,47 @@ private struct PracticePayload: Encodable {
     }
 }
 
-private struct PracticeResponseDTO: Decodable {
+struct PracticeRecord: Decodable, Identifiable {
     let id: UUID
+    let participantName: String
+    let modeTitle: String
+    let durationSeconds: Int
+    let userTranscript: String
+    let assistantTranscript: String
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case participantName = "participant_name"
+        case modeTitle = "mode_title"
+        case durationSeconds = "duration_seconds"
+        case userTranscript = "user_transcript"
+        case assistantTranscript = "assistant_transcript"
+        case createdAt = "created_at"
+    }
+
+    var scenarioConversationSession: ScenarioConversationSession {
+        let userMessages = transcriptLines(userTranscript).map {
+            ScenarioMessage(speaker: localizedText("你", "You"), text: $0, isUser: true)
+        }
+        let assistantMessages = transcriptLines(assistantTranscript).map {
+            ScenarioMessage(speaker: participantName, text: $0, isUser: false)
+        }
+        return ScenarioConversationSession(
+            id: id,
+            participantID: nil,
+            participantName: participantName,
+            date: createdAt,
+            messages: userMessages + assistantMessages
+        )
+    }
+
+    private func transcriptLines(_ transcript: String) -> [String] {
+        transcript
+            .split(whereSeparator: \.isNewline)
+            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
 }
 
 private struct ReviewPayload: Encodable {
@@ -274,10 +331,22 @@ private struct ReviewPayload: Encodable {
     let reason: String
     let advice: String
     let detailedAdvice: String
+    let relationshipImpacts: [ReviewRelationshipImpactPayload]
 
     enum CodingKeys: String, CodingKey {
         case title, source, transcript, score, reason, advice
         case detailedAdvice = "detailed_advice"
+        case relationshipImpacts = "relationship_impacts"
+    }
+}
+
+private struct ReviewRelationshipImpactPayload: Encodable {
+    let contactID: UUID
+    let relationshipSignal: RelationshipSignalPayload
+
+    enum CodingKeys: String, CodingKey {
+        case contactID = "contact_id"
+        case relationshipSignal = "relationship_signal"
     }
 }
 
@@ -290,6 +359,12 @@ private struct ReviewAnalysisPayload: Encodable {
 private struct ReviewRelatedContactDTO: Decodable {
     let id: UUID
     let name: String
+    let relationshipSignal: RelationshipSignalPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case relationshipSignal = "relationship_signal"
+    }
 }
 
 private struct ReviewAnalysisDTO: Decodable {
@@ -512,7 +587,9 @@ private final class SoulAPIClient {
         contactID: UUID,
         title: String,
         details: String,
-        occurredAt: Date
+        occurredAt: Date,
+        relationshipSignal: RelationshipSignalPayload?,
+        skipRelationshipUpdate: Bool
     ) async throws -> RemoteContactEvent {
         try await request(
             path: "/api/v1/contacts/\(contactID.uuidString)/events",
@@ -521,7 +598,9 @@ private final class SoulAPIClient {
             body: ContactEventPayload(
                 title: title,
                 details: details,
-                occurredAt: occurredAt
+                occurredAt: occurredAt,
+                relationshipSignal: relationshipSignal,
+                skipRelationshipUpdate: skipRelationshipUpdate
             )
         )
     }
@@ -585,7 +664,7 @@ private final class SoulAPIClient {
         userTranscript: String,
         assistantTranscript: String
     ) async throws {
-        let _: PracticeResponseDTO = try await request(
+        let _: PracticeRecord = try await request(
             path: "/api/v1/practices",
             method: "POST",
             token: token,
@@ -600,7 +679,11 @@ private final class SoulAPIClient {
         )
     }
 
-    func saveReview(token: String, record: ConversationReviewRecord) async throws -> RemoteReview {
+    func saveReview(
+        token: String,
+        record: ConversationReviewRecord,
+        relationshipImpacts: [ReviewRelationshipImpactPayload]
+    ) async throws -> RemoteReview {
         try await request(
             path: "/api/v1/reviews",
             method: "POST",
@@ -612,7 +695,8 @@ private final class SoulAPIClient {
                 score: record.score,
                 reason: record.reason,
                 advice: record.advice,
-                detailedAdvice: record.detailedAdvice
+                detailedAdvice: record.detailedAdvice,
+                relationshipImpacts: relationshipImpacts
             )
         )
     }
@@ -683,6 +767,18 @@ private final class SoulAPIClient {
         try await request(path: "/api/v1/reviews", token: token)
     }
 
+    func practices(token: String) async throws -> [PracticeRecord] {
+        try await request(path: "/api/v1/practices", token: token)
+    }
+
+    func deletePractice(token: String, id: UUID) async throws {
+        try await requestVoid(
+            path: "/api/v1/practices/\(id.uuidString)",
+            method: "DELETE",
+            token: token
+        )
+    }
+
     func deleteReview(token: String, id: UUID) async throws {
         try await requestVoid(
             path: "/api/v1/reviews/\(id.uuidString)",
@@ -707,11 +803,24 @@ private final class SoulAPIClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
-        request.timeoutInterval = 15
+        request.timeoutInterval = 120
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let (_, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw SoulAPIError.offline
+        }
+        guard let http = response as? HTTPURLResponse else {
             throw SoulAPIError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
+            throw SoulAPIError.server(
+                envelope?.error.message
+                    ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
+            )
         }
     }
 
@@ -870,6 +979,7 @@ final class AppSession: ObservableObject {
     @Published private(set) var route: Route = .launch
     @Published private(set) var user: AppUser?
     @Published private(set) var isWorking = false
+    @Published private(set) var contactsRevision = UUID()
     @Published var errorMessage: String?
 
     private let api = SoulAPIClient()
@@ -1046,7 +1156,9 @@ final class AppSession: ObservableObject {
         title: String,
         details: String,
         occurredAt: Date,
-        imageData: Data?
+        imageData: Data?,
+        relationshipSignal: RelationshipSignalPayload? = nil,
+        skipRelationshipUpdate: Bool = false
     ) async throws -> ContactTimelineEvent {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         var remote = try await api.createContactEvent(
@@ -1054,7 +1166,9 @@ final class AppSession: ObservableObject {
             contactID: contactID,
             title: title,
             details: details,
-            occurredAt: occurredAt
+            occurredAt: occurredAt,
+            relationshipSignal: relationshipSignal,
+            skipRelationshipUpdate: skipRelationshipUpdate
         )
         if let imageData {
             do {
@@ -1073,6 +1187,7 @@ final class AppSession: ObservableObject {
                 throw error
             }
         }
+        contactsRevision = UUID()
         return remote.timelineEvent
     }
 
@@ -1081,7 +1196,9 @@ final class AppSession: ObservableObject {
         title: String,
         details: String,
         occurredAt: Date,
-        imageData: Data?
+        imageData: Data?,
+        relationshipSignals: [UUID: RelationshipSignalPayload] = [:],
+        skipRelationshipUpdate: Bool = false
     ) async throws -> [ContactTimelineEvent] {
         let uniqueContactIDs = Array(NSOrderedSet(array: contactIDs))
             .compactMap { $0 as? UUID }
@@ -1093,7 +1210,9 @@ final class AppSession: ObservableObject {
                     title: title,
                     details: details,
                     occurredAt: occurredAt,
-                    imageData: imageData
+                    imageData: imageData,
+                    relationshipSignal: relationshipSignals[contactID],
+                    skipRelationshipUpdate: skipRelationshipUpdate
                 )
                 createdEvents.append(event)
             }
@@ -1116,6 +1235,7 @@ final class AppSession: ObservableObject {
             contactID: contactID,
             eventID: eventID
         )
+        contactsRevision = UUID()
     }
 
     func loadStats() async -> DashboardStatsDTO? {
@@ -1144,11 +1264,24 @@ final class AppSession: ObservableObject {
         )
     }
 
-    func recordReview(_ record: ConversationReviewRecord) async throws -> ConversationReviewRecord {
+    func recordReview(_ analysis: AnalyzedConversationReview) async throws -> ConversationReviewRecord {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
-        guard let saved = try await api.saveReview(token: token, record: record).record else {
+        let relationshipImpacts = (analysis.timelineSuggestion?.contacts ?? []).compactMap { contact in
+            contact.relationshipSignal.map {
+                ReviewRelationshipImpactPayload(
+                    contactID: contact.id,
+                    relationshipSignal: $0
+                )
+            }
+        }
+        guard let saved = try await api.saveReview(
+            token: token,
+            record: analysis.record,
+            relationshipImpacts: relationshipImpacts
+        ).record else {
             throw SoulAPIError.invalidResponse
         }
+        contactsRevision = UUID()
         return saved
     }
 
@@ -1198,12 +1331,22 @@ final class AppSession: ObservableObject {
             detailedAdvice: analysis.detailedAdvice
         )
         var matchedContacts = (analysis.relatedContacts ?? []).map {
-            ReviewSuggestedContact(id: $0.id, name: $0.name)
+            ReviewSuggestedContact(
+                id: $0.id,
+                name: $0.name,
+                relationshipSignal: $0.relationshipSignal
+            )
         }
         if matchedContacts.isEmpty,
            let contactID = analysis.relatedContactID,
            let contactName = analysis.relatedContactName {
-            matchedContacts = [ReviewSuggestedContact(id: contactID, name: contactName)]
+            matchedContacts = [
+                ReviewSuggestedContact(
+                    id: contactID,
+                    name: contactName,
+                    relationshipSignal: nil
+                )
+            ]
         }
         let suggestion: ReviewTimelineSuggestion?
         if !matchedContacts.isEmpty {
@@ -1228,11 +1371,22 @@ final class AppSession: ObservableObject {
     func deleteReview(_ id: UUID) async throws {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         try await api.deleteReview(token: token, id: id)
+        contactsRevision = UUID()
     }
 
     func loadReviews() async -> [ConversationReviewRecord]? {
         guard let token = tokenStore.read() else { return nil }
         return try? await api.reviews(token: token).compactMap(\.record)
+    }
+
+    func loadPractices() async -> [PracticeRecord]? {
+        guard let token = tokenStore.read() else { return nil }
+        return try? await api.practices(token: token)
+    }
+
+    func deletePractice(_ id: UUID) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.deletePractice(token: token, id: id)
     }
 
     private var sessionIsCurrent: Bool {

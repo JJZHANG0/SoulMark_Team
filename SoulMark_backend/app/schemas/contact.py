@@ -35,6 +35,8 @@ class ContactResponse(BaseModel):
     relationship_label: str
     notes: str | None
     strength: int
+    event_count: int
+    intimacy_calculated: bool
     position_x: float
     position_y: float
     symbol: str

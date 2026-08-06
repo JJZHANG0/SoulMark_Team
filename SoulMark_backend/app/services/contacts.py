@@ -9,6 +9,9 @@ from app.schemas.contact import ContactCreate, ContactUpdate
 from app.schemas.contact_event import ContactEventCreate
 from app.services.avatar_storage import AvatarStorage
 from app.services.event_image_storage import EventImageStorage
+from app.services.relationship_strength import (
+    reset_dimensions_to_strength,
+)
 
 FREE_CONTACT_LIMIT = 5
 
@@ -46,6 +49,10 @@ async def create_contact(
     values["name"] = payload.name.strip()
     values["relationship_label"] = payload.relationship_label.strip()
     contact = Contact(owner_id=owner_id, **values)
+    contact.strength = 0
+    reset_dimensions_to_strength(contact)
+    contact.intimacy_calculated = False
+    contact.event_count = 0
     session.add(contact)
     await session.commit()
     await session.refresh(contact)
@@ -60,6 +67,7 @@ async def update_contact(
 ) -> Contact:
     contact = await get_owned_contact(session, owner_id, contact_id)
     changes = payload.model_dump(exclude_unset=True)
+    changes.pop("strength", None)
     for required_field in ("name", "relationship_label", "strength"):
         if changes.get(required_field) is None:
             changes.pop(required_field, None)
@@ -148,12 +156,21 @@ async def create_contact_event(
     contact_id: UUID,
     payload: ContactEventCreate,
 ) -> ContactEvent:
-    await get_owned_contact(session, owner_id, contact_id)
+    contact = await get_owned_contact(session, owner_id, contact_id)
     event = ContactEvent(
         owner_id=owner_id,
         contact_id=contact_id,
-        **payload.model_dump(),
+        title=payload.title,
+        details=payload.details,
+        occurred_at=payload.occurred_at,
+        trust_delta=0,
+        emotional_depth_delta=0,
+        reciprocity_delta=0,
+        support_delta=0,
+        strength_delta=0,
+        impact_explanation=None,
     )
+    contact.event_count += 1
     session.add(event)
     await session.commit()
     await session.refresh(event)
@@ -201,6 +218,8 @@ async def delete_contact_event(
     storage: EventImageStorage,
 ) -> None:
     event = await get_owned_contact_event(session, owner_id, contact_id, event_id)
+    contact = await get_owned_contact(session, owner_id, contact_id)
+    contact.event_count = max(0, contact.event_count - 1)
     image_url = event.image_url
     await session.delete(event)
     await session.commit()

@@ -11,6 +11,14 @@ from app.core.config import Settings
 from app.main import create_app
 
 
+def test_scenario_emotion_classifier_uses_supported_fallbacks() -> None:
+    assert realtime_api.classify_scenario_emotion("太好了，我终于成功了") == "happy"
+    assert realtime_api.classify_scenario_emotion("听起来你真的很难过") == "caring"
+    assert realtime_api.classify_scenario_emotion("这件事必须认真处理") == "serious"
+    assert realtime_api.classify_scenario_emotion("你可以勇敢地试一试") == "encouraging"
+    assert realtime_api.classify_scenario_emotion("我们继续聊吧") == "calm"
+
+
 class FakeRealtimeSession:
     def __init__(self) -> None:
         self.received_audio: list[bytes] = []
@@ -28,12 +36,13 @@ class FakeRealtimeSession:
             "type": "conversation.item.input_audio_transcription.completed",
             "transcript": "你好",
         }
-        yield {"type": "response.audio_transcript.delta", "delta": "你好呀"}
+        yield {"type": "response.created"}
+        yield {"type": "response.audio_transcript.delta", "delta": "听起来你真的很难过"}
         yield {
             "type": "response.audio.delta",
             "delta": base64.b64encode(b"assistant-pcm").decode(),
         }
-        yield {"type": "response.audio_transcript.done", "transcript": "你好呀"}
+        yield {"type": "response.audio_transcript.done", "transcript": "听起来你真的很难过"}
         await asyncio.Event().wait()
 
     async def close(self) -> None:
@@ -75,11 +84,16 @@ def test_realtime_gateway_relays_binary_audio_and_transcripts(monkeypatch: Any) 
             assert socket.receive_json()["type"] == "session.ready"
             socket.send_bytes(b"\x00\x00")
             assert socket.receive_json() == {"type": "user.transcript.completed", "text": "你好"}
-            assert socket.receive_json() == {"type": "assistant.transcript.delta", "text": "你好呀"}
+            assert socket.receive_json() == {"type": "assistant.response_started"}
+            assert socket.receive_json() == {"type": "assistant.emotion", "emotion": "caring"}
+            assert socket.receive_json() == {
+                "type": "assistant.transcript.delta",
+                "text": "听起来你真的很难过",
+            }
             assert socket.receive_bytes() == b"assistant-pcm"
             assert socket.receive_json() == {
                 "type": "assistant.transcript.completed",
-                "text": "你好呀",
+                "text": "听起来你真的很难过",
             }
             socket.send_json({"type": "session.complete"})
 

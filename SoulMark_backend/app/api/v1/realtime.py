@@ -17,6 +17,21 @@ from app.services.ai_memory import build_user_memory_context
 router = APIRouter(tags=["realtime"])
 logger = logging.getLogger(__name__)
 
+SCENARIO_EMOTION_KEYWORDS = {
+    "caring": ("难过", "伤心", "害怕", "焦虑", "痛苦", "sad", "afraid", "anxious"),
+    "happy": ("太好了", "开心", "成功", "高兴", "great news", "happy", "succeeded"),
+    "serious": ("必须", "底线", "严重", "认真", "must", "boundary", "serious"),
+    "encouraging": ("试一试", "想试", "努力", "勇敢", "开始", "try", "brave", "start"),
+}
+
+
+def classify_scenario_emotion(text: str) -> str:
+    normalized = text.casefold()
+    for emotion, keywords in SCENARIO_EMOTION_KEYWORDS.items():
+        if any(keyword in normalized for keyword in keywords):
+            return emotion
+    return "calm"
+
 
 class ScenarioRealtimeStart(BaseModel):
     type: str
@@ -132,6 +147,8 @@ async def relay_client_audio(
 
 
 async def relay_qwen_events(websocket: WebSocket, qwen: QwenRealtimeSession) -> None:
+    assistant_text = ""
+    emotion_sent = True
     async for event in qwen.events():
         event_type = event.get("type")
         if event_type == "response.audio.delta":
@@ -144,6 +161,17 @@ async def relay_qwen_events(websocket: WebSocket, qwen: QwenRealtimeSession) -> 
         elif event_type == "conversation.item.input_audio_transcription.completed":
             await send_transcript(websocket, "user.transcript.completed", event)
         elif event_type == "response.audio_transcript.delta":
+            delta = event.get("delta")
+            if isinstance(delta, str) and delta:
+                assistant_text += delta
+                if not emotion_sent and assistant_text.strip():
+                    await websocket.send_json(
+                        {
+                            "type": "assistant.emotion",
+                            "emotion": classify_scenario_emotion(assistant_text),
+                        }
+                    )
+                    emotion_sent = True
             await send_transcript(websocket, "assistant.transcript.delta", event, "delta")
         elif event_type == "response.audio_transcript.done":
             await send_transcript(websocket, "assistant.transcript.completed", event)
@@ -152,6 +180,8 @@ async def relay_qwen_events(websocket: WebSocket, qwen: QwenRealtimeSession) -> 
         elif event_type == "input_audio_buffer.speech_stopped":
             await websocket.send_json({"type": "input.speech_stopped"})
         elif event_type == "response.created":
+            assistant_text = ""
+            emotion_sent = False
             await websocket.send_json({"type": "assistant.response_started"})
         elif event_type == "response.done":
             await websocket.send_json({"type": "assistant.response_completed"})
