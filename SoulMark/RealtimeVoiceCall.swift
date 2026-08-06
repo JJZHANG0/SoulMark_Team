@@ -135,6 +135,7 @@ enum RealtimeVoiceError: LocalizedError {
     case microphoneDenied
     case voiceProcessingUnavailable
     case invalidServerMessage
+    case connectionTimedOut
     case server(String)
 
     var errorDescription: String? {
@@ -150,6 +151,11 @@ enum RealtimeVoiceError: LocalizedError {
             )
         case .invalidServerMessage:
             localizedText("语音服务返回了无法识别的数据。", "The voice service returned an invalid message.")
+        case .connectionTimedOut:
+            localizedText(
+                "连接语音服务超时，请确认 SoulMark 后端已启动且地址可访问。",
+                "The voice service timed out. Make sure the SoulMark backend is running and reachable."
+            )
         case .server(let message):
             message
         }
@@ -188,6 +194,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
     private var socket: URLSessionWebSocketTask?
     private var receiveTask: Task<Void, Never>?
     private var durationTask: Task<Void, Never>?
+    private var connectionTimeoutTask: Task<Void, Never>?
     private var isEnding = false
     private var acceptsAssistantAudio = false
 
@@ -227,6 +234,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
             receiveTask = Task { [weak self] in
                 await self?.receiveMessages(from: webSocket)
             }
+            startConnectionTimeout(for: webSocket)
 
             let start = RealtimeVoiceSessionStart(
                 participantName: participant.name,
@@ -312,6 +320,8 @@ final class RealtimeVoiceCallManager: ObservableObject {
         let event = try JSONDecoder().decode(RealtimeServerEvent.self, from: data)
         switch event.type {
         case "session.ready":
+            connectionTimeoutTask?.cancel()
+            connectionTimeoutTask = nil
             try startAudioCapture()
             phase = .listening
             startDurationTimer()
@@ -407,6 +417,25 @@ final class RealtimeVoiceCallManager: ObservableObject {
         }
     }
 
+    private func startConnectionTimeout(for webSocket: URLSessionWebSocketTask) {
+        connectionTimeoutTask?.cancel()
+        connectionTimeoutTask = Task { [weak self, weak webSocket] in
+            do {
+                try await Task.sleep(for: .seconds(12))
+            } catch {
+                return
+            }
+            guard let self,
+                  let webSocket,
+                  self.socket === webSocket,
+                  self.phase == .connecting,
+                  !self.isEnding else {
+                return
+            }
+            self.fail(RealtimeVoiceError.connectionTimedOut)
+        }
+    }
+
     private func fail(_ error: Error) {
         let message = (error as? LocalizedError)?.errorDescription
             ?? localizedText("无法连接语音服务，请检查后端地址和网络。", "Could not connect to the voice service. Check the server address and network.")
@@ -420,6 +449,8 @@ final class RealtimeVoiceCallManager: ObservableObject {
         receiveTask = nil
         durationTask?.cancel()
         durationTask = nil
+        connectionTimeoutTask?.cancel()
+        connectionTimeoutTask = nil
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil
         audio.stop()

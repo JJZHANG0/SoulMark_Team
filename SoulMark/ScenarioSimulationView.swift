@@ -192,7 +192,7 @@ struct ScenarioSimulationView: View {
                 modes.addCustomMode(title: title, guidance: guidance)
                 selectedModeID = modes.last?.id ?? selectedModeID
             }
-            .presentationDetents([.height(320)])
+            .presentationDetents([.height(430)])
             .presentationDragIndicator(.visible)
         }
         .sheet(
@@ -2130,51 +2130,115 @@ private struct AddScenarioModeSheet: View {
     @State private var guidance = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(localizedText("自定义模拟模式", "Custom Simulation Mode"))
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundStyle(primaryTextColor)
+        ZStack {
+            SoulBackground()
 
-                Spacer()
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 13) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(Color.white)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            SoulTheme.accent,
+                            in: RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(localizedText("自定义模拟模式", "Custom Simulation Mode"))
+                            .font(.system(size: 20, weight: .heavy, design: .rounded))
+                            .foregroundStyle(SoulTheme.primaryText)
+
+                        Text(localizedText("创建你的专属练习场景", "Create your own practice scenario"))
+                            .font(.system(size: 11, weight: .bold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                    }
+
+                    Spacer()
+
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 13, weight: .heavy))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                            .frame(width: 36, height: 36)
+                            .background(SoulTheme.cardFill, in: Circle())
+                            .overlay {
+                                Circle().stroke(SoulTheme.cardStroke, lineWidth: 1)
+                            }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                VStack(alignment: .leading, spacing: 14) {
+                    modeField(
+                        title: localizedText("模式名称", "Mode Name"),
+                        placeholder: localizedText("例如：和室友沟通", "e.g. Talk with roommate"),
+                        icon: "textformat",
+                        text: $title
+                    )
+
+                    modeField(
+                        title: localizedText("实时指导", "Live Guidance"),
+                        placeholder: localizedText("例如：先讲事实，再讲需求", "e.g. Say facts first, then needs"),
+                        icon: "sparkles",
+                        text: $guidance
+                    )
+                }
+                .padding(16)
+                .background(SoulGlassCardBackground(accented: true))
 
                 Button {
+                    onAdd(title, guidance)
                     dismiss()
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(primaryTextColor)
-                        .frame(width: 34, height: 34)
-                        .background(SoulTheme.cardFill, in: Circle())
+                    Label(localizedText("添加模式", "Add Mode"), systemImage: "plus.circle.fill")
+                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(
+                            canSubmit ? SoulTheme.accent : SoulTheme.tertiaryText.opacity(0.32),
+                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        )
                 }
+                .buttonStyle(.plain)
+                .disabled(!canSubmit)
             }
-
-            TextField(localizedText("模式名称，例如：和室友沟通", "Mode name, e.g. Talk with roommate"), text: $title)
-                .textFieldStyle(.roundedBorder)
-
-            TextField(localizedText("实时指导，例如：先讲事实，再讲需求", "Live guide, e.g. Say facts first, then needs"), text: $guidance)
-                .textFieldStyle(.roundedBorder)
-
-            Button {
-                onAdd(title, guidance)
-                dismiss()
-            } label: {
-                Label(localizedText("添加模式", "Add Mode"), systemImage: "slider.horizontal.3")
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(Color.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(canSubmit ? SoulTheme.accent : Color.gray.opacity(0.20), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .disabled(!canSubmit)
-
-            Spacer()
+            .padding(22)
         }
-        .padding(24)
-        .background(SoulTheme.pageGradient)
     }
 
     private var canSubmit: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private func modeField(
+        title: String,
+        placeholder: String,
+        icon: String,
+        text: Binding<String>
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+
+            TextField(placeholder, text: text)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+                .textFieldStyle(.plain)
+                .padding(.horizontal, 14)
+                .frame(height: 46)
+                .background(
+                    SoulTheme.cardFill,
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(SoulTheme.cardStroke, lineWidth: 1)
+                }
+        }
     }
 }

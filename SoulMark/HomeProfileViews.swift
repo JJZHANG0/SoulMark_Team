@@ -1461,5 +1461,7 @@ private struct SoulMenuRow: View {
                 .foregroundStyle(SoulTheme.tertiaryText)
         }
         .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
     }
 }
