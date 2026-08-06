@@ -4,6 +4,7 @@ import SwiftUI
 
 struct AppUser: Codable, Equatable {
     let id: UUID
+    let publicID: Int?
     let email: String?
     let phoneNumber: String?
     let hasWeChat: Bool
@@ -16,6 +17,7 @@ struct AppUser: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case id, email, gender, appearance
+        case publicID = "public_id"
         case phoneNumber = "phone_number"
         case hasWeChat = "has_wechat"
         case displayName = "display_name"
@@ -498,6 +500,14 @@ private final class SoulAPIClient {
         try await request(path: "/api/v1/users/me", token: token)
     }
 
+    func exportUserData(token: String) async throws -> Data {
+        try await requestData(path: "/api/v1/users/me/export", token: token)
+    }
+
+    func deleteAccount(token: String) async throws {
+        try await requestVoid(path: "/api/v1/users/me", method: "DELETE", token: token)
+    }
+
     func completeOnboarding(
         token: String,
         displayName: String,
@@ -824,6 +834,35 @@ private final class SoulAPIClient {
         }
     }
 
+    private func requestData(path: String, token: String) async throws -> Data {
+        let base = UserDefaults.standard.string(forKey: "soulMarkBackendURL")
+            ?? RealtimeVoiceServiceConfiguration.defaultBackendURL
+        guard let baseURL = URL(string: base), let url = URL(string: path, relativeTo: baseURL) else {
+            throw SoulAPIError.invalidResponse
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 120
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw SoulAPIError.offline
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw SoulAPIError.invalidResponse
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
+            throw SoulAPIError.server(
+                envelope?.error.message
+                    ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
+            )
+        }
+        return data
+    }
+
     private func request<Response: Decodable, Body: Encodable>(
         path: String,
         method: String,
@@ -1103,6 +1142,21 @@ final class AppSession: ObservableObject {
         UserDefaults.standard.removeObject(forKey: cachedUserKey)
         user = nil
         route = .authentication
+    }
+
+    func createDataExportFile() async throws -> URL {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let data = try await api.exportUserData(token: token)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("SoulMark-Data-\(Date().formatted(.iso8601)).json")
+        try data.write(to: url, options: .atomic)
+        return url
+    }
+
+    func deleteAccount() async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.deleteAccount(token: token)
+        signOut()
     }
 
     func loadContacts() async -> [RelationshipPerson]? {

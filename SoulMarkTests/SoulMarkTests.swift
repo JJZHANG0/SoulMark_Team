@@ -56,6 +56,14 @@ struct SoulMarkTests {
         #expect(WeeklyExpressionSignal(averageScore: -4).progress == 0)
     }
 
+    @Test func publicUserIDUsesFourDigitMinimumWithoutTruncatingLargerIDs() {
+        #expect(PublicUserIDFormatter.string(nil) == "0000")
+        #expect(PublicUserIDFormatter.string(1) == "0001")
+        #expect(PublicUserIDFormatter.string(9999) == "9999")
+        #expect(PublicUserIDFormatter.string(10_000) == "10000")
+        #expect(PublicUserIDFormatter.string(123_456) == "123456")
+    }
+
     @Test func persistedPracticeRestoresScenarioConversationAndIdentity() {
         let practiceID = UUID()
         let record = PracticeRecord(
@@ -103,14 +111,14 @@ struct SoulMarkTests {
         #expect(object["support_delta"] as? Double == 0.7)
     }
 
-    @Test func realtimeCaptureGateBlocksPlaybackEchoButAllowsBargeIn() {
+    @Test func realtimeCaptureGateKeepsListeningDuringPlaybackAndAllowsBargeIn() {
         let gate = RealtimeCaptureGate()
 
         #expect(gate.canCapture)
         gate.setAssistantResponseActive(true)
         gate.beginPlaybackBuffer()
-        #expect(!gate.canCapture)
-        #expect(gate.shouldMuteVoiceProcessingInput)
+        #expect(gate.canCapture)
+        #expect(!gate.shouldMuteVoiceProcessingInput)
 
         #expect(gate.beginBargeIn())
         #expect(gate.canCapture)
@@ -125,7 +133,7 @@ struct SoulMarkTests {
         #expect(!gate.beginBargeIn())
 
         gate.setManuallyMuted(false)
-        #expect(!gate.canCapture)
+        #expect(gate.canCapture)
     }
 
     @Test func realtimeCaptureGateProtectsQueuedAudioAndPlaybackTail() {
@@ -137,7 +145,7 @@ struct SoulMarkTests {
 
         let generation = gate.finishPlaybackBuffer()
         #expect(generation != nil)
-        #expect(!gate.canCapture)
+        #expect(gate.canCapture)
 
         #expect(gate.releaseTail(generation: generation!))
         #expect(gate.canCapture)

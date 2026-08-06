@@ -16,6 +16,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
+    public_id: int | None
     email: EmailStr | None
     phone_number: str | None
     has_wechat: bool

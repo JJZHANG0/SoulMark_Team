@@ -3,6 +3,7 @@
 //  SoulMark
 //
 
+import AVFoundation
 import SwiftUI
 
 struct IntegratedHomePage: View {
@@ -355,6 +356,8 @@ struct IntegratedProfilePage: View {
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
     @State private var showingAchievements = false
+    @State private var showingDataVault = false
+    @State private var showingPrivacySecurity = false
     @State private var selectedRecentSection: ProfileRecentSection?
 
     var people: [RelationshipPerson] = []
@@ -396,6 +399,16 @@ struct IntegratedProfilePage: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showingDataVault) {
+            DataVaultSheet(people: people)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingPrivacySecurity) {
+            PrivacySecuritySheet()
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(item: $selectedRecentSection) { section in
             ProfileRecentActivitySheet(section: section, people: people)
                 .presentationDetents([.medium, .large])
@@ -408,7 +421,10 @@ struct IntegratedProfilePage: View {
             SoulVisorPanelBackground()
 
             VStack(alignment: .leading, spacing: 8) {
-                SoulStatusPill(text: "ID / 0001", systemImage: "person.text.rectangle")
+                SoulStatusPill(
+                    text: "ID / \(PublicUserIDFormatter.string(session.user?.publicID))",
+                    systemImage: "person.text.rectangle"
+                )
 
                 Spacer()
 
@@ -503,12 +519,378 @@ struct IntegratedProfilePage: View {
                 }
                 .buttonStyle(.plain)
                 Divider().padding(.leading, 58).overlay(SoulTheme.cardStroke)
-                SoulMenuRow(title: localizedText("数据仓库", "Data Vault"), subtitle: localizedText("关系与复盘数据总览", "Overview of relationship and review data"), icon: "externaldrive.fill")
+                Button {
+                    showingDataVault = true
+                } label: {
+                    SoulMenuRow(title: localizedText("数据仓库", "Data Vault"), subtitle: localizedText("关系与复盘数据总览", "Overview of relationship and review data"), icon: "externaldrive.fill")
+                }
+                .buttonStyle(.plain)
                 Divider().padding(.leading, 58).overlay(SoulTheme.cardStroke)
-                SoulMenuRow(title: localizedText("隐私与安全", "Privacy & Security"), subtitle: localizedText("控制数据和权限", "Control your data and permissions"), icon: "lock.shield.fill")
+                Button {
+                    showingPrivacySecurity = true
+                } label: {
+                    SoulMenuRow(title: localizedText("隐私与安全", "Privacy & Security"), subtitle: localizedText("控制数据和权限", "Control your data and permissions"), icon: "lock.shield.fill")
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 14)
             .background(SoulGlassCardBackground())
+        }
+    }
+}
+
+private struct DataVaultSheet: View {
+    @EnvironmentObject private var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+    let people: [RelationshipPerson]
+
+    @State private var stats: DashboardStatsDTO?
+    @State private var exportURL: URL?
+    @State private var isExporting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SoulBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text(localizedText(
+                            "这里汇总 SoulMark 为你的账户保存的数据。你可以随时导出一份 JSON 副本。",
+                            "This summarizes the data SoulMark stores for your account. You can export a JSON copy at any time."
+                        ))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(SoulTheme.secondaryText)
+
+                        HStack(spacing: 10) {
+                            vaultMetric(localizedText("人物", "People"), stats?.contactsCount ?? people.count, "person.2.fill")
+                            vaultMetric(localizedText("练习", "Practices"), stats?.practicesCount ?? 0, "waveform")
+                            vaultMetric(localizedText("复盘", "Reviews"), stats?.reviewsCount ?? 0, "text.bubble.fill")
+                        }
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "archivebox.fill")
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundStyle(Color.white)
+                                    .frame(width: 42, height: 42)
+                                    .background(
+                                        SoulTheme.accent,
+                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    )
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(localizedText("导出内容", "Export Contents"))
+                                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(SoulTheme.primaryText)
+                                    Text(localizedText("你的 SoulMark 数据副本", "Your SoulMark data copy"))
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(SoulTheme.accent)
+                                }
+                            }
+
+                            Text(localizedText(
+                                "包括账户资料、关系人物、事件记录、情景练习和复盘。导出文件可能包含敏感信息，请妥善保管。",
+                                "Includes your profile, relationships, events, scenario practices, and reviews. The file may contain sensitive information."
+                            ))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+
+                            if let exportURL {
+                                ShareLink(item: exportURL) {
+                                    Label(localizedText("分享导出文件", "Share Export"), systemImage: "square.and.arrow.up")
+                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(Color.white)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 48)
+                                        .background(
+                                            SoulTheme.accent,
+                                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Button {
+                                    createExport()
+                                } label: {
+                                    if isExporting {
+                                        ProgressView()
+                                            .tint(Color.white)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 48)
+                                            .background(
+                                                SoulTheme.accent,
+                                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            )
+                                    } else {
+                                        Label(localizedText("生成数据副本", "Create Data Copy"), systemImage: "arrow.down.doc.fill")
+                                            .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                            .foregroundStyle(Color.white)
+                                            .frame(maxWidth: .infinity)
+                                            .frame(height: 48)
+                                            .background(
+                                                SoulTheme.accent,
+                                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            )
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(isExporting)
+                            }
+                        }
+                        .padding(18)
+                        .background(SoulGlassCardBackground(accented: true))
+                    }
+                    .padding(18)
+                }
+            }
+            .navigationTitle(localizedText("数据仓库", "Data Vault"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(localizedText("完成", "Done")) { dismiss() }
+                }
+            }
+            .task { stats = await session.loadStats() }
+            .alert(
+                localizedText("导出失败", "Export Failed"),
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(localizedText("知道了", "OK")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private func vaultMetric(_ title: String, _ value: Int, _ icon: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: icon).foregroundStyle(SoulTheme.accent)
+            Text("\(value)").font(.system(size: 22, weight: .heavy, design: .rounded))
+            Text(title).font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(SoulTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(SoulGlassCardBackground())
+    }
+
+    private func createExport() {
+        isExporting = true
+        Task {
+            do {
+                exportURL = try await session.createDataExportFile()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isExporting = false
+        }
+    }
+}
+
+private struct PrivacySecuritySheet: View {
+    @EnvironmentObject private var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+    @State private var microphonePermission = AVAudioApplication.shared.recordPermission
+    @State private var showingDeleteConfirmation = false
+    @State private var isDeleting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                SoulBackground()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        securityCard(
+                            icon: "key.fill",
+                            title: localizedText("登录凭证", "Sign-in credentials"),
+                            detail: localizedText(
+                                "登录令牌保存在 iOS 钥匙串中，退出登录或删除账户时会从设备移除。",
+                                "Your sign-in token is stored in the iOS Keychain and removed on sign-out or account deletion."
+                            )
+                        )
+
+                        securityCard(
+                            icon: "sparkles.rectangle.stack.fill",
+                            title: localizedText("AI 数据处理", "AI Data Processing"),
+                            detail: localizedText(
+                                "情景对话和复盘内容会发送到配置的 AI 服务以生成回复与分析，不用于广告。请避免输入不必要的敏感信息。",
+                                "Scenario conversations and reviews are sent to the configured AI service for responses and analysis, not advertising. Avoid unnecessary sensitive details."
+                            )
+                        )
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Label(localizedText("麦克风权限", "Microphone Access"), systemImage: "mic.fill")
+                                    .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                Spacer()
+                                Text(permissionText)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundStyle(permissionColor)
+                            }
+                            Text(localizedText(
+                                "仅在你发起情景语音练习时采集音频，用于实时转写和生成回复。",
+                                "Audio is captured only during a scenario voice session for live transcription and responses."
+                            ))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+
+                            if microphonePermission == .undetermined {
+                                Button(localizedText("请求麦克风权限", "Request Microphone Access")) {
+                                    AVAudioApplication.requestRecordPermission { granted in
+                                        Task { @MainActor in
+                                            microphonePermission = granted ? .granted : .denied
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                            } else if microphonePermission == .denied,
+                                      let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+                                Link(localizedText("前往系统设置", "Open System Settings"), destination: settingsURL)
+                                    .buttonStyle(.bordered)
+                            }
+                        }
+                        .padding(16)
+                        .background(SoulGlassCardBackground())
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "trash.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundStyle(SoulTheme.danger)
+                                    .frame(width: 42, height: 42)
+                                    .background(
+                                        SoulTheme.danger.opacity(0.10),
+                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    )
+
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(localizedText("删除账户与数据", "Delete Account and Data"))
+                                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(SoulTheme.primaryText)
+                                    Text(localizedText("永久且无法撤销", "Permanent and irreversible"))
+                                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                                        .foregroundStyle(SoulTheme.danger)
+                                }
+                            }
+
+                            Text(localizedText(
+                                "这会永久删除账户，以及关联的人物、事件、练习和复盘记录。此操作无法撤销。",
+                                "This permanently deletes your account and associated people, events, practices, and reviews. It cannot be undone."
+                            ))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+
+                            Button(role: .destructive) {
+                                showingDeleteConfirmation = true
+                            } label: {
+                                if isDeleting {
+                                    ProgressView()
+                                        .tint(SoulTheme.danger)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 48)
+                                } else {
+                                    Label(localizedText("删除我的账户", "Delete My Account"), systemImage: "trash.fill")
+                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(SoulTheme.danger)
+                                        .frame(maxWidth: .infinity)
+                                        .frame(height: 48)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .background(
+                                SoulTheme.danger.opacity(0.07),
+                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            )
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .stroke(SoulTheme.danger.opacity(0.28), lineWidth: 1)
+                            }
+                            .disabled(isDeleting)
+                        }
+                        .padding(18)
+                        .background(SoulGlassCardBackground())
+                    }
+                    .padding(18)
+                }
+            }
+            .navigationTitle(localizedText("隐私与安全", "Privacy & Security"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(localizedText("完成", "Done")) { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                localizedText("永久删除账户？", "Permanently Delete Account?"),
+                isPresented: $showingDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button(localizedText("永久删除", "Delete Permanently"), role: .destructive) {
+                    deleteAccount()
+                }
+                Button(localizedText("取消", "Cancel"), role: .cancel) {}
+            } message: {
+                Text(localizedText("所有关联数据将被删除且无法恢复。", "All associated data will be deleted and cannot be recovered."))
+            }
+            .alert(
+                localizedText("操作失败", "Action Failed"),
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(localizedText("知道了", "OK")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private func securityCard(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 13) {
+            Image(systemName: icon)
+                .foregroundStyle(SoulTheme.accent)
+                .frame(width: 38, height: 38)
+                .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 13))
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title).font(.system(size: 15, weight: .heavy, design: .rounded))
+                Text(detail)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
+            }
+        }
+        .padding(16)
+        .background(SoulGlassCardBackground())
+    }
+
+    private var permissionText: String {
+        switch microphonePermission {
+        case .granted: localizedText("已允许", "Allowed")
+        case .denied: localizedText("已拒绝", "Denied")
+        case .undetermined: localizedText("未询问", "Not Requested")
+        @unknown default: localizedText("未知", "Unknown")
+        }
+    }
+
+    private var permissionColor: Color {
+        microphonePermission == .granted ? SoulTheme.energy : SoulTheme.warning
+    }
+
+    private func deleteAccount() {
+        isDeleting = true
+        Task {
+            do {
+                try await session.deleteAccount()
+                dismiss()
+            } catch {
+                errorMessage = error.localizedDescription
+                isDeleting = false
+            }
         }
     }
 }

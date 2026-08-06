@@ -442,13 +442,16 @@ final class RealtimeCaptureGate: @unchecked Sendable {
     var canCapture: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return !manuallyMuted && !isAssistantProtected
+        // Voice processing already performs acoustic echo cancellation. Dropping every
+        // microphone frame during assistant playback makes speech disappear whenever
+        // the muted-speech callback is delayed or unavailable on a device.
+        return !manuallyMuted
     }
 
     var shouldMuteVoiceProcessingInput: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return manuallyMuted || isAssistantProtected
+        return manuallyMuted
     }
 
     var isManuallyMuted: Bool {
@@ -461,7 +464,7 @@ final class RealtimeCaptureGate: @unchecked Sendable {
     func setManuallyMuted(_ muted: Bool) -> Bool {
         lock.lock()
         manuallyMuted = muted
-        let shouldMute = manuallyMuted || isAssistantProtected
+        let shouldMute = manuallyMuted
         lock.unlock()
         return shouldMute
     }
