@@ -13,18 +13,12 @@ struct SoulMarkApp: App {
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                switch session.route {
-                case .launch:
-                    SoulLaunchView()
-                case .authentication:
-                    AuthenticationView()
-                case .onboarding:
-                    SoulOnboardingView()
-                case .main:
-                    ContentView()
-                }
+            ZStack {
+                routeContent
+                    .id(session.route)
+                    .transition(rootRouteTransition)
             }
+            .animation(.smooth(duration: 0.48), value: session.route)
             .environmentObject(session)
             .preferredColorScheme(isSoulNightMode() ? .dark : .light)
             .task {
@@ -33,5 +27,26 @@ struct SoulMarkApp: App {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var routeContent: some View {
+        switch session.route {
+        case .launch:
+            SoulLaunchView()
+        case .authentication:
+            AuthenticationView()
+        case .onboarding:
+            SoulOnboardingView()
+        case .main:
+            ContentView()
+        }
+    }
+
+    private var rootRouteTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.combined(with: .scale(scale: 0.985)),
+            removal: .opacity.combined(with: .scale(scale: 1.015))
+        )
     }
 }

@@ -1,5 +1,10 @@
-from httpx import AsyncClient
+from datetime import UTC, datetime, timedelta
 
+from httpx import AsyncClient
+from sqlalchemy import select
+
+from app.db.session import get_db
+from app.models.phone_verification import PhoneVerificationCode
 from app.services.external_auth import WeChatIdentity, get_sms_sender, get_wechat_client
 
 
@@ -127,3 +132,32 @@ async def test_pnvs_sender_uses_remote_verification(
     )
     assert accepted.status_code == 200
     assert sender.checked_codes == ["000000", "654321"]
+
+    headers = {"Authorization": f"Bearer {accepted.json()['access_token']}"}
+    session_override = application.dependency_overrides[get_db]
+    async for session in session_override():
+        latest_code = await session.scalar(
+            select(PhoneVerificationCode).order_by(
+                PhoneVerificationCode.created_at.desc()
+            )
+        )
+        assert latest_code is not None
+        latest_code.created_at = datetime.now(UTC) - timedelta(minutes=10)
+        await session.commit()
+        break
+    assert (await client.post("/api/v1/auth/phone/code", json=phone_payload)).status_code == 202
+    rejected_delete = await client.request(
+        "DELETE",
+        "/api/v1/users/me",
+        headers=headers,
+        json={"code": "000000"},
+    )
+    assert rejected_delete.status_code == 401
+
+    deleted = await client.request(
+        "DELETE",
+        "/api/v1/users/me",
+        headers=headers,
+        json={"code": "654321"},
+    )
+    assert deleted.status_code == 204

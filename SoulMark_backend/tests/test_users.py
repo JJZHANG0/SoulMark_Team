@@ -36,6 +36,24 @@ async def test_profile_requires_authentication(client: AsyncClient) -> None:
     assert response.json()["error"]["code"] == "not_authenticated"
 
 
+async def test_user_can_save_jade_green_theme(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    updated = await client.patch(
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={"gender": "green"},
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["gender"] == "green"
+
+    current = await client.get("/api/v1/users/me", headers=auth_headers)
+    assert current.status_code == 200
+    assert current.json()["gender"] == "green"
+
+
 async def test_user_can_export_and_delete_account(
     client: AsyncClient,
     auth_headers: dict[str, str],
@@ -49,6 +67,20 @@ async def test_user_can_export_and_delete_account(
     assert exported.json()["practices"] == []
     assert exported.json()["reviews"] == []
 
-    deleted = await client.delete("/api/v1/users/me", headers=auth_headers)
+    rejected = await client.request(
+        "DELETE",
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={"password": "WrongPass123!"},
+    )
+    assert rejected.status_code == 401
+    assert (await client.get("/api/v1/users/me", headers=auth_headers)).status_code == 200
+
+    deleted = await client.request(
+        "DELETE",
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={"password": "StrongPass123!"},
+    )
     assert deleted.status_code == 204
     assert (await client.get("/api/v1/users/me", headers=auth_headers)).status_code == 401

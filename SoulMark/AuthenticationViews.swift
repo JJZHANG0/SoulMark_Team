@@ -384,12 +384,13 @@ private struct AuthSecureField: View {
 
 struct SoulOnboardingView: View {
     @EnvironmentObject private var session: AppSession
+    @State private var preferences = SoulPreferencesStore.shared
     @State private var step = 0
     @State private var displayName = ""
     @State private var language = "zh"
     @State private var gender = "male"
     @State private var appearance = "auto"
-    @State private var goal = "difficult-talks"
+    @State private var navigationDirection = 1
 
     var body: some View {
         ZStack {
@@ -398,13 +399,17 @@ struct SoulOnboardingView: View {
             VStack(spacing: 0) {
                 onboardingHeader
 
-                TabView(selection: $step) {
-                    identityStep.tag(0)
-                    styleStep.tag(1)
-                    goalStep.tag(2)
+                ZStack {
+                    if step == 0 {
+                        identityStep
+                            .transition(stepTransition)
+                    } else {
+                        styleStep
+                            .transition(stepTransition)
+                    }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.spring(response: 0.42, dampingFraction: 0.88), value: step)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
                 onboardingActions
             }
@@ -412,7 +417,11 @@ struct SoulOnboardingView: View {
         .onAppear {
             displayName = session.user?.displayName ?? ""
             language = session.user?.preferredLanguage ?? "zh"
+            gender = session.user?.gender ?? "male"
+            appearance = session.user?.appearance ?? "auto"
+            applyPreviewPreferences()
         }
+        .preferredColorScheme(previewIsNight ? .dark : .light)
         .alert(
             localizedText("设置没有保存", "Setup not saved"),
             isPresented: Binding(
@@ -437,9 +446,10 @@ struct SoulOnboardingView: View {
                     .foregroundStyle(SoulTheme.primaryText)
             }
             Spacer()
-            Text("\(step + 1)/3")
+            Text("\(step + 1)/2")
                 .font(.system(size: 13, weight: .heavy, design: .monospaced))
                 .foregroundStyle(SoulTheme.secondaryText)
+                .contentTransition(.numericText())
         }
         .padding(.horizontal, 22)
         .padding(.top, 20)
@@ -460,7 +470,7 @@ struct SoulOnboardingView: View {
                 contentType: .name
             )
 
-            Picker("", selection: $language) {
+            Picker("", selection: languageSelection) {
                 Text("中文").tag("zh")
                 Text("English").tag("en")
             }
@@ -480,21 +490,28 @@ struct SoulOnboardingView: View {
                     systemImage: "circle.hexagongrid.fill",
                     tint: Color(red: 0.04, green: 0.50, blue: 0.90),
                     isSelected: gender == "male"
-                ) { gender = "male" }
+                ) { selectGender("male") }
                 OnboardingChoice(
                     title: localizedText("樱花粉", "Sakura Pink"),
                     subtitle: localizedText("温柔 · 有力", "Warm · Bold"),
                     systemImage: "sparkles",
                     tint: Color(red: 0.94, green: 0.30, blue: 0.56),
                     isSelected: gender == "female"
-                ) { gender = "female" }
+                ) { selectGender("female") }
+                OnboardingChoice(
+                    title: localizedText("松石绿", "Jade Green"),
+                    subtitle: localizedText("清新 · 平衡", "Fresh · Balanced"),
+                    systemImage: "leaf.fill",
+                    tint: Color(red: 0.08, green: 0.48, blue: 0.36),
+                    isSelected: gender == "green"
+                ) { selectGender("green") }
             }
 
             VStack(alignment: .leading, spacing: 10) {
                 Text(localizedText("显示模式", "Appearance"))
                     .font(.system(size: 14, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
-                Picker("", selection: $appearance) {
+                Picker("", selection: appearanceSelection) {
                     Text(localizedText("自动", "Auto")).tag("auto")
                     Text(localizedText("日间", "Day")).tag("light")
                     Text(localizedText("夜间", "Night")).tag("dark")
@@ -506,62 +523,33 @@ struct SoulOnboardingView: View {
         }
     }
 
-    private var goalStep: some View {
-        OnboardingPage(
-            title: localizedText("先从哪里开始？", "Where do you want to begin?"),
-            subtitle: localizedText("Soul 会据此调整首页与练习重点。", "Soul will tune your home and practice focus.")
-        ) {
-            VStack(spacing: 10) {
-                GoalChoice(id: "difficult-talks", title: localizedText("练习难开口的话", "Practice difficult talks"), icon: "waveform.and.mic", selection: $goal)
-                GoalChoice(id: "relationships", title: localizedText("看清关系距离", "Understand relationship distance"), icon: "point.3.connected.trianglepath.dotted", selection: $goal)
-                GoalChoice(id: "reflection", title: localizedText("复盘表达影响", "Reflect on communication"), icon: "text.quote", selection: $goal)
-            }
-
-            ZStack(alignment: .bottomTrailing) {
-                SoulVisorPanelBackground()
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("SOULMARK / READY")
-                        .font(.system(size: 10, weight: .heavy, design: .monospaced))
-                        .foregroundStyle(SoulTheme.energy)
-                    Spacer()
-                    Text(localizedText("你的信号已准备好", "Your signal is ready"))
-                        .font(.system(size: 20, weight: .black, design: .rounded))
-                        .foregroundStyle(Color.white)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                .padding(17)
-                SoulMascotFigure(height: 138).offset(x: 8, y: 15)
-            }
-            .frame(height: 150)
-            .clipped()
-        }
-    }
-
     private var onboardingActions: some View {
         HStack(spacing: 12) {
-            if step > 0 {
-                Button { step -= 1 } label: {
-                    Image(systemName: "arrow.left")
-                        .font(.system(size: 17, weight: .heavy))
-                        .foregroundStyle(SoulTheme.primaryText)
-                        .frame(width: 52, height: 52)
-                        .background(SoulTheme.cardFill, in: Circle())
-                        .overlay(Circle().stroke(SoulTheme.cardStroke, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
+            Button {
+                moveToStep(0)
+            } label: {
+                Image(systemName: "arrow.left")
+                    .font(.system(size: 17, weight: .heavy))
+                    .foregroundStyle(SoulTheme.primaryText)
+                    .frame(width: 52, height: 52)
+                    .background(SoulTheme.cardFill, in: Circle())
+                    .overlay(Circle().stroke(SoulTheme.cardStroke, lineWidth: 1))
             }
+            .buttonStyle(.plain)
+            .opacity(step > 0 ? 1 : 0)
+            .allowsHitTesting(step > 0)
 
             Button {
-                if step < 2 {
-                    step += 1
+                if step < 1 {
+                    dismissKeyboard()
+                    moveToStep(1)
                 } else {
                     Task {
                         await session.finishOnboarding(
                             displayName: displayName.trimmingCharacters(in: .whitespacesAndNewlines),
                             language: language,
                             gender: gender,
-                            appearance: appearance,
-                            goal: goal
+                            appearance: appearance
                         )
                     }
                 }
@@ -570,8 +558,8 @@ struct SoulOnboardingView: View {
                     if session.isWorking {
                         ProgressView().tint(.white)
                     } else {
-                        Text(step == 2 ? localizedText("进入 SoulMark", "Enter SoulMark") : localizedText("继续", "Continue"))
-                        Image(systemName: step == 2 ? "checkmark" : "arrow.right")
+                        Text(step == 1 ? localizedText("进入 SoulMark", "Enter SoulMark") : localizedText("继续", "Continue"))
+                        Image(systemName: step == 1 ? "checkmark" : "arrow.right")
                     }
                 }
                 .font(.system(size: 16, weight: .heavy, design: .rounded))
@@ -585,6 +573,76 @@ struct SoulOnboardingView: View {
         }
         .padding(.horizontal, 22)
         .padding(.bottom, 24)
+    }
+
+    private var stepTransition: AnyTransition {
+        let insertionEdge: Edge = navigationDirection > 0 ? .trailing : .leading
+        let removalEdge: Edge = navigationDirection > 0 ? .leading : .trailing
+        return .asymmetric(
+            insertion: .move(edge: insertionEdge).combined(with: .opacity),
+            removal: .move(edge: removalEdge).combined(with: .opacity)
+        )
+    }
+
+    private func moveToStep(_ newStep: Int) {
+        guard newStep != step else { return }
+        navigationDirection = newStep > step ? 1 : -1
+        withAnimation(.smooth(duration: 0.38)) {
+            step = newStep
+        }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+    }
+
+    private var previewIsNight: Bool {
+        if appearance == "dark" || appearance == "night" { return true }
+        if appearance == "light" || appearance == "day" { return false }
+        let hour = Calendar.current.component(.hour, from: Date())
+        return hour < 7 || hour >= 19
+    }
+
+    private var languageSelection: Binding<String> {
+        Binding(
+            get: { language },
+            set: {
+                language = $0
+                preferences.language = $0
+            }
+        )
+    }
+
+    private var appearanceSelection: Binding<String> {
+        Binding(
+            get: { appearance },
+            set: {
+                appearance = $0
+                preferences.appearanceMode = $0 == "light"
+                    ? "day"
+                    : $0 == "dark" ? "night" : $0
+            }
+        )
+    }
+
+    private func selectGender(_ value: String) {
+        gender = value
+        preferences.genderTheme = value
+    }
+
+    private func applyPreviewPreferences() {
+        preferences.apply(
+            language: language,
+            genderTheme: gender,
+            appearanceMode: appearance == "light"
+                ? "day"
+                : appearance == "dark" ? "night" : appearance
+        )
     }
 }
 
@@ -645,35 +703,6 @@ private struct OnboardingChoice: View {
             .padding(16)
             .background(isSelected ? tint.opacity(0.14) : SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(isSelected ? tint : SoulTheme.cardStroke, lineWidth: isSelected ? 2 : 1))
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct GoalChoice: View {
-    let id: String
-    let title: String
-    let icon: String
-    @Binding var selection: String
-
-    var body: some View {
-        Button { selection = id } label: {
-            HStack(spacing: 13) {
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundStyle(selection == id ? Color.white : SoulTheme.accent)
-                    .frame(width: 40, height: 40)
-                    .background(selection == id ? SoulTheme.accent : SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Text(title)
-                    .font(.system(size: 15, weight: .heavy, design: .rounded))
-                    .foregroundStyle(SoulTheme.primaryText)
-                Spacer()
-                Image(systemName: selection == id ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(selection == id ? SoulTheme.energy : SoulTheme.tertiaryText)
-            }
-            .padding(13)
-            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(selection == id ? SoulTheme.accent.opacity(0.7) : SoulTheme.cardStroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

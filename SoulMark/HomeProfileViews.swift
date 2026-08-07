@@ -695,8 +695,7 @@ private struct PrivacySecuritySheet: View {
     @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
     @State private var microphonePermission = AVAudioApplication.shared.recordPermission
-    @State private var showingDeleteConfirmation = false
-    @State private var isDeleting = false
+    @State private var showingDeletionVerification = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -786,20 +785,20 @@ private struct PrivacySecuritySheet: View {
                             .foregroundStyle(SoulTheme.secondaryText)
 
                             Button(role: .destructive) {
-                                showingDeleteConfirmation = true
-                            } label: {
-                                if isDeleting {
-                                    ProgressView()
-                                        .tint(SoulTheme.danger)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 48)
+                                if session.user?.email != nil || session.user?.phoneNumber != nil {
+                                    showingDeletionVerification = true
                                 } else {
-                                    Label(localizedText("删除我的账户", "Delete My Account"), systemImage: "trash.fill")
-                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
-                                        .foregroundStyle(SoulTheme.danger)
-                                        .frame(maxWidth: .infinity)
-                                        .frame(height: 48)
+                                    errorMessage = localizedText(
+                                        "当前登录方式暂不支持直接删除，请先绑定邮箱或手机号。",
+                                        "This sign-in method cannot delete the account directly. Bind an email address or phone number first."
+                                    )
                                 }
+                            } label: {
+                                Label(localizedText("删除我的账户", "Delete My Account"), systemImage: "trash.fill")
+                                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(SoulTheme.danger)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 48)
                             }
                             .buttonStyle(.plain)
                             .background(
@@ -810,7 +809,6 @@ private struct PrivacySecuritySheet: View {
                                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                                     .stroke(SoulTheme.danger.opacity(0.28), lineWidth: 1)
                             }
-                            .disabled(isDeleting)
                         }
                         .padding(18)
                         .background(SoulGlassCardBackground())
@@ -825,17 +823,10 @@ private struct PrivacySecuritySheet: View {
                     Button(localizedText("完成", "Done")) { dismiss() }
                 }
             }
-            .confirmationDialog(
-                localizedText("永久删除账户？", "Permanently Delete Account?"),
-                isPresented: $showingDeleteConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(localizedText("永久删除", "Delete Permanently"), role: .destructive) {
-                    deleteAccount()
-                }
-                Button(localizedText("取消", "Cancel"), role: .cancel) {}
-            } message: {
-                Text(localizedText("所有关联数据将被删除且无法恢复。", "All associated data will be deleted and cannot be recovered."))
+            .sheet(isPresented: $showingDeletionVerification) {
+                AccountDeletionVerificationSheet()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
             .alert(
                 localizedText("操作失败", "Action Failed"),
@@ -881,11 +872,160 @@ private struct PrivacySecuritySheet: View {
         microphonePermission == .granted ? SoulTheme.energy : SoulTheme.warning
     }
 
+}
+
+private struct AccountDeletionVerificationSheet: View {
+    @EnvironmentObject private var session: AppSession
+    @Environment(\.dismiss) private var dismiss
+    @State private var password = ""
+    @State private var code = ""
+    @State private var isSendingCode = false
+    @State private var isDeleting = false
+    @State private var errorMessage: String?
+
+    private var usesPhoneVerification: Bool {
+        session.user?.phoneNumber != nil && session.user?.email == nil
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Image(systemName: "exclamationmark.shield.fill")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(SoulTheme.danger)
+                        .frame(width: 68, height: 68)
+                        .background(SoulTheme.danger.opacity(0.12), in: Circle())
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text(localizedText("验证身份后删除", "Verify Before Deleting"))
+                            .font(.system(size: 28, weight: .black, design: .rounded))
+                            .foregroundStyle(SoulTheme.primaryText)
+                        Text(verificationExplanation)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(SoulTheme.secondaryText)
+                            .lineSpacing(4)
+                    }
+
+                    if usesPhoneVerification {
+                        HStack(spacing: 10) {
+                            TextField(localizedText("6 位短信验证码", "6-digit SMS code"), text: $code)
+                                .keyboardType(.numberPad)
+                                .textContentType(.oneTimeCode)
+                                .onChange(of: code) { _, value in
+                                    code = String(value.filter(\.isNumber).prefix(6))
+                                }
+                                .padding(.horizontal, 14)
+                                .frame(height: 52)
+                                .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+
+                            Button {
+                                sendCode()
+                            } label: {
+                                if isSendingCode {
+                                    ProgressView()
+                                } else {
+                                    Text(localizedText("获取验证码", "Send Code"))
+                                        .font(.system(size: 13, weight: .bold))
+                                }
+                            }
+                            .frame(minWidth: 96, minHeight: 52)
+                            .buttonStyle(.bordered)
+                            .disabled(isSendingCode)
+                        }
+                    } else {
+                        SecureField(localizedText("输入账户密码", "Enter account password"), text: $password)
+                            .textContentType(.password)
+                            .padding(.horizontal, 14)
+                            .frame(height: 52)
+                            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+
+                    Text(localizedText(
+                        "确认后，账户以及全部人物、事件、练习和复盘数据将永久删除。",
+                        "After confirmation, your account and all people, events, practices, and reviews will be permanently deleted."
+                    ))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.danger)
+
+                    Button(role: .destructive) {
+                        deleteAccount()
+                    } label: {
+                        if isDeleting {
+                            ProgressView().tint(.white)
+                        } else {
+                            Text(localizedText("验证并永久删除", "Verify and Delete Permanently"))
+                                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                        }
+                    }
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(SoulTheme.danger, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .buttonStyle(.plain)
+                    .disabled(!canDelete || isDeleting)
+                }
+                .padding(22)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(localizedText("删除账户", "Delete Account"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(localizedText("取消", "Cancel")) { dismiss() }
+                }
+            }
+            .alert(
+                localizedText("操作失败", "Action Failed"),
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button(localizedText("知道了", "OK")) { errorMessage = nil }
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private var canDelete: Bool {
+        usesPhoneVerification ? code.count == 6 : !password.isEmpty
+    }
+
+    private var verificationExplanation: String {
+        if usesPhoneVerification {
+            return localizedText(
+                "我们会向 \(session.user?.phoneNumber ?? "") 发送短信验证码。",
+                "We will send an SMS code to \(session.user?.phoneNumber ?? "")."
+            )
+        }
+        return localizedText(
+            "请输入 \(session.user?.email ?? "") 的登录密码确认身份。",
+            "Enter the password for \(session.user?.email ?? "") to confirm your identity."
+        )
+    }
+
+    private func sendCode() {
+        isSendingCode = true
+        Task {
+            defer { isSendingCode = false }
+            do {
+                try await session.sendAccountDeletionCode()
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func deleteAccount() {
         isDeleting = true
         Task {
             do {
-                try await session.deleteAccount()
+                try await session.deleteAccount(
+                    password: usesPhoneVerification ? nil : password,
+                    code: usesPhoneVerification ? code : nil
+                )
                 dismiss()
             } catch {
                 errorMessage = error.localizedDescription

@@ -8,10 +8,15 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 class UserUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=100)
     preferred_language: Literal["zh", "en"] | None = None
-    gender: Literal["male", "female", "unspecified"] | None = None
+    gender: Literal["male", "female", "green", "unspecified"] | None = None
     appearance: Literal["auto", "light", "dark"] | None = None
     communication_goal: str | None = Field(default=None, max_length=80)
     onboarding_completed: bool | None = None
+
+
+class AccountDeletionRequest(BaseModel):
+    password: str | None = Field(default=None, max_length=128)
+    code: str | None = Field(default=None, pattern=r"^\d{6}$")
 
 
 class UserResponse(BaseModel):

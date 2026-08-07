@@ -60,6 +60,11 @@ private struct PhoneLoginPayload: Encodable {
     }
 }
 
+private struct AccountDeletionPayload: Encodable {
+    let password: String?
+    let code: String?
+}
+
 private struct WeChatLoginPayload: Encodable {
     let code: String
 }
@@ -84,7 +89,7 @@ private struct OnboardingPayload: Encodable {
     let preferredLanguage: String
     let gender: String
     let appearance: String
-    let communicationGoal: String
+    let communicationGoal: String?
     let onboardingCompleted = true
 
     enum CodingKeys: String, CodingKey {
@@ -504,8 +509,17 @@ private final class SoulAPIClient {
         try await requestData(path: "/api/v1/users/me/export", token: token)
     }
 
-    func deleteAccount(token: String) async throws {
-        try await requestVoid(path: "/api/v1/users/me", method: "DELETE", token: token)
+    func deleteAccount(
+        token: String,
+        password: String?,
+        code: String?
+    ) async throws {
+        try await requestVoid(
+            path: "/api/v1/users/me",
+            method: "DELETE",
+            token: token,
+            body: AccountDeletionPayload(password: password, code: code)
+        )
     }
 
     func completeOnboarding(
@@ -513,21 +527,38 @@ private final class SoulAPIClient {
         displayName: String,
         language: String,
         gender: String,
-        appearance: String,
-        goal: String
+        appearance: String
     ) async throws -> AppUser {
-        try await request(
-            path: "/api/v1/users/me",
-            method: "PATCH",
-            token: token,
-            body: OnboardingPayload(
-                displayName: displayName,
-                preferredLanguage: language,
-                gender: gender,
-                appearance: appearance,
-                communicationGoal: goal
-            )
+        let payload = OnboardingPayload(
+            displayName: displayName,
+            preferredLanguage: language,
+            gender: gender,
+            appearance: appearance,
+            communicationGoal: nil
         )
+        do {
+            return try await request(
+                path: "/api/v1/users/me",
+                method: "PATCH",
+                token: token,
+                body: payload
+            )
+        } catch SoulAPIError.server(_) where gender == "green" {
+            // Older deployed backends predate the jade theme and reject "green".
+            // Keep the real preference on-device while allowing onboarding to finish.
+            return try await request(
+                path: "/api/v1/users/me",
+                method: "PATCH",
+                token: token,
+                body: OnboardingPayload(
+                    displayName: displayName,
+                    preferredLanguage: language,
+                    gender: "unspecified",
+                    appearance: appearance,
+                    communicationGoal: nil
+                )
+            )
+        }
     }
 
     func contacts(token: String) async throws -> [RemoteContact] {
@@ -806,14 +837,41 @@ private final class SoulAPIClient {
     }
 
     private func requestVoid(path: String, method: String, token: String) async throws {
+        try await requestVoid(path: path, method: method, token: token, bodyData: nil)
+    }
+
+    private func requestVoid<Body: Encodable>(
+        path: String,
+        method: String,
+        token: String,
+        body: Body
+    ) async throws {
+        try await requestVoid(
+            path: path,
+            method: method,
+            token: token,
+            bodyData: try JSONEncoder().encode(body)
+        )
+    }
+
+    private func requestVoid(
+        path: String,
+        method: String,
+        token: String,
+        bodyData: Data?
+    ) async throws {
         let base = RealtimeVoiceServiceConfiguration.defaultBackendURL
         guard let baseURL = URL(string: base), let url = URL(string: path, relativeTo: baseURL) else {
             throw SoulAPIError.invalidResponse
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.httpBody = bodyData
         request.timeoutInterval = 120
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if bodyData != nil {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         let data: Data
         let response: URLResponse
         do {
@@ -1005,7 +1063,7 @@ final class AuthTokenStore {
 
 @MainActor
 final class AppSession: ObservableObject {
-    enum Route {
+    enum Route: Equatable {
         case launch
         case authentication
         case onboarding
@@ -1103,8 +1161,7 @@ final class AppSession: ObservableObject {
         displayName: String,
         language: String,
         gender: String,
-        appearance: String,
-        goal: String
+        appearance: String
     ) async {
         guard let token = tokenStore.read() else {
             signOut()
@@ -1119,8 +1176,7 @@ final class AppSession: ObservableObject {
                 displayName: displayName,
                 language: language,
                 gender: gender,
-                appearance: appearance,
-                goal: goal
+                appearance: appearance
             )
             SoulPreferencesStore.shared.apply(
                 language: language,
@@ -1150,9 +1206,20 @@ final class AppSession: ObservableObject {
         return url
     }
 
-    func deleteAccount() async throws {
+    func sendAccountDeletionCode() async throws {
+        guard let phoneNumber = user?.phoneNumber else {
+            throw SoulAPIError.invalidResponse
+        }
+        try await api.sendPhoneCode(phoneNumber: phoneNumber)
+    }
+
+    func deleteAccount(password: String? = nil, code: String? = nil) async throws {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
-        try await api.deleteAccount(token: token)
+        try await api.deleteAccount(
+            token: token,
+            password: password,
+            code: code
+        )
         signOut()
     }
 
@@ -1480,6 +1547,16 @@ final class AppSession: ObservableObject {
         self.user = user
         if let data = try? JSONEncoder().encode(user) {
             UserDefaults.standard.set(data, forKey: cachedUserKey)
+        }
+        let preferences = SoulPreferencesStore.shared
+        preferences.language = user.preferredLanguage
+        preferences.appearanceMode = switch user.appearance {
+        case "light": "day"
+        case "dark": "night"
+        default: "auto"
+        }
+        if let theme = user.gender, ["male", "female", "green"].contains(theme) {
+            preferences.genderTheme = theme
         }
         route = user.onboardingCompleted ? .main : .onboarding
     }
