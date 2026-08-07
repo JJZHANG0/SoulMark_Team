@@ -18,6 +18,10 @@ struct SoulMarkApp: App {
                     .id(session.route)
                     .transition(rootRouteTransition)
             }
+            .background {
+                GlobalKeyboardDismissalInstaller()
+                    .frame(width: 0, height: 0)
+            }
             .animation(.smooth(duration: 0.48), value: session.route)
             .environmentObject(session)
             .preferredColorScheme(isSoulNightMode() ? .dark : .light)
