@@ -24,7 +24,7 @@ def retry_locked_transaction[T, **P](
     function: Callable[Concatenate[AsyncSession, P], Awaitable[T]],
 ) -> Callable[Concatenate[AsyncSession, P], Awaitable[T]]:
     @wraps(function)
-    async def wrapped(session: AsyncSession, *args: P.args, **kwargs: P.kwargs) -> T:
+    async def wrapped(session: AsyncSession, /, *args: P.args, **kwargs: P.kwargs) -> T:
         for attempt in range(5):
             try:
                 return await function(session, *args, **kwargs)

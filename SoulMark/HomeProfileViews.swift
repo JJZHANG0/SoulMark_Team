@@ -380,6 +380,9 @@ struct IntegratedProfilePage: View {
                     }
 
                     identityPanel
+                    GrowthProgressCard(state: session.growthState) {
+                        Task { await session.refreshGrowth() }
+                    }
                     statsBand
                     personalizationButton
                     accountMenu
@@ -432,7 +435,7 @@ struct IntegratedProfilePage: View {
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
 
-                Text(localizedText("关系洞察等级 01", "Relationship Insight Level 01"))
+                Text(session.growthState.snapshot.map { "Lv.\($0.level) · \($0.currentMilestone.title)" } ?? localizedText("成长记录同步中", "Syncing growth"))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.58))
 
@@ -1168,6 +1171,7 @@ private struct ProfileRecentActivitySheet: View {
 }
 
 private struct AchievementsSheet: View {
+    @EnvironmentObject private var session: AppSession
     let progress: AchievementProgress
     @Environment(\.dismiss) private var dismiss
 
@@ -1198,6 +1202,10 @@ private struct AchievementsSheet: View {
                         SoulIconButton(systemImage: "xmark") {
                             dismiss()
                         }
+                    }
+
+                    if let growth = session.growthState.snapshot {
+                        GrowthMilestoneSection(growth: growth)
                     }
 
                     let achievements = SoulAchievement.all(progress: progress)

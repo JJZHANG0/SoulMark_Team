@@ -61,8 +61,11 @@ async def prepare_activity(
             raise AppError(
                 "event_conflict", "This event was already saved with different content.", 409
             )
-        model = PracticeSession if kind == "practice" else ConversationReview
-        record = await session.get(model, previous.source_id)
+        record: PracticeSession | ConversationReview | None
+        if kind == "practice":
+            record = await session.get(PracticeSession, previous.source_id)
+        else:
+            record = await session.get(ConversationReview, previous.source_id)
         if record is None:
             raise AppError("event_deleted", "This activity has already been deleted.", 409)
         decayed = await growth.settle_decay(session, state, now)

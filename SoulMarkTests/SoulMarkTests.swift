@@ -438,7 +438,7 @@ struct SoulMarkTests {
         #expect(payload.items.contains { $0 is UIImage })
         #expect(payload.items.contains { $0 is NSString })
         #expect(payload.previewImage.cgImage?.width == 1080)
-        #expect(payload.previewImage.cgImage?.height == 1350)
+        #expect(payload.previewImage.cgImage?.height == 1590)
     }
 
     @Test func remoteContactMapsAvatarURLToRelationshipPerson() throws {

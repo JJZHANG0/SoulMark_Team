@@ -14,7 +14,6 @@ private enum ScenarioPendingSheet {
 struct ScenarioSimulationView: View {
     @EnvironmentObject private var session: AppSession
     let relationshipPeople: [RelationshipPerson]
-    let onPracticeSubmitted: (Int, String, String, String, [ScenarioMessage]) -> Void
     let onPracticeDeleted: () -> Void
 
     @State private var participants: [ScenarioParticipant]
@@ -27,6 +26,7 @@ struct ScenarioSimulationView: View {
     @State private var pendingSheet: ScenarioPendingSheet?
     @State private var modes = ScenarioMode.defaultModes
     @State private var selectedModeID = ScenarioMode.defaultModes[0].id
+    @State private var practiceCapture = GrowthCallCapture()
     @State private var draftMessage = ""
     @State private var conversation: [ScenarioMessage] = []
     @State private var conversationHistory: [ScenarioConversationSession] = []
@@ -44,11 +44,9 @@ struct ScenarioSimulationView: View {
     init(
         relationshipPeople: [RelationshipPerson],
         focusedPersonID: RelationshipPerson.ID? = nil,
-        onPracticeSubmitted: @escaping (Int, String, String, String, [ScenarioMessage]) -> Void = { _, _, _, _, _ in },
         onPracticeDeleted: @escaping () -> Void = {}
     ) {
         self.relationshipPeople = relationshipPeople
-        self.onPracticeSubmitted = onPracticeSubmitted
         self.onPracticeDeleted = onPracticeDeleted
         let initialParticipants = relationshipPeople.scenarioParticipants().withSoulFallback()
         _participants = State(initialValue: initialParticipants)
@@ -159,10 +157,10 @@ struct ScenarioSimulationView: View {
             conversationScrollTarget = UUID()
         }
         .onChange(of: selectedModeID) { _, _ in
-            endVoiceCall(reportPractice: false)
+            endVoiceCall()
         }
         .onDisappear {
-            endVoiceCall(reportPractice: false)
+            endVoiceCall()
         }
         .sheet(isPresented: $isAddingParticipant, onDismiss: presentPendingSheetIfNeeded) {
             AddScenarioParticipantSheet { name, note, relationshipLabel in
@@ -328,6 +326,9 @@ struct ScenarioSimulationView: View {
             } else {
                 Button {
                     Task {
+                        guard !voiceCall.phase.isActive else { return }
+                        endVoiceCall()
+                        practiceCapture.begin(participant: selectedParticipant.name, mode: selectedMode.displayTitle, guidance: selectedMode.displayGuidance)
                         await voiceCall.start(
                             participant: selectedParticipant,
                             mode: selectedMode,
@@ -426,16 +427,16 @@ struct ScenarioSimulationView: View {
         conversationScrollTarget = UUID()
     }
 
-    private func endVoiceCall(reportPractice: Bool = true) {
+    private func endVoiceCall() {
+        let events = voiceCall.completedTranscripts
         let seconds = voiceCall.end()
-        if reportPractice, seconds > 0 {
-            onPracticeSubmitted(
-                seconds,
-                selectedParticipant.name,
-                selectedMode.displayTitle,
-                selectedMode.displayGuidance,
-                conversation
-            )
+        guard let ownerID = session.user?.id else {
+            practiceCapture = GrowthCallCapture()
+            return
+        }
+        if let practice = practiceCapture.finish(ownerID: ownerID, duration: seconds, events: events) {
+            session.queuePractice(id: practice.id, duration: practice.duration, participant: practice.participant,
+                                  mode: practice.mode, guidance: practice.guidance, messages: practice.messages)
         }
     }
 
@@ -545,7 +546,7 @@ struct ScenarioSimulationView: View {
         }
         conversation = session.messages
         draftMessage = ""
-        endVoiceCall(reportPractice: false)
+        endVoiceCall()
         isShowingHistory = false
         conversationScrollTarget = UUID()
     }
@@ -553,7 +554,7 @@ struct ScenarioSimulationView: View {
     private func resetConversation() {
         conversation = []
         draftMessage = ""
-        endVoiceCall(reportPractice: false)
+        endVoiceCall()
         conversationScrollTarget = UUID()
     }
 

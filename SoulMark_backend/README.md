@@ -170,3 +170,38 @@ more than one backend instance.
 
 Subscriptions, push notifications, password recovery, email verification, and account
 deletion should be added as separate modules while keeping the same API/service/database boundaries.
+
+## Experience, Levels, and Inactivity (20261008_0013)
+
+The profile growth card requires this backend release and migration `20261008_0013`.
+Publishing the iOS code to GitHub does not deploy the API or migrate a production database.
+Deploy in this order:
+
+1. Back up the production database using the team's normal backup process.
+2. Apply `alembic upgrade head` using the production database configuration.
+3. Deploy/restart the matching API version, then verify authenticated `GET /api/v1/growth`.
+4. Release the updated iOS client. Older servers make the new growth card show a retry state.
+
+A saved review awards 30 EXP. Complete user/assistant chat turns award 5 EXP each when
+saved, capped at 50 chat EXP per Asia/Singapore calendar day. Upgrade costs increase by
+50 per level, starting at 100. New clients send stable `event_id` UUIDs and ordered
+`messages`; retry the same content with the same ID. A changed or deleted event returns 409.
+An event cannot be rewarded twice, and deleting its source activity does not remove earned EXP.
+Old clients remain compatible but cannot guarantee deduplication across separate save requests.
+
+`POST /api/v1/growth/active` settles inactivity first and records a foreground visit.
+`GET /api/v1/growth` settles without marking activity. Seven inactive days are free;
+from day eight, 10 EXP is deducted per day, never below zero. Levels and current titles
+can drop, but highest-level badges remain unlocked. Settlement is lazy and database-locked;
+no scheduled job is needed. Failed saves do not earn rewards.
+
+The migration backfills 30 EXP per existing review and 5 per existing practice with both
+transcripts, capped at 50 per original calendar day (legacy transcripts lack reliable turn
+boundaries). Existing accounts start their grace period on migration day; prior inactivity
+is not penalized. Completed historical backfill is tracked by the Alembic revision.
+
+Verification: run `pytest -q`, `ruff check app tests`, and `mypy app` from this directory.
+The growth suite includes file-backed SQLite concurrency tests with independent connections.
+Run deployment integration checks on PostgreSQL before release; SQLite tests do not prove
+PostgreSQL migration/locking behavior. Pending mobile practice saves are retained for retries
+within the current signed-in app session; they are cleared on sign-out or app termination.

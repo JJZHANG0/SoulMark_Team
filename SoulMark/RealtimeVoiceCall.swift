@@ -162,6 +162,12 @@ private struct RealtimeServerEvent: Decodable {
     let message: String?
     let recoverable: Bool?
     let emotion: String?
+    let responseID: String?
+
+    enum CodingKeys: String, CodingKey {
+        case type, text, code, message, recoverable, emotion
+        case responseID = "response_id"
+    }
 }
 
 @MainActor
@@ -171,6 +177,8 @@ final class RealtimeVoiceCallManager: ObservableObject {
     @Published private(set) var isMuted = false
     @Published private(set) var assistantDraft = ""
     @Published private(set) var assistantEmotion: ScenarioEmotion = .calm
+    private(set) var completedTranscripts: [RealtimeTranscriptEvent] = []
+    private var rewardedResponseIDs: Set<String> = []
     @Published private(set) var latestTranscript: RealtimeTranscriptEvent?
     @Published private(set) var errorMessage: String?
 
@@ -193,6 +201,8 @@ final class RealtimeVoiceCallManager: ObservableObject {
         language: String
     ) async {
         guard !phase.isActive else { return }
+        completedTranscripts = []
+        rewardedResponseIDs = []
         errorMessage = nil
         assistantDraft = ""
         assistantEmotion = .calm
@@ -297,7 +307,7 @@ final class RealtimeVoiceCallManager: ObservableObject {
         }
     }
 
-    private func handleServerText(_ text: String) throws {
+    func handleServerText(_ text: String) throws {
         guard let data = text.data(using: .utf8) else {
             throw RealtimeVoiceError.invalidServerMessage
         }
@@ -327,6 +337,12 @@ final class RealtimeVoiceCallManager: ObservableObject {
             phase = .speaking
         case "assistant.emotion":
             assistantEmotion = ScenarioEmotion(serverValue: event.emotion)
+        case "assistant.turn.completed":
+            if let responseID = event.responseID, let text = event.text,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               rewardedResponseIDs.insert(responseID).inserted {
+                completedTranscripts.append(RealtimeTranscriptEvent(role: .assistant, text: text))
+            }
         case "assistant.response_completed":
             acceptsAssistantAudio = false
             audio.setAssistantResponseActive(false)
@@ -353,7 +369,9 @@ final class RealtimeVoiceCallManager: ObservableObject {
 
     private func publishTranscript(role: RealtimeTranscriptEvent.Role, text: String?) {
         guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        latestTranscript = RealtimeTranscriptEvent(role: role, text: text)
+        let event = RealtimeTranscriptEvent(role: role, text: text)
+        if role == .user { completedTranscripts.append(event) }
+        latestTranscript = event
     }
 
     private func startAudioCapture() throws {

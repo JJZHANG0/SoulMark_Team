@@ -100,19 +100,15 @@ struct ConversationReviewPage: View {
             }
         }
         .sheet(isPresented: $isAddingRecord) {
-            AddReviewRecordSheet { title, source, transcript, media in
-                let analysis = try await session.analyzeReview(
-                    title: title,
-                    source: source,
-                    transcript: transcript,
-                    language: SoulPreferencesStore.shared.language,
-                    media: media
+            AddReviewRecordSheet { eventID, title, source, transcript, media in
+                let (record, suggestion) = try await session.analyzeAndRecordReview(
+                    eventID: eventID, title: title, source: source, transcript: transcript,
+                    language: language, media: media
                 )
-                let record = try await session.recordReview(analysis)
                 await MainActor.run {
                     records.insert(record, at: 0)
                     onRecordCountChange(records.count)
-                    queuedTimelineSuggestion = analysis.timelineSuggestion
+                    queuedTimelineSuggestion = suggestion
                 }
             }
             .presentationDetents([.large])
@@ -535,6 +531,7 @@ private struct ReviewDetailSection: View {
 
 private struct AddReviewRecordSheet: View {
     let onAdd: (
+        UUID,
         String,
         ReviewSource,
         String,
@@ -549,6 +546,8 @@ private struct AddReviewRecordSheet: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var selectedImage: UIImage?
     @State private var selectedImageData: Data?
+    @State private var submissionID = UUID()
+    @State private var lastSubmissionFingerprint: Int?
     @State private var isGenerating = false
     @State private var generationError: String?
 
@@ -671,8 +670,19 @@ private struct AddReviewRecordSheet: View {
                     Button {
                         Task {
                             isGenerating = true
+                            var fingerprint = Hasher()
+                            fingerprint.combine(title)
+                            fingerprint.combine(source.rawValue)
+                            fingerprint.combine(transcript)
+                            fingerprint.combine(mediaAttachment?.data)
+                            let value = fingerprint.finalize()
+                            if value != lastSubmissionFingerprint {
+                                submissionID = UUID()
+                                lastSubmissionFingerprint = value
+                            }
                             do {
                                 try await onAdd(
+                                    submissionID,
                                     title,
                                     source,
                                     transcript,

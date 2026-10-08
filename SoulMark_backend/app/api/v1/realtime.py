@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field, ValidationError
@@ -72,9 +72,7 @@ async def reject(websocket: WebSocket, code: str, message: str, close_code: int)
     await websocket.close(code=close_code)
 
 
-def websocket_identity(
-    websocket: WebSocket, settings: Settings
-) -> tuple[bool, UUID | None]:
+def websocket_identity(websocket: WebSocket, settings: Settings) -> tuple[bool, UUID | None]:
     authorization = websocket.headers.get("authorization", "")
     scheme, _, token = authorization.partition(" ")
     if scheme.lower() != "bearer" or not token:
@@ -148,6 +146,8 @@ async def relay_client_audio(
 
 async def relay_qwen_events(websocket: WebSocket, qwen: QwenRealtimeSession) -> None:
     assistant_text = ""
+    response_id = str(uuid4())
+    completed_text: dict[str, str] = {}
     emotion_sent = True
     async for event in qwen.events():
         event_type = event.get("type")
@@ -174,16 +174,36 @@ async def relay_qwen_events(websocket: WebSocket, qwen: QwenRealtimeSession) -> 
                     emotion_sent = True
             await send_transcript(websocket, "assistant.transcript.delta", event, "delta")
         elif event_type == "response.audio_transcript.done":
+            transcript = event.get("transcript")
+            if isinstance(transcript, str) and transcript.strip():
+                transcript_id = event.get("response_id") or response_id
+                completed_text[str(transcript_id)] = transcript
             await send_transcript(websocket, "assistant.transcript.completed", event)
         elif event_type == "input_audio_buffer.speech_started":
             await websocket.send_json({"type": "input.speech_started"})
         elif event_type == "input_audio_buffer.speech_stopped":
             await websocket.send_json({"type": "input.speech_stopped"})
         elif event_type == "response.created":
+            response = event.get("response")
+            response_id = (
+                str(response.get("id") or uuid4()) if isinstance(response, dict) else str(uuid4())
+            )
             assistant_text = ""
             emotion_sent = False
             await websocket.send_json({"type": "assistant.response_started"})
         elif event_type == "response.done":
+            response = event.get("response")
+            if isinstance(response, dict):
+                finished_id = str(response.get("id") or response_id)
+                transcript = completed_text.pop(finished_id, None)
+                if response.get("status") == "completed" and transcript:
+                    await websocket.send_json(
+                        {
+                            "type": "assistant.turn.completed",
+                            "text": transcript,
+                            "response_id": finished_id,
+                        }
+                    )
             await websocket.send_json({"type": "assistant.response_completed"})
         elif event_type == "error":
             await websocket.send_json(

@@ -270,6 +270,8 @@ private struct RemoteContactEvent: Decodable {
 }
 
 private struct PracticePayload: Encodable {
+    let eventID: UUID
+    let messages: [GrowthChatMessage]
     let participantName: String
     let modeTitle: String
     let modeGuidance: String
@@ -278,6 +280,8 @@ private struct PracticePayload: Encodable {
     let assistantTranscript: String
 
     enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
+        case messages
         case participantName = "participant_name"
         case modeTitle = "mode_title"
         case modeGuidance = "mode_guidance"
@@ -288,6 +292,8 @@ private struct PracticePayload: Encodable {
 }
 
 struct PracticeRecord: Decodable, Identifiable {
+    var growth: GrowthSnapshot? = nil
+    var awardedExperience: Int? = nil
     let id: UUID
     let participantName: String
     let modeTitle: String
@@ -297,6 +303,8 @@ struct PracticeRecord: Decodable, Identifiable {
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
+        case growth
+        case awardedExperience = "awarded_experience"
         case id
         case participantName = "participant_name"
         case modeTitle = "mode_title"
@@ -331,6 +339,7 @@ struct PracticeRecord: Decodable, Identifiable {
 }
 
 private struct ReviewPayload: Encodable {
+    let eventID: UUID
     let title: String
     let source: String
     let transcript: String
@@ -341,6 +350,7 @@ private struct ReviewPayload: Encodable {
     let relationshipImpacts: [ReviewRelationshipImpactPayload]
 
     enum CodingKeys: String, CodingKey {
+        case eventID = "event_id"
         case title, source, transcript, score, reason, advice
         case detailedAdvice = "detailed_advice"
         case relationshipImpacts = "relationship_impacts"
@@ -398,6 +408,8 @@ private struct ReviewAnalysisDTO: Decodable {
 }
 
 struct RemoteReview: Decodable {
+    var growth: GrowthSnapshot? = nil
+    var awardedExperience: Int? = nil
     let id: UUID
     let title: String
     let source: String
@@ -409,6 +421,8 @@ struct RemoteReview: Decodable {
     let createdAt: Date
 
     enum CodingKeys: String, CodingKey {
+        case growth
+        case awardedExperience = "awarded_experience"
         case id, title, source, transcript, score, reason, advice
         case detailedAdvice = "detailed_advice"
         case createdAt = "created_at"
@@ -462,7 +476,9 @@ private struct APIErrorEnvelope: Decodable {
 }
 
 private final class SoulAPIClient {
-    private let session = URLSession.shared
+    private let session: URLSession
+
+    init(session: URLSession = .shared) { self.session = session }
 
     func register(email: String, password: String, displayName: String) async throws {
         let payload = RegisterPayload(email: email, password: password, displayName: displayName)
@@ -696,32 +712,26 @@ private final class SoulAPIClient {
         try await request(path: "/api/v1/stats", token: token)
     }
 
-    func savePractice(
-        token: String,
-        participant: String,
-        mode: String,
-        guidance: String,
-        duration: Int,
-        userTranscript: String,
-        assistantTranscript: String
-    ) async throws {
-        let _: PracticeRecord = try await request(
-            path: "/api/v1/practices",
-            method: "POST",
-            token: token,
+    func growth(token: String, active: Bool = false) async throws -> GrowthSnapshot {
+        try await request(path: active ? "/api/v1/growth/active" : "/api/v1/growth", method: active ? "POST" : "GET", token: token)
+    }
+
+    func savePractice(token: String, practice: PendingGrowthPractice) async throws -> PracticeRecord {
+        try await request(
+            path: "/api/v1/practices", method: "POST", token: token,
             body: PracticePayload(
-                participantName: participant,
-                modeTitle: mode,
-                modeGuidance: guidance,
-                durationSeconds: duration,
-                userTranscript: userTranscript,
-                assistantTranscript: assistantTranscript
+                eventID: practice.id, messages: practice.messages,
+                participantName: practice.participant, modeTitle: practice.mode,
+                modeGuidance: practice.guidance, durationSeconds: practice.duration,
+                userTranscript: practice.messages.filter { $0.role == "user" }.map(\.text).joined(separator: "\n"),
+                assistantTranscript: practice.messages.filter { $0.role == "assistant" }.map(\.text).joined(separator: "\n")
             )
         )
     }
 
     func saveReview(
         token: String,
+        eventID: UUID,
         record: ConversationReviewRecord,
         relationshipImpacts: [ReviewRelationshipImpactPayload]
     ) async throws -> RemoteReview {
@@ -730,6 +740,7 @@ private final class SoulAPIClient {
             method: "POST",
             token: token,
             body: ReviewPayload(
+                eventID: eventID,
                 title: record.title,
                 source: record.source.rawValue,
                 transcript: record.transcript,
@@ -1076,7 +1087,20 @@ final class AppSession: ObservableObject {
     @Published private(set) var contactsRevision = UUID()
     @Published var errorMessage: String?
 
-    private let api = SoulAPIClient()
+    @Published private(set) var growthState: GrowthLoadState = .loading
+    @Published var growthFeedback: GrowthFeedback?
+    @Published private(set) var practiceSaveError: String?
+    private var growthRequests = GrowthRequestGuard()
+    private var foregroundReportPending = false
+    private var pendingPractices: [PendingGrowthPractice] = []
+    private var practiceDrainID: UUID?
+    private var cachedReviewAnalyses: [UUID: AnalyzedConversationReview] = [:]
+    private let api: SoulAPIClient
+
+    init(networkSession: URLSession = .shared) {
+        api = SoulAPIClient(session: networkSession)
+    }
+
     private let tokenStore = AuthTokenStore.shared
     private let expiryKey = "soulMarkSessionExpiresAt"
     private let cachedUserKey = "soulMarkCachedUser"
@@ -1190,6 +1214,7 @@ final class AppSession: ObservableObject {
     }
 
     func signOut() {
+        clearGrowth()
         tokenStore.clear()
         UserDefaults.standard.removeObject(forKey: expiryKey)
         UserDefaults.standard.removeObject(forKey: cachedUserKey)
@@ -1361,29 +1386,103 @@ final class AppSession: ObservableObject {
         return try? await api.stats(token: token)
     }
 
-    func recordPractice(
-        duration: Int,
-        participant: String,
-        mode: String,
-        guidance: String,
-        messages: [ScenarioMessage]
-    ) async {
-        guard let token = tokenStore.read() else { return }
-        let userText = messages.filter(\.isUser).map(\.text).joined(separator: "\n")
-        let assistantText = messages.filter { !$0.isUser }.map(\.text).joined(separator: "\n")
-        try? await api.savePractice(
-            token: token,
-            participant: participant,
-            mode: mode,
-            guidance: guidance,
-            duration: duration,
-            userTranscript: userText,
-            assistantTranscript: assistantText
-        )
+    private func clearGrowth() {
+        growthRequests.invalidate()
+        foregroundReportPending = false
+        growthState = .loading
+        growthFeedback = nil
+        pendingPractices = []
+        practiceSaveError = nil
+        practiceDrainID = nil
+        cachedReviewAnalyses = [:]
     }
 
-    func recordReview(_ analysis: AnalyzedConversationReview) async throws -> ConversationReviewRecord {
+    func refreshGrowth() async { await loadGrowth(active: foregroundReportPending) }
+    func recordForegroundActivity() async {
+        foregroundReportPending = true
+        await loadGrowth(active: true)
+    }
+
+    private func loadGrowth(active: Bool) async {
+        guard let owner = user?.id, let token = tokenStore.read() else { return }
+        let requestID = growthRequests.begin()
+        do {
+            let result = try await api.growth(token: token, active: active)
+            guard user?.id == owner, tokenStore.read() == token else { return }
+            if active { foregroundReportPending = false }
+            guard growthRequests.accepts(requestID) else { return }
+            growthState = .loaded(result)
+            if result.decayedExperience > 0 {
+                growthFeedback = GrowthFeedback(awarded: 0, decayed: result.decayedExperience, newLevel: nil)
+            }
+        } catch {
+            guard user?.id == owner, tokenStore.read() == token, growthRequests.accepts(requestID) else { return }
+            growthState = .failed
+        }
+    }
+
+    private func acceptGrowthReward(_ result: GrowthSnapshot?, awarded: Int, requestID: UUID) async {
+        guard let result else { await refreshGrowth(); return }
+        let oldLevel = growthState.snapshot?.level
+        if growthRequests.accepts(requestID) { growthState = .loaded(result) }
+        if awarded > 0 || result.decayedExperience > 0 {
+            growthFeedback = GrowthFeedback(
+                awarded: awarded, decayed: result.decayedExperience,
+                newLevel: oldLevel.map { result.level > $0 ? result.level : nil } ?? nil
+            )
+        }
+        if !growthRequests.accepts(requestID) { await refreshGrowth() }
+    }
+
+    func queuePractice(id: UUID, duration: Int, participant: String, mode: String, guidance: String, messages: [GrowthChatMessage]) {
+        guard let owner = user?.id, !pendingPractices.contains(where: { $0.id == id }) else { return }
+        pendingPractices.append(PendingGrowthPractice(id: id, ownerID: owner, duration: duration, participant: participant, mode: mode, guidance: guidance, messages: messages))
+        Task { await retryPendingPractices() }
+    }
+
+    func retryPendingPractices() async {
+        guard practiceDrainID == nil else { return }
+        let drainID = UUID()
+        practiceDrainID = drainID
+        defer { if practiceDrainID == drainID { practiceDrainID = nil } }
+        practiceSaveError = nil
+        while let practice = pendingPractices.first {
+            guard practiceDrainID == drainID else { return }
+            guard practice.ownerID == user?.id, let token = tokenStore.read() else { return }
+            let requestID = growthRequests.begin()
+            do {
+                let result = try await api.savePractice(token: token, practice: practice)
+                guard practiceDrainID == drainID, user?.id == practice.ownerID, tokenStore.read() == token else { return }
+                pendingPractices.removeAll { $0.id == practice.id }
+                contactsRevision = UUID()
+                await acceptGrowthReward(result.growth, awarded: result.awardedExperience ?? 0, requestID: requestID)
+            } catch {
+                guard practiceDrainID == drainID, user?.id == practice.ownerID, tokenStore.read() == token else { return }
+                practiceSaveError = localizedText("聊天尚未保存，经验未结算。请重试。", "Chat not saved. Retry to settle your experience.")
+                return
+            }
+        }
+    }
+
+    func analyzeAndRecordReview(eventID: UUID, title: String, source: ReviewSource, transcript: String, language: String, media: ReviewMediaAttachment?) async throws -> (ConversationReviewRecord, ReviewTimelineSuggestion?) {
+        let owner = user?.id
+        let token = tokenStore.read()
+        let analysis: AnalyzedConversationReview
+        if let cached = cachedReviewAnalyses[eventID] { analysis = cached }
+        else {
+            analysis = try await analyzeReview(title: title, source: source, transcript: transcript, language: language, media: media)
+            guard owner == user?.id, tokenStore.read() == token else { throw CancellationError() }
+            cachedReviewAnalyses[eventID] = analysis
+        }
+        let record = try await recordReview(analysis, eventID: eventID)
+        cachedReviewAnalyses.removeValue(forKey: eventID)
+        return (record, analysis.timelineSuggestion)
+    }
+
+    func recordReview(_ analysis: AnalyzedConversationReview, eventID: UUID) async throws -> ConversationReviewRecord {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let owner = user?.id
+        let requestID = growthRequests.begin()
         let relationshipImpacts = (analysis.timelineSuggestion?.contacts ?? []).compactMap { contact in
             contact.relationshipSignal.map {
                 ReviewRelationshipImpactPayload(
@@ -1392,13 +1491,17 @@ final class AppSession: ObservableObject {
                 )
             }
         }
-        guard let saved = try await api.saveReview(
+        let result = try await api.saveReview(
             token: token,
+            eventID: eventID,
             record: analysis.record,
             relationshipImpacts: relationshipImpacts
-        ).record else {
+        )
+        guard user?.id == owner, tokenStore.read() == token else { throw CancellationError() }
+        guard let saved = result.record else {
             throw SoulAPIError.invalidResponse
         }
+        await acceptGrowthReward(result.growth, awarded: result.awardedExperience ?? 0, requestID: requestID)
         contactsRevision = UUID()
         return saved
     }
@@ -1544,6 +1647,7 @@ final class AppSession: ObservableObject {
     }
 
     private func applyUser(_ user: AppUser) {
+        if self.user?.id != user.id { clearGrowth() }
         self.user = user
         if let data = try? JSONEncoder().encode(user) {
             UserDefaults.standard.set(data, forKey: cachedUserKey)

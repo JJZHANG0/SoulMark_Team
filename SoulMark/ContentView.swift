@@ -36,6 +36,7 @@ enum AppSection: Hashable, CaseIterable {
 
 struct ContentView: View {
     @EnvironmentObject private var session: AppSession
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedSection: AppSection = .home
     @State private var selectedFilter: RelationshipFilter = .all
     @State private var selectedCustomCategory: RelationshipCategory?
@@ -94,12 +95,22 @@ struct ContentView: View {
         }
         .tint(SoulTheme.accent)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
+        .overlay(alignment: .top) { GrowthFeedbackOverlay() }
         .task {
+            await session.recordForegroundActivity()
             await reloadContacts()
             await refreshStats()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await session.recordForegroundActivity() } }
+        }
         .onChange(of: session.contactsRevision) {
-            Task { await reloadContacts() }
+            Task { await reloadContacts(); await refreshStats() }
+        }
+        .onChange(of: selectedSection) {
+            if selectedSection == .profile {
+                Task { await refreshStats(); await session.refreshGrowth() }
+            }
         }
     }
 
@@ -128,18 +139,6 @@ struct ContentView: View {
             ScenarioSimulationView(
                 relationshipPeople: people,
                 focusedPersonID: scenarioFocusedPersonID,
-                onPracticeSubmitted: { duration, participant, mode, guidance, messages in
-                    practiceCount += 1
-                    Task {
-                        await session.recordPractice(
-                            duration: duration,
-                            participant: participant,
-                            mode: mode,
-                            guidance: guidance,
-                            messages: messages
-                        )
-                    }
-                },
                 onPracticeDeleted: {
                     Task { await refreshStats() }
                 }
