@@ -14,11 +14,11 @@ from app.models.contact import Contact, ContactEvent
 from app.schemas.activity import PracticeResponse, ReviewResponse
 from app.schemas.contact import ContactResponse
 from app.schemas.contact_event import ContactEventResponse
-from app.schemas.user import AccountDeletionRequest, UserResponse, UserUpdate
+from app.schemas.user import AccountDeletionRequest, TutorialProgress, UserResponse, UserUpdate
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage
 from app.services.event_image_storage import EventImageStorage, get_event_image_storage
 from app.services.external_auth import SmsSender, authenticate_phone, get_sms_sender
-from app.services.users import update_profile
+from app.services.users import advance_tutorial, update_profile
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -35,6 +35,16 @@ async def patch_me(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> UserResponse:
     user = await update_profile(session, current_user, payload)
+    return UserResponse.model_validate(user)
+
+
+@router.patch("/me/tutorial", response_model=UserResponse)
+async def patch_tutorial_progress(
+    payload: TutorialProgress,
+    current_user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> UserResponse:
+    user = await advance_tutorial(session, current_user, payload.step)
     return UserResponse.model_validate(user)
 
 

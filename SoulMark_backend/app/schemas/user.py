@@ -19,6 +19,10 @@ class AccountDeletionRequest(BaseModel):
     code: str | None = Field(default=None, pattern=r"^\d{6}$")
 
 
+class TutorialProgress(BaseModel):
+    step: int = Field(ge=0, le=4)
+
+
 class UserResponse(BaseModel):
     id: UUID
     public_id: int | None
@@ -32,6 +36,8 @@ class UserResponse(BaseModel):
     communication_goal: str | None
     onboarding_completed: bool
     onboarding_completed_at: datetime | None
+    tutorial_step: int
+    tutorial_completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
 

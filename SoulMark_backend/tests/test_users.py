@@ -36,6 +36,119 @@ async def test_profile_requires_authentication(client: AsyncClient) -> None:
     assert response.json()["error"]["code"] == "not_authenticated"
 
 
+async def test_new_user_advances_tutorial_in_order_and_retries_are_idempotent(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    current = await client.get("/api/v1/users/me", headers=auth_headers)
+    assert current.status_code == 200
+    assert current.json()["tutorial_step"] == 0
+    assert current.json()["tutorial_completed_at"] is None
+
+    first = await client.patch(
+        "/api/v1/users/me/tutorial",
+        headers=auth_headers,
+        json={"step": 1},
+    )
+    assert first.status_code == 200
+    assert first.json()["tutorial_step"] == 1
+    assert first.json()["tutorial_completed_at"] is None
+
+    repeated = await client.patch(
+        "/api/v1/users/me/tutorial",
+        headers=auth_headers,
+        json={"step": 1},
+    )
+    assert repeated.status_code == 200
+    assert repeated.json()["tutorial_step"] == 1
+
+    for step in (2, 3, 4):
+        advanced = await client.patch(
+            "/api/v1/users/me/tutorial",
+            headers=auth_headers,
+            json={"step": step},
+        )
+        assert advanced.status_code == 200
+        assert advanced.json()["tutorial_step"] == step
+
+    completed_at = advanced.json()["tutorial_completed_at"]
+    assert completed_at is not None
+    repeated_completion = await client.patch(
+        "/api/v1/users/me/tutorial",
+        headers=auth_headers,
+        json={"step": 4},
+    )
+    assert repeated_completion.status_code == 200
+    assert repeated_completion.json()["tutorial_completed_at"] == completed_at
+
+
+async def test_tutorial_rejects_skips_backwards_steps_and_out_of_range_values(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    skipped = await client.patch(
+        "/api/v1/users/me/tutorial",
+        headers=auth_headers,
+        json={"step": 2},
+    )
+    assert skipped.status_code == 409
+    assert skipped.json()["error"]["code"] == "tutorial_step_conflict"
+
+    assert (
+        await client.patch(
+            "/api/v1/users/me/tutorial",
+            headers=auth_headers,
+            json={"step": 1},
+        )
+    ).status_code == 200
+    backwards = await client.patch(
+        "/api/v1/users/me/tutorial",
+        headers=auth_headers,
+        json={"step": 0},
+    )
+    assert backwards.status_code == 409
+    assert backwards.json()["error"]["code"] == "tutorial_step_conflict"
+
+    for invalid_step in (-1, 5):
+        invalid = await client.patch(
+            "/api/v1/users/me/tutorial",
+            headers=auth_headers,
+            json={"step": invalid_step},
+        )
+        assert invalid.status_code == 422
+
+
+async def test_tutorial_progress_is_isolated_per_account(
+    client: AsyncClient,
+    auth_headers: dict[str, str],
+) -> None:
+    assert (
+        await client.patch(
+            "/api/v1/users/me/tutorial",
+            headers=auth_headers,
+            json={"step": 1},
+        )
+    ).status_code == 200
+
+    registration = {
+        "email": "second-tutorial-user@example.com",
+        "password": "StrongPass123!",
+        "display_name": "Second User",
+    }
+    created = await client.post("/api/v1/auth/register", json=registration)
+    assert created.status_code == 201
+    assert created.json()["tutorial_step"] == 0
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": registration["email"], "password": registration["password"]},
+    )
+    second_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+    second = await client.get("/api/v1/users/me", headers=second_headers)
+    assert second.status_code == 200
+    assert second.json()["tutorial_step"] == 0
+
+
 async def test_user_can_save_jade_green_theme(
     client: AsyncClient,
     auth_headers: dict[str, str],
