@@ -42,6 +42,15 @@ struct SoulMarkApp: App {
             AuthenticationView()
         case .onboarding:
             SoulOnboardingView()
+        case .tutorial:
+            SoulTutorialView(
+                mode: .required(
+                    startStep: session.user?.tutorialStep ?? 0,
+                    onAdvance: { step in
+                        await session.advanceTutorial(to: step)
+                    }
+                )
+            )
         case .main:
             ContentView()
         }

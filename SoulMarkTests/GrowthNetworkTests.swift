@@ -48,7 +48,7 @@ struct GrowthNetworkTests {
         if request.url!.path.hasSuffix("/users/me") {
             let id = request.value(forHTTPHeaderField: "Authorization")!.contains("b@example.com") ? b : a
             return (200, """
-            {"id":"\(id)","has_wechat":false,"display_name":"Test","preferred_language":"zh","appearance":"light","onboarding_completed":true}
+            {"id":"\(id)","has_wechat":false,"display_name":"Test","preferred_language":"zh","appearance":"light","onboarding_completed":true,"tutorial_step":4,"tutorial_completed_at":"2026-10-08T10:00:00Z"}
             """, 0)
         }
         return nil

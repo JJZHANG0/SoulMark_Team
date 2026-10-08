@@ -14,6 +14,8 @@ struct AppUser: Codable, Equatable {
     var appearance: String
     var communicationGoal: String?
     var onboardingCompleted: Bool
+    var tutorialStep: Int
+    var tutorialCompletedAt: Date?
 
     enum CodingKeys: String, CodingKey {
         case id, email, gender, appearance
@@ -24,6 +26,8 @@ struct AppUser: Codable, Equatable {
         case preferredLanguage = "preferred_language"
         case communicationGoal = "communication_goal"
         case onboardingCompleted = "onboarding_completed"
+        case tutorialStep = "tutorial_step"
+        case tutorialCompletedAt = "tutorial_completed_at"
     }
 }
 
@@ -99,6 +103,10 @@ private struct OnboardingPayload: Encodable {
         case communicationGoal = "communication_goal"
         case onboardingCompleted = "onboarding_completed"
     }
+}
+
+private struct TutorialProgressPayload: Encodable {
+    let step: Int
 }
 
 struct DashboardStatsDTO: Decodable {
@@ -577,6 +585,15 @@ private final class SoulAPIClient {
         }
     }
 
+    func advanceTutorial(token: String, step: Int) async throws -> AppUser {
+        try await request(
+            path: "/api/v1/users/me/tutorial",
+            method: "PATCH",
+            token: token,
+            body: TutorialProgressPayload(step: step)
+        )
+    }
+
     func contacts(token: String) async throws -> [RemoteContact] {
         try await request(path: "/api/v1/contacts", token: token)
     }
@@ -1018,7 +1035,13 @@ private final class SoulAPIClient {
     }
 }
 
-final class AuthTokenStore {
+protocol AuthTokenStoring: AnyObject {
+    func read() -> String?
+    func save(_ token: String)
+    func clear()
+}
+
+final class AuthTokenStore: AuthTokenStoring {
     static let shared = AuthTokenStore()
     private let service = "com.jjzhang828.soulmark.auth"
     private let account = "access-token"
@@ -1078,6 +1101,7 @@ final class AppSession: ObservableObject {
         case launch
         case authentication
         case onboarding
+        case tutorial
         case main
     }
 
@@ -1095,13 +1119,18 @@ final class AppSession: ObservableObject {
     private var pendingPractices: [PendingGrowthPractice] = []
     private var practiceDrainID: UUID?
     private var cachedReviewAnalyses: [UUID: AnalyzedConversationReview] = [:]
+    private var tutorialAdvanceID: UUID?
     private let api: SoulAPIClient
 
-    init(networkSession: URLSession = .shared) {
+    init(
+        networkSession: URLSession = .shared,
+        tokenStore: any AuthTokenStoring = AuthTokenStore.shared
+    ) {
         api = SoulAPIClient(session: networkSession)
+        self.tokenStore = tokenStore
     }
 
-    private let tokenStore = AuthTokenStore.shared
+    private let tokenStore: any AuthTokenStoring
     private let expiryKey = "soulMarkSessionExpiresAt"
     private let cachedUserKey = "soulMarkCachedUser"
 
@@ -1213,7 +1242,42 @@ final class AppSession: ObservableObject {
         }
     }
 
+    @discardableResult
+    func advanceTutorial(to step: Int) async -> Bool {
+        guard tutorialAdvanceID == nil,
+              let accountID = user?.id,
+              let token = tokenStore.read() else { return false }
+
+        let requestID = UUID()
+        tutorialAdvanceID = requestID
+        isWorking = true
+        errorMessage = nil
+        defer {
+            if tutorialAdvanceID == requestID {
+                tutorialAdvanceID = nil
+                isWorking = false
+            }
+        }
+
+        do {
+            let updated = try await api.advanceTutorial(token: token, step: step)
+            guard tutorialAdvanceID == requestID,
+                  user?.id == accountID,
+                  tokenStore.read() == token else { return false }
+            applyUser(updated)
+            return true
+        } catch {
+            guard tutorialAdvanceID == requestID,
+                  user?.id == accountID,
+                  tokenStore.read() == token else { return false }
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
     func signOut() {
+        tutorialAdvanceID = nil
+        isWorking = false
         clearGrowth()
         tokenStore.clear()
         UserDefaults.standard.removeObject(forKey: expiryKey)
@@ -1662,6 +1726,12 @@ final class AppSession: ObservableObject {
         if let theme = user.gender, ["male", "female", "green"].contains(theme) {
             preferences.genderTheme = theme
         }
-        route = user.onboardingCompleted ? .main : .onboarding
+        if !user.onboardingCompleted {
+            route = .onboarding
+        } else if user.tutorialStep < 4 {
+            route = .tutorial
+        } else {
+            route = .main
+        }
     }
 }
