@@ -122,6 +122,16 @@ struct SoulTutorialTests {
         #expect(titles == ["下一步", "下一步", "下一步", "开始使用"])
     }
 
+    @Test func replayCanOpenAndCloseWithoutChangingAccountProgress() {
+        var replay = SoulTutorialReplayState()
+
+        replay.open()
+        #expect(replay.isPresented)
+
+        replay.close()
+        #expect(!replay.isPresented)
+    }
+
     @Test @MainActor func completedProfileRoutesToTutorialUntilStepFour() async {
         TutorialURLProtocol.handler = { request in
             Self.loginOrUserResponse(for: request, steps: ["a": 0])!

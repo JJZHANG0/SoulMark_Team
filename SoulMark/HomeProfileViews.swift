@@ -1280,6 +1280,7 @@ private struct SoulSettingsSheet: View {
     @EnvironmentObject private var session: AppSession
     @Bindable private var preferences = SoulPreferencesStore.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var tutorialReplay = SoulTutorialReplayState()
 
     var body: some View {
         NavigationStack {
@@ -1339,6 +1340,35 @@ private struct SoulSettingsSheet: View {
                         }
 
                         SettingsGroup(
+                            title: localizedText("新手指引", "New User Guide"),
+                            subtitle: localizedText("重新查看四个核心功能", "Review the four core features")
+                        ) {
+                            Button {
+                                tutorialReplay.open()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "questionmark.circle.fill")
+                                        .font(.system(size: 18, weight: .bold))
+                                        .foregroundStyle(SoulTheme.accent)
+                                    Text(localizedText("重新查看新手指引", "View the guide again"))
+                                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(SoulTheme.primaryText)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(SoulTheme.tertiaryText)
+                                }
+                                .padding(.horizontal, 12)
+                                .frame(minHeight: 46)
+                                .background(
+                                    SoulTheme.subtleFill,
+                                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        SettingsGroup(
                             title: localizedText("账户", "Account"),
                             subtitle: session.user?.email ?? localizedText("当前 Soul 身份", "Current Soul identity")
                         ) {
@@ -1374,6 +1404,12 @@ private struct SoulSettingsSheet: View {
             }
         }
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
+        .fullScreenCover(isPresented: Binding(
+            get: { tutorialReplay.isPresented },
+            set: { if !$0 { tutorialReplay.close() } }
+        )) {
+            SoulTutorialView(mode: .replay(onClose: { tutorialReplay.close() }))
+        }
     }
 
     private var themePreview: some View {

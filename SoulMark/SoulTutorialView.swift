@@ -95,6 +95,18 @@ enum SoulTutorialMode {
     case replay(onClose: @MainActor () -> Void)
 }
 
+struct SoulTutorialReplayState: Equatable {
+    private(set) var isPresented = false
+
+    mutating func open() {
+        isPresented = true
+    }
+
+    mutating func close() {
+        isPresented = false
+    }
+}
+
 struct SoulTutorialView: View {
     let mode: SoulTutorialMode
 

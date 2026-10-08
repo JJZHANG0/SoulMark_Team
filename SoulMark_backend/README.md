@@ -109,6 +109,7 @@ All variables use the `SOULMARK_` prefix. The required production values are:
 - `POST /api/v1/auth/wechat/login`
 - `GET /api/v1/users/me`
 - `PATCH /api/v1/users/me`
+- `PATCH /api/v1/users/me/tutorial`
 - `GET /api/v1/contacts`
 - `POST /api/v1/contacts`
 - `GET /api/v1/contacts/{contact_id}`
@@ -205,3 +206,20 @@ The growth suite includes file-backed SQLite concurrency tests with independent 
 Run deployment integration checks on PostgreSQL before release; SQLite tests do not prove
 PostgreSQL migration/locking behavior. Pending mobile practice saves are retained for retries
 within the current signed-in app session; they are cleared on sign-out or app termination.
+
+## New User Guide (20261008_0014)
+
+The four-step new-user guide requires migration `20261008_0014` and the matching API release.
+Deploy the backend before releasing the updated iOS client:
+
+1. Back up the production database.
+2. Run `alembic upgrade head` so existing accounts are marked complete at step 4.
+3. Deploy/restart the matching API and verify authenticated `GET /api/v1/users/me` returns
+   `tutorial_step` and `tutorial_completed_at`.
+4. Verify `PATCH /api/v1/users/me/tutorial` accepts only the current step or the next step.
+5. Release the updated iOS client.
+
+Accounts created after the migration start at step 0. Existing accounts are completed during the
+migration and are not interrupted. The server records each ordered advance through step 4 so a new
+user can resume on another device. Reopening the guide from iOS Settings is local-only and does not
+change the saved tutorial step or completion time.
