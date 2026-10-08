@@ -1,4 +1,8 @@
-from uuid import UUID
+import json
+from dataclasses import dataclass
+from datetime import datetime
+from hashlib import sha256
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +14,11 @@ from app.models.activity import (
     ReviewRelationshipImpact,
 )
 from app.models.contact import Contact
+from app.models.growth import ExperienceEvent, UserGrowth
 from app.schemas.activity import PracticeCreate, ReviewCreate
+from app.schemas.growth import GrowthSnapshot
+from app.services import growth
+from app.services.growth_rules import count_completed_turns
 from app.services.relationship_strength import RelationshipImpact, reverse_relationship_impact
 
 
@@ -23,14 +31,75 @@ async def list_practices(session: AsyncSession, owner_id: UUID) -> list[Practice
     return list(result)
 
 
+@dataclass
+class ActivitySaveResult:
+    record: PracticeSession | ConversationReview
+    created: bool
+    growth: GrowthSnapshot
+    awarded_experience: int
+
+
+async def prepare_activity(
+    session: AsyncSession, owner_id: UUID, payload: PracticeCreate | ReviewCreate, kind: str
+) -> tuple[UserGrowth, datetime, str, str, int, ActivitySaveResult | None]:
+    now = growth.utc_now()
+    state = await growth.lock_growth(session, owner_id, now)
+    data = payload.model_dump(mode="json", exclude={"event_id"})
+    if isinstance(payload, ReviewCreate):
+        data["relationship_impacts"] = [
+            item.model_dump(mode="json") for item in payload.relationship_impacts
+        ]
+    digest = sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    key = f"{kind}:{payload.event_id or uuid4()}"
+    previous = await session.scalar(
+        select(ExperienceEvent).where(
+            ExperienceEvent.owner_id == owner_id, ExperienceEvent.event_key == key
+        )
+    )
+    if previous is not None:
+        if previous.request_hash != digest:
+            raise AppError(
+                "event_conflict", "This event was already saved with different content.", 409
+            )
+        model = PracticeSession if kind == "practice" else ConversationReview
+        record = await session.get(model, previous.source_id)
+        if record is None:
+            raise AppError("event_deleted", "This activity has already been deleted.", 409)
+        decayed = await growth.settle_decay(session, state, now)
+        snapshot = await growth.growth_snapshot(session, state, now, decayed)
+        await session.commit()
+        return state, now, key, digest, decayed, ActivitySaveResult(record, False, snapshot, 0)
+    decayed = await growth.settle_decay(session, state, now)
+    return state, now, key, digest, decayed, None
+
+
+@growth.retry_locked_transaction
 async def create_practice(
     session: AsyncSession, owner_id: UUID, payload: PracticeCreate
-) -> PracticeSession:
-    practice = PracticeSession(owner_id=owner_id, **payload.model_dump())
+) -> ActivitySaveResult:
+    state, now, key, digest, decayed, replay = await prepare_activity(
+        session, owner_id, payload, "practice"
+    )
+    if replay is not None:
+        return replay
+    practice = PracticeSession(
+        owner_id=owner_id, **payload.model_dump(exclude={"event_id", "messages"})
+    )
     session.add(practice)
+    await session.flush()
+    if payload.messages is None:
+        turns = int(bool(payload.user_transcript.strip() and payload.assistant_transcript.strip()))
+    else:
+        turns = count_completed_turns([(m.role, m.text) for m in payload.messages])
+    if turns:
+        growth.mark_active(state, now)
+    amount = await growth.award_experience(
+        session, state, key, "practice", turns * 5, now, practice.id, digest
+    )
+    snapshot = await growth.growth_snapshot(session, state, now, decayed)
     await session.commit()
     await session.refresh(practice)
-    return practice
+    return ActivitySaveResult(practice, True, snapshot, amount)
 
 
 async def delete_practice(session: AsyncSession, owner_id: UUID, practice_id: UUID) -> None:
@@ -53,12 +122,18 @@ async def list_reviews(session: AsyncSession, owner_id: UUID) -> list[Conversati
     return list(result)
 
 
+@growth.retry_locked_transaction
 async def create_review(
     session: AsyncSession, owner_id: UUID, payload: ReviewCreate
-) -> ConversationReview:
+) -> ActivitySaveResult:
+    state, now, key, digest, decayed, replay = await prepare_activity(
+        session, owner_id, payload, "review"
+    )
+    if replay is not None:
+        return replay
     review = ConversationReview(
         owner_id=owner_id,
-        **payload.model_dump(exclude={"relationship_impacts"}),
+        **payload.model_dump(exclude={"relationship_impacts", "event_id"}),
     )
     session.add(review)
     await session.flush()
@@ -90,9 +165,14 @@ async def create_review(
         )
         applied_contact_ids.add(contact.id)
 
+    growth.mark_active(state, now)
+    amount = await growth.award_experience(
+        session, state, key, "review", 30, now, review.id, digest
+    )
+    snapshot = await growth.growth_snapshot(session, state, now, decayed)
     await session.commit()
     await session.refresh(review)
-    return review
+    return ActivitySaveResult(review, True, snapshot, amount)
 
 
 async def delete_review(session: AsyncSession, owner_id: UUID, review_id: UUID) -> None:

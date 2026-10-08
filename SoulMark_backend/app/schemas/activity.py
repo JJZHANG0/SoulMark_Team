@@ -1,11 +1,20 @@
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.schemas.growth import GrowthSnapshot
+
+
+class PracticeMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    text: str = Field(max_length=100_000)
 
 
 class PracticeCreate(BaseModel):
+    event_id: UUID | None = None
+    messages: list[PracticeMessage] | None = Field(default=None, max_length=1000)
     contact_id: UUID | None = None
     participant_name: str = Field(min_length=1, max_length=100)
     mode_title: str = Field(min_length=1, max_length=100)
@@ -14,8 +23,24 @@ class PracticeCreate(BaseModel):
     user_transcript: str = Field(default="", max_length=100_000)
     assistant_transcript: str = Field(default="", max_length=100_000)
 
+    @model_validator(mode="after")
+    def matching_transcripts(self) -> Self:
+        if self.messages is not None:
+            for role, transcript in [
+                ("user", self.user_transcript),
+                ("assistant", self.assistant_transcript),
+            ]:
+                if (
+                    "\n".join(message.text for message in self.messages if message.role == role)
+                    != transcript
+                ):
+                    raise ValueError("Messages must match saved transcripts.")
+        return self
+
 
 class PracticeResponse(PracticeCreate):
+    growth: GrowthSnapshot | None = None
+    awarded_experience: int = 0
     id: UUID
     owner_id: UUID
     created_at: datetime
@@ -47,6 +72,7 @@ class ReviewRelationshipImpactCreate(BaseModel):
 
 
 class ReviewCreate(BaseModel):
+    event_id: UUID | None = None
     practice_id: UUID | None = None
     title: str = Field(min_length=1, max_length=160)
     source: Literal["scenario", "wechat", "manual"]
@@ -63,6 +89,8 @@ class ReviewCreate(BaseModel):
 
 
 class ReviewResponse(ReviewCreate):
+    growth: GrowthSnapshot | None = None
+    awarded_experience: int = 0
     id: UUID
     owner_id: UUID
     created_at: datetime

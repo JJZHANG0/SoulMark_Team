@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.activity import router as activity_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.contacts import router as contacts_router
+from app.api.v1.growth import router as growth_router
 from app.api.v1.realtime import router as realtime_router
 from app.api.v1.users import router as users_router
 from app.core.config import get_settings
@@ -22,6 +23,7 @@ def create_app() -> FastAPI:
     application.add_exception_handler(AppError, app_error_handler)
     application.include_router(auth_router, prefix="/api/v1")
     application.include_router(activity_router, prefix="/api/v1")
+    application.include_router(growth_router, prefix="/api/v1")
     application.include_router(users_router, prefix="/api/v1")
     application.include_router(contacts_router, prefix="/api/v1")
     application.include_router(realtime_router, prefix="/api/v1")

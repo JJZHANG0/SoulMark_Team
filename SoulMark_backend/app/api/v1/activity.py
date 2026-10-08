@@ -43,23 +43,14 @@ async def resolve_review_contact(
     owner_id: UUID,
     analysis: ReviewAnalysisResponse,
 ) -> ReviewAnalysisResponse:
-    suggested_names = [
-        name.strip() for name in analysis.related_contact_names if name.strip()
-    ]
+    suggested_names = [name.strip() for name in analysis.related_contact_names if name.strip()]
     legacy_name = (analysis.related_contact_name or "").strip()
-    if legacy_name and legacy_name.casefold() not in {
-        name.casefold() for name in suggested_names
-    }:
+    if legacy_name and legacy_name.casefold() not in {name.casefold() for name in suggested_names}:
         suggested_names.append(legacy_name)
-    contacts = (
-        await session.scalars(select(Contact).where(Contact.owner_id == owner_id))
-    ).all()
-    contacts_by_name = {
-        contact.name.strip().casefold(): contact for contact in contacts
-    }
+    contacts = (await session.scalars(select(Contact).where(Contact.owner_id == owner_id))).all()
+    contacts_by_name = {contact.name.strip().casefold(): contact for contact in contacts}
     signals_by_name = {
-        signal.contact_name.strip().casefold(): signal
-        for signal in analysis.relationship_signals
+        signal.contact_name.strip().casefold(): signal for signal in analysis.relationship_signals
     }
     matches: list[ReviewRelatedContact] = []
     matched_ids: set[UUID] = set()
@@ -97,7 +88,10 @@ async def get_practices(
 async def post_practice(
     payload: PracticeCreate, current_user: CurrentUser, session: DatabaseSession
 ) -> PracticeResponse:
-    return PracticeResponse.model_validate(await create_practice(session, current_user.id, payload))
+    result = await create_practice(session, current_user.id, payload)
+    return PracticeResponse.model_validate(result.record).model_copy(
+        update={"growth": result.growth, "awarded_experience": result.awarded_experience}
+    )
 
 
 @router.delete("/practices/{practice_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -136,7 +130,12 @@ async def post_review(
             )
         ).all()
     }
-    review = await create_review(session, current_user.id, payload)
+    result = await create_review(session, current_user.id, payload)
+    review = result.record
+    if not result.created:
+        return ReviewResponse.model_validate(review).model_copy(
+            update={"growth": result.growth, "awarded_experience": 0}
+        )
     for contact_id in contact_ids:
         try:
             contact = await recalculate_contact_intimacy(
@@ -155,16 +154,16 @@ async def post_review(
                 )
                 if stored_impact is not None:
                     stored_impact.trust_delta = contact.trust_score - before[0]
-                    stored_impact.emotional_depth_delta = (
-                        contact.emotional_depth_score - before[1]
-                    )
+                    stored_impact.emotional_depth_delta = contact.emotional_depth_score - before[1]
                     stored_impact.reciprocity_delta = contact.reciprocity_score - before[2]
                     stored_impact.support_delta = contact.support_score - before[3]
                     stored_impact.strength_delta = contact.strength - before[4]
                     await session.commit()
         except AppError:
             pass
-    return ReviewResponse.model_validate(review)
+    return ReviewResponse.model_validate(review).model_copy(
+        update={"growth": result.growth, "awarded_experience": result.awarded_experience}
+    )
 
 
 @router.post("/reviews/analyze", response_model=ReviewAnalysisResponse)
