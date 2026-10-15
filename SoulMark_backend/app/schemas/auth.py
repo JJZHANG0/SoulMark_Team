@@ -33,6 +33,10 @@ class PhoneLoginRequest(PhoneCodeRequest):
     code: str = Field(pattern=r"^\d{6}$")
 
 
+class PhonePasswordLoginRequest(PhoneCodeRequest):
+    password: str = Field(min_length=8, max_length=128)
+
+
 class WeChatLoginRequest(BaseModel):
     code: str = Field(min_length=1, max_length=512)
 

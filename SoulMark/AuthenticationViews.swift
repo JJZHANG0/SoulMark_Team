@@ -65,14 +65,20 @@ struct AuthenticationView: View {
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
     @State private var phoneCodeSent = false
+    @State private var phoneLoginMethod: PhoneLoginMethod = .password
+    @State private var phonePassword = ""
     @FocusState private var focusedField: Field?
 
     private enum AuthenticationMode: Hashable {
         case email, phone, register
     }
 
+    private enum PhoneLoginMethod: Hashable {
+        case password, code
+    }
+
     private enum Field {
-        case name, email, password, confirmation, phone, code
+        case name, email, password, confirmation, phone, code, phonePassword
     }
 
     private var canSubmit: Bool {
@@ -81,6 +87,9 @@ struct AuthenticationView: View {
         if mode == .register {
             return !displayName.trimmingCharacters(in: .whitespaces).isEmpty
                 && validEmail && validPassword && password == passwordConfirmation
+        }
+        if mode == .phone && phoneLoginMethod == .password {
+            return phoneNumber.count == 11 && phonePassword.count >= 8
         }
         if mode == .phone {
             return phoneNumber.count == 11 && verificationCode.count == 6 && phoneCodeSent
@@ -267,6 +276,18 @@ struct AuthenticationView: View {
 
     @ViewBuilder
     private var phoneForm: some View {
+        Picker("", selection: $phoneLoginMethod) {
+            Text(localizedText("密码登录", "Password")).tag(PhoneLoginMethod.password)
+            Text(localizedText("验证码登录", "Code")).tag(PhoneLoginMethod.code)
+        }
+        .pickerStyle(.segmented)
+        .onChange(of: phoneLoginMethod) {
+            session.errorMessage = nil
+            focusedField = phoneNumber.count == 11
+                ? (phoneLoginMethod == .password ? .phonePassword : .code)
+                : .phone
+        }
+
         AuthField(
             title: localizedText("11 位手机号", "11-digit phone number"),
             systemImage: "phone.fill",
@@ -276,6 +297,49 @@ struct AuthenticationView: View {
         )
         .focused($focusedField, equals: .phone)
 
+        if phoneLoginMethod == .password {
+            phonePasswordForm
+        } else {
+            phoneCodeForm
+        }
+    }
+
+    @ViewBuilder
+    private var phonePasswordForm: some View {
+        AuthSecureField(
+            title: localizedText("密码 · 至少 8 位", "Password · 8+ characters"),
+            text: $phonePassword,
+            contentType: .password
+        )
+        .focused($focusedField, equals: .phonePassword)
+
+        Button {
+            focusedField = nil
+            Task {
+                await session.login(phoneNumber: phoneNumber, password: phonePassword)
+            }
+        } label: {
+            HStack(spacing: 10) {
+                if session.isWorking {
+                    ProgressView().tint(.white)
+                } else {
+                    Image(systemName: "arrow.right")
+                }
+                Text(localizedText("用手机号回到 SoulMark", "Sign in with phone"))
+            }
+            .font(.system(size: 16, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 54)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSubmit || session.isWorking)
+    }
+
+    @ViewBuilder
+    private var phoneCodeForm: some View {
         HStack(spacing: 10) {
             AuthField(
                 title: localizedText("6 位验证码", "6-digit code"),

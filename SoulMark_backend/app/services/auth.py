@@ -52,3 +52,25 @@ async def authenticate_user(session: AsyncSession, email: str, password: str) ->
     if not user.is_active:
         raise AppError("inactive_user", "This account is inactive.", 401)
     return user
+
+
+def _phone_lookup_forms(phone_number: str) -> list[str]:
+    digits = phone_number.removeprefix("+86")
+    return [f"+86{digits}", digits]
+
+
+async def authenticate_phone_password(
+    session: AsyncSession, phone_number: str, password: str
+) -> User:
+    user = await session.scalar(
+        select(User).where(User.phone_number.in_(_phone_lookup_forms(phone_number)))
+    )
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(password, user.password_hash)
+    ):
+        raise AppError("invalid_credentials", "The phone number or password is incorrect.", 401)
+    if not user.is_active:
+        raise AppError("inactive_user", "This account is inactive.", 401)
+    return user

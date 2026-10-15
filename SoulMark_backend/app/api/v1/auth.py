@@ -11,12 +11,13 @@ from app.schemas.auth import (
     MessageResponse,
     PhoneCodeRequest,
     PhoneLoginRequest,
+    PhonePasswordLoginRequest,
     RegisterRequest,
     TokenResponse,
     WeChatLoginRequest,
 )
 from app.schemas.user import UserResponse
-from app.services.auth import authenticate_user, register_user
+from app.services.auth import authenticate_phone_password, authenticate_user, register_user
 from app.services.external_auth import (
     SmsSender,
     WeChatClient,
@@ -74,6 +75,19 @@ async def phone_login(
     sender: Annotated[SmsSender, Depends(get_sms_sender)],
 ) -> TokenResponse:
     user = await authenticate_phone(session, payload.phone_number, payload.code, sender)
+    settings = get_settings()
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        expires_in_seconds=settings.jwt_access_token_minutes * 60,
+    )
+
+
+@router.post("/phone/password-login", response_model=TokenResponse)
+async def phone_password_login(
+    payload: PhonePasswordLoginRequest,
+    session: DatabaseSession,
+) -> TokenResponse:
+    user = await authenticate_phone_password(session, payload.phone_number, payload.password)
     settings = get_settings()
     return TokenResponse(
         access_token=create_access_token(user.id),

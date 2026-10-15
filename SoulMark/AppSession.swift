@@ -54,6 +54,16 @@ private struct PhonePayload: Encodable {
     }
 }
 
+private struct PhonePasswordLoginPayload: Encodable {
+    let phoneNumber: String
+    let password: String
+
+    enum CodingKeys: String, CodingKey {
+        case phoneNumber = "phone_number"
+        case password
+    }
+}
+
 private struct PhoneLoginPayload: Encodable {
     let phoneNumber: String
     let code: String
@@ -514,6 +524,14 @@ private final class SoulAPIClient {
             path: "/api/v1/auth/phone/login",
             method: "POST",
             body: PhoneLoginPayload(phoneNumber: phoneNumber, code: code)
+        )
+    }
+
+    func login(phoneNumber: String, password: String) async throws -> AuthTokenResponse {
+        try await request(
+            path: "/api/v1/auth/phone/password-login",
+            method: "POST",
+            body: PhonePasswordLoginPayload(phoneNumber: phoneNumber, password: password)
         )
     }
 
@@ -1215,6 +1233,13 @@ final class AppSession: ObservableObject {
     func login(phoneNumber: String, code: String) async {
         await performAuth {
             let response = try await self.api.login(phoneNumber: phoneNumber, code: code)
+            try await self.accept(response)
+        }
+    }
+
+    func login(phoneNumber: String, password: String) async {
+        await performAuth {
+            let response = try await self.api.login(phoneNumber: phoneNumber, password: password)
             try await self.accept(response)
         }
     }
