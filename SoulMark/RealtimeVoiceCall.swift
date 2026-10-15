@@ -98,7 +98,7 @@ struct RealtimeVoiceSessionStart: Encodable {
 }
 
 enum RealtimeVoiceServiceConfiguration {
-    static let productionBackendURL = "https://8-146-228-143.sslip.io"
+    static let productionBackendURL = "https://1.13.182.30"
 
     static var defaultBackendURL: String {
         if let configured = Bundle.main.object(forInfoDictionaryKey: "SOULMARK_API_BASE_URL") as? String,
