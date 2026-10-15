@@ -49,6 +49,8 @@ struct IntegratedHomePage: View {
                         quickActions
                     }
 
+                    ChallengeHubCard()
+
                     relationshipSnapshot
                     weeklySignal
                 }
@@ -84,7 +86,7 @@ struct IntegratedHomePage: View {
 
             VStack(alignment: .leading, spacing: 14) {
                 SoulStatusPill(
-                    text: localizedText("信号在线", "SIGNAL ONLINE"),
+                    text: localizedText("今日练习", "TODAY'S PRACTICE"),
                     systemImage: "dot.radiowaves.left.and.right"
                 )
 
@@ -193,7 +195,7 @@ struct IntegratedHomePage: View {
             SoulActionCard(
                 index: "01",
                 title: localizedText("关系图谱", "Relationship Map"),
-                subtitle: localizedText("看见连接与距离", "See connection and distance"),
+                subtitle: localizedText("在关系里看见自己", "See yourself through others"),
                 icon: "point.3.connected.trianglepath.dotted",
                 action: onOpenRelationshipGraph
             )
@@ -211,7 +213,7 @@ struct IntegratedHomePage: View {
     private var relationshipSnapshot: some View {
         VStack(alignment: .leading, spacing: 15) {
             SoulSectionHeader(
-                title: localizedText("关系雷达", "Relationship Radar"),
+                title: localizedText("关系镜子", "Relationship Mirror"),
                 detail: localizedText("最近连接", "Recent links")
             )
 
@@ -225,7 +227,7 @@ struct IntegratedHomePage: View {
                             .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(localizedText("关系雷达还是空的", "Your relationship radar is empty"))
+                            Text(localizedText("关系镜子还是空的", "Your relationship mirror is empty"))
                                 .font(.system(size: 15, weight: .heavy, design: .rounded))
                                 .foregroundStyle(SoulTheme.primaryText)
 
@@ -358,6 +360,7 @@ struct IntegratedProfilePage: View {
     @State private var showingAchievements = false
     @State private var showingDataVault = false
     @State private var showingPrivacySecurity = false
+    @State private var showingReport = false
     @State private var selectedRecentSection: ProfileRecentSection?
 
     var people: [RelationshipPerson] = []
@@ -372,7 +375,7 @@ struct IntegratedProfilePage: View {
                     SoulPageHeader(
                         eyebrow: "Identity / 05",
                         title: localizedText("我的", "Profile"),
-                        subtitle: localizedText("你的关系练习、偏好与数据空间。", "Your practice, preferences, and relationship data space.")
+                        subtitle: localizedText("通过关系，认识自己。", "Know yourself through your relationships.")
                     ) {
                         SoulIconButton(systemImage: "gearshape.fill") {
                             showingSettings = true
@@ -380,10 +383,12 @@ struct IntegratedProfilePage: View {
                     }
 
                     identityPanel
+                    SelfAwarenessReportEntryCard { showingReport = true }
                     GrowthProgressCard(state: session.growthState) {
                         Task { await session.refreshGrowth() }
                     }
                     statsBand
+                    ChallengeHubCard()
                     personalizationButton
                     accountMenu
                 }
@@ -412,6 +417,10 @@ struct IntegratedProfilePage: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .fullScreenCover(isPresented: $showingReport) {
+            SelfAwarenessReportSheet()
+                .environmentObject(session)
+        }
         .sheet(item: $selectedRecentSection) { section in
             ProfileRecentActivitySheet(section: section, people: people)
                 .presentationDetents([.medium, .large])
@@ -439,12 +448,6 @@ struct IntegratedProfilePage: View {
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.white.opacity(0.58))
 
-                HStack(spacing: 6) {
-                    Circle().fill(SoulTheme.energy).frame(width: 6, height: 6)
-                    Text(localizedText("数字身份同步中", "Digital identity synced"))
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.energy)
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .padding(19)

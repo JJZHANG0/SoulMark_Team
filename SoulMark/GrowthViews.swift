@@ -9,7 +9,7 @@ struct GrowthProgressCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
-                Label(localizedText("关系成长", "Your Growth"), systemImage: "sparkles")
+                Label(localizedText("自我成长", "Your Growth"), systemImage: "sparkles")
                     .font(.system(size: 14, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
                 Spacer()
@@ -94,6 +94,7 @@ struct GrowthProgressCard: View {
                 HStack(spacing: 10) {
                     rewardPill(localizedText("复盘 +30", "Review +30"), icon: "text.bubble")
                     rewardPill(localizedText("对话 +5 / 轮", "Chat +5 / turn"), icon: "waveform")
+                    rewardPill(localizedText("挑战 +20", "Challenge +20"), icon: "flag.checkered")
                 }
                 if let next = GrowthMilestone.all.first(where: { $0.level > growth.level }) {
                     Text(localizedText("下个称号：Lv.\(next.level) · \(next.title)", "Next title: Lv.\(next.level) · \(next.title)"))
@@ -109,7 +110,7 @@ struct GrowthProgressCard: View {
                 .foregroundStyle(SoulTheme.tertiaryText)
             if showingRules {
                 Text(localizedText(
-                    "复盘成功保存 +30 EXP；聊天每个完整问答 +5 EXP，结束并保存后结算，每日最多 50。升级依次需要 100、150、200… EXP。打开 App 即重新开始 7 天宽限期，回归时先结算离开期间的扣减。经验最低为 0，等级和当前称号可能下降，已解锁的等级徽章永久保留。按新加坡日期结算。",
+                    "复盘成功保存 +30 EXP；首次完成自我觉察挑战 +20 EXP；聊天每个完整问答 +5 EXP，结束并保存后结算，每日最多 50。升级依次需要 100、150、200… EXP。打开 App 即重新开始 7 天宽限期，回归时先结算离开期间的扣减。经验最低为 0，等级和当前称号可能下降，已解锁的等级徽章永久保留。按新加坡日期结算。",
                     "Saved reviews earn 30 EXP. Each complete chat turn earns 5 EXP when the call is saved, up to 50 daily. Levels require 100, 150, 200… EXP. Opening the app restarts a 7-day grace period after settling any inactivity loss. EXP cannot fall below zero. Levels and current titles may drop; earned level badges stay unlocked. Days follow Singapore time."
                 ))
                 .font(.system(size: 12))

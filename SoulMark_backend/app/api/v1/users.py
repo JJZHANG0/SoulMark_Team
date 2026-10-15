@@ -10,14 +10,17 @@ from app.core.errors import AppError
 from app.core.security import verify_password
 from app.db.session import get_db
 from app.models.activity import ConversationReview, PracticeSession
+from app.models.challenge import ChallengeProgress, ChallengeReflection
 from app.models.contact import Contact, ContactEvent
 from app.schemas.activity import PracticeResponse, ReviewResponse
+from app.schemas.challenge import SelfAwarenessReport
 from app.schemas.contact import ContactResponse
 from app.schemas.contact_event import ContactEventResponse
 from app.schemas.user import AccountDeletionRequest, TutorialProgress, UserResponse, UserUpdate
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage
 from app.services.event_image_storage import EventImageStorage, get_event_image_storage
 from app.services.external_auth import SmsSender, authenticate_phone, get_sms_sender
+from app.services.self_awareness_report import build_report
 from app.services.users import advance_tutorial, update_profile
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -73,9 +76,21 @@ async def export_my_data(
     reviews = list(
         (
             await session.scalars(
-                select(ConversationReview).where(
-                    ConversationReview.owner_id == current_user.id
-                )
+                select(ConversationReview).where(ConversationReview.owner_id == current_user.id)
+            )
+        ).all()
+    )
+    challenge_progress = list(
+        (
+            await session.scalars(
+                select(ChallengeProgress).where(ChallengeProgress.owner_id == current_user.id)
+            )
+        ).all()
+    )
+    challenge_reflections = list(
+        (
+            await session.scalars(
+                select(ChallengeReflection).where(ChallengeReflection.owner_id == current_user.id)
             )
         ).all()
     )
@@ -94,7 +109,35 @@ async def export_my_data(
         "reviews": [
             ReviewResponse.model_validate(item).model_dump(mode="json") for item in reviews
         ],
+        "challenges": [
+            {
+                "challenge_key": item.challenge_key,
+                "status": item.status,
+                "completed_steps": item.completed_steps,
+                "completion_count": item.completion_count,
+                "started_at": item.started_at.isoformat(),
+                "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+                "reflections": [
+                    {
+                        "step_index": reflection.step_index,
+                        "response": reflection.response,
+                        "rating": reflection.rating,
+                    }
+                    for reflection in challenge_reflections
+                    if reflection.progress_id == item.id
+                ],
+            }
+            for item in challenge_progress
+        ],
     }
+
+
+@router.get("/me/self-awareness-report", response_model=SelfAwarenessReport)
+async def get_self_awareness_report(
+    current_user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> SelfAwarenessReport:
+    return await build_report(session, current_user)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

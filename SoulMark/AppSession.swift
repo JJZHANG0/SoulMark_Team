@@ -856,6 +856,29 @@ private final class SoulAPIClient {
         )
     }
 
+    func challenges(token: String) async throws -> ChallengeListDTO {
+        try await request(path: "/api/v1/challenges", token: token)
+    }
+
+    func challenge(token: String, key: String) async throws -> ChallengeDetailDTO {
+        try await request(path: "/api/v1/challenges/\(key)", token: token)
+    }
+
+    func startChallenge(token: String, key: String) async throws -> ChallengeDetailDTO {
+        try await request(path: "/api/v1/challenges/\(key)/start", method: "POST", token: token)
+    }
+
+    func submitChallengeStep(token: String, key: String, index: Int, response: String, rating: Int?) async throws -> ChallengeActionDTO {
+        try await request(
+            path: "/api/v1/challenges/\(key)/steps/\(index)", method: "PUT", token: token,
+            body: ChallengeStepSubmissionPayload(response: response, rating: rating)
+        )
+    }
+
+    func selfAwarenessReport(token: String) async throws -> SelfAwarenessReportDTO {
+        try await request(path: "/api/v1/users/me/self-awareness-report", method: "GET", token: token, bodyData: nil, timeoutInterval: 30)
+    }
+
     private func request<Response: Decodable>(
         path: String,
         method: String = "GET",
@@ -1443,6 +1466,43 @@ final class AppSession: ObservableObject {
             eventID: eventID
         )
         contactsRevision = UUID()
+    }
+
+    // MARK: Self-awareness challenges & report
+
+    @Published private(set) var challengesRevision = UUID()
+
+    func loadChallenges() async throws -> ChallengeListDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.challenges(token: token)
+    }
+
+    func loadChallenge(key: String) async throws -> ChallengeDetailDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.challenge(token: token, key: key)
+    }
+
+    func startChallenge(key: String) async throws -> ChallengeDetailDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let result = try await api.startChallenge(token: token, key: key)
+        challengesRevision = UUID()
+        return result
+    }
+
+    func submitChallengeStep(key: String, index: Int, response: String, rating: Int?) async throws -> ChallengeActionDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let result = try await api.submitChallengeStep(token: token, key: key, index: index, response: response, rating: rating)
+        challengesRevision = UUID()
+        if result.growth != nil {
+            let requestID = growthRequests.begin()
+            await acceptGrowthReward(result.growth, awarded: result.awardedExperience, requestID: requestID)
+        }
+        return result
+    }
+
+    func loadSelfAwarenessReport() async throws -> SelfAwarenessReportDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.selfAwarenessReport(token: token)
     }
 
     func loadStats() async -> DashboardStatsDTO? {
