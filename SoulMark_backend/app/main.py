@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.activity import router as activity_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.challenges import router as challenges_router
 from app.api.v1.contacts import router as contacts_router
 from app.api.v1.growth import router as growth_router
 from app.api.v1.realtime import router as realtime_router
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     application.include_router(activity_router, prefix="/api/v1")
     application.include_router(growth_router, prefix="/api/v1")
     application.include_router(users_router, prefix="/api/v1")
+    application.include_router(challenges_router, prefix="/api/v1")
     application.include_router(contacts_router, prefix="/api/v1")
     application.include_router(realtime_router, prefix="/api/v1")
     settings.avatar_upload_dir.mkdir(parents=True, exist_ok=True)
