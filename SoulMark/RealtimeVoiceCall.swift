@@ -553,10 +553,15 @@ private final class RealtimeAudioEngine: @unchecked Sendable {
     func start(onAudio: @escaping @Sendable (Data) -> Void) throws {
         stop()
         let session = AVAudioSession.sharedInstance()
+        #if compiler(>=6.2)
+        let bluetoothOption: AVAudioSession.CategoryOptions = .allowBluetoothHFP
+        #else
+        let bluetoothOption: AVAudioSession.CategoryOptions = .allowBluetooth
+        #endif
         try session.setCategory(
             .playAndRecord,
             mode: .voiceChat,
-            options: [.defaultToSpeaker, .allowBluetoothHFP]
+            options: [.defaultToSpeaker, bluetoothOption]
         )
         try session.setActive(true)
 
