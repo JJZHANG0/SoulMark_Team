@@ -16,6 +16,8 @@ from app.models import (  # noqa: F401
     ConversationReview,
     PhoneVerificationCode,
     PracticeSession,
+    SelfEvidence,
+    SelfPage,
     User,
 )
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage

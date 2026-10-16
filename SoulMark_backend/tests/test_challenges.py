@@ -1,11 +1,27 @@
 from app.services.challenge_catalog import CHALLENGES, CHALLENGES_BY_KEY
 
+FROZEN_STEPS = {
+    "johari_blind_spot": ("选两个人", "发出一个问题", "先别反驳", "意外程度"),
+    "johari_open_window": ("挑一件小事", "说出来", "回看自己"),
+    "values_compass": ("快速圈选", "只留三个", "用选择检验", "一致程度"),
+    "self_concept_ten": ("快写十句", "找出底色", "清晰程度"),
+    "emotion_naming": ("第一天", "第二天", "第三天", "命名的把握"),
+    "six_second_pause": ("那个瞬间", "六秒里", "换一种回应"),
+    "awareness_wheel": ("看到/听到", "我想的是", "我感到", "我想要", "我会做"),
+    "relation_mirror": ("三个人", "三个我", "不变的那部分", "自在程度"),
+}
+
 
 def test_catalog_is_curated_and_consistent():
-    assert 6 <= len(CHALLENGES) <= 10
+    assert len(CHALLENGES) == len(FROZEN_STEPS) + 3
     assert len(CHALLENGES_BY_KEY) == len(CHALLENGES)
     models = {c.model for c in CHALLENGES}
     assert {"johari", "values", "emotional_intelligence", "awareness_wheel"} <= models
+    for key, titles in FROZEN_STEPS.items():
+        challenge = CHALLENGES_BY_KEY[key]
+        assert tuple(step.title for step in challenge.steps) == titles
+    for key in ("how_i_want_to_be_seen", "energy_and_reply_pace", "role_stance"):
+        assert key in CHALLENGES_BY_KEY
     for challenge in CHALLENGES:
         assert challenge.steps and challenge.duration_minutes > 0
         assert all(step.kind in {"text", "rating"} for step in challenge.steps)
@@ -82,13 +98,18 @@ async def test_full_challenge_flow_awards_once(client, auth_headers):
     assert export["challenges"][0]["challenge_key"] == key
 
 
-async def test_report_empty_and_after_challenge(client, auth_headers):
+async def test_report_empty_page_is_blank_until_confirmed(client, auth_headers):
     empty = await client.get("/api/v1/users/me/self-awareness-report", headers=auth_headers)
     assert empty.status_code == 200
     body = empty.json()
-    assert body["challenges_completed"] == 0
-    assert len(body["dimensions"]) == 4
-    assert body["next_steps"]
+    assert "overall_score" not in body
+    assert "dimensions" not in body
+    assert body["evidence_covered"] == 0
+    assert body["evidence_total"] == 8
+    assert len(body["cells"]) == 8
+    assert all(cell["text"] == "" and cell["covered"] is False for cell in body["cells"])
+    assert body["weekly_step_done"] is False
+    assert body["bookkeeping"]["contacts_count"] == 0
 
     base = "/api/v1/challenges/six_second_pause"
     await client.post(f"{base}/start", headers=auth_headers)
@@ -101,9 +122,7 @@ async def test_report_empty_and_after_challenge(client, auth_headers):
     report = (
         await client.get("/api/v1/users/me/self-awareness-report", headers=auth_headers)
     ).json()
-    assert report["challenges_completed"] == 1
-    emotion = next(d for d in report["dimensions"] if d["key"] == "emotion")
-    clarity = next(d for d in report["dimensions"] if d["key"] == "clarity")
-    assert emotion["score"] > clarity["score"]
-    assert report["highlights"]
-    assert report["headline"].startswith("你最亮的一面")
+    assert report["evidence_covered"] == 0
+    assert all(not cell["covered"] for cell in report["cells"])
+    assert any("同事在会上打断我" in item["quote"] for item in report["draft"])
+    assert all(item["quote"] != "表达清晰" for item in report["draft"])

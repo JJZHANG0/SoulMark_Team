@@ -209,7 +209,13 @@ struct ContentView: View {
                 Task { await refreshStats() }
             }
         case .profile:
-            IntegratedProfilePage(people: people, achievementProgress: achievementProgress)
+            IntegratedProfilePage(
+                people: people,
+                achievementProgress: achievementProgress,
+                onOpenRelationshipGraph: { selectedSection = .relationshipGraph },
+                onOpenScenario: { selectedSection = .scenarioSimulation },
+                onOpenJournal: { selectedSection = .journal }
+            )
         }
     }
 

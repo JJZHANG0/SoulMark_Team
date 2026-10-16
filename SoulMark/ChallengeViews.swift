@@ -280,6 +280,8 @@ struct ChallengeDetailView: View {
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var celebration: Int?
+    @State private var distressStep: ChallengeStepDTO?
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -288,6 +290,16 @@ struct ChallengeDetailView: View {
                 if let detail {
                     VStack(alignment: .leading, spacing: 18) {
                         header(detail)
+                        if !detail.contextNotes.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(detail.contextNotes, id: \.self) { note in
+                                    Text(note)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(SoulTheme.secondaryText)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
                         if let celebration { completionCard(awarded: celebration) }
                         else if detail.summary.isCompleted { completionCard(awarded: nil) }
                         ForEach(detail.steps) { step in stepCard(step, detail: detail) }
@@ -308,6 +320,25 @@ struct ChallengeDetailView: View {
         .alert(localizedText("还差一点", "Almost"), isPresented: Binding(get: { errorMessage != nil && detail != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button(localizedText("好的", "OK")) { errorMessage = nil }
         } message: { Text(errorMessage ?? "") }
+        .confirmationDialog(
+            localizedText("你现在还好吗", "Are you okay right now?"),
+            isPresented: Binding(
+                get: { distressStep != nil },
+                set: { if !$0 { distressStep = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(localizedText("我还好，继续", "I'm okay, continue")) {
+                if let step = distressStep {
+                    distressStep = nil
+                    Task { await submit(step, continueAnyway: true) }
+                }
+            }
+            Button(localizedText("先停在这里", "Stop here")) {
+                distressStep = nil
+                Task { await stopHere() }
+            }
+        }
     }
 
     private func header(_ detail: ChallengeDetailDTO) -> some View {
@@ -495,19 +526,35 @@ struct ChallengeDetailView: View {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    private func submit(_ step: ChallengeStepDTO) async {
+    private func stopHere() async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            _ = try await session.pauseSelfPage()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func submit(_ step: ChallengeStepDTO, continueAnyway: Bool = false) async {
         isWorking = true
         defer { isWorking = false }
         do {
             let result = try await session.submitChallengeStep(
                 key: key, index: step.index,
                 response: draft.trimmingCharacters(in: .whitespacesAndNewlines),
-                rating: step.isRating ? rating : nil
+                rating: step.isRating ? rating : nil,
+                continueAnyway: continueAnyway
             )
             detail = result.challenge
             draft = ""
             rating = nil
             if result.challenge.summary.isCompleted { celebration = result.awardedExperience }
-        } catch { errorMessage = error.localizedDescription }
+        } catch SoulAPIError.distressCheck {
+            distressStep = step
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

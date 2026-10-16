@@ -516,7 +516,11 @@ private struct ReviewInsightRow: View {
 
 private struct ConversationReviewDetailSheet: View {
     let record: ConversationReviewRecord
+    @EnvironmentObject private var session: AppSession
     @Environment(\.dismiss) private var dismiss
+    @State private var markedQuotes: Set<String> = []
+    @State private var markingQuote: String?
+    @State private var markError: String?
 
     var body: some View {
         NavigationStack {
@@ -549,6 +553,15 @@ private struct ConversationReviewDetailSheet: View {
                         .background(scoreColor, in: Circle())
                     }
 
+                    ReviewTranscriptMarks(
+                        transcript: record.transcript,
+                        markedQuotes: markedQuotes,
+                        markingQuote: markingQuote,
+                        onMark: { sentence in
+                            Task { await mark(sentence) }
+                        }
+                    )
+
                     ReviewDetailSection(
                         title: localizedText("评分原因", "Why This Score"),
                         systemImage: "checkmark.seal.fill",
@@ -574,6 +587,28 @@ private struct ConversationReviewDetailSheet: View {
                     .fontWeight(.semibold)
                 }
             }
+            .alert(
+                localizedText("这句没有记下", "This line was not saved"),
+                isPresented: Binding(
+                    get: { markError != nil },
+                    set: { if !$0 { markError = nil } }
+                )
+            ) {
+                Button(localizedText("知道了", "OK")) { markError = nil }
+            } message: {
+                Text(markError ?? "")
+            }
+        }
+    }
+
+    private func mark(_ sentence: String) async {
+        markingQuote = sentence
+        defer { markingQuote = nil }
+        do {
+            try await session.markReviewLine(reviewID: record.id, quote: sentence)
+            markedQuotes.insert(sentence)
+        } catch {
+            markError = error.localizedDescription
         }
     }
 
@@ -581,6 +616,58 @@ private struct ConversationReviewDetailSheet: View {
         record.score >= 85
             ? Color(red: 0.70, green: 0.88, blue: 0.55)
             : Color(red: 0.98, green: 0.76, blue: 0.38)
+    }
+}
+
+private struct ReviewTranscriptMarks: View {
+    let transcript: String
+    let markedQuotes: Set<String>
+    let markingQuote: String?
+    let onMark: (String) -> Void
+
+    private var sentences: [String] {
+        transcript
+            .components(separatedBy: CharacterSet(charactersIn: "\n。！？.!?"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count >= 2 }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(localizedText("原文", "Transcript"), systemImage: "text.quote")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(SoulTheme.accent)
+            if sentences.isEmpty {
+                Text(localizedText("原文里没有可以指认的句子。", "There is no sentence to mark."))
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(SoulTheme.secondaryText)
+            }
+            ForEach(sentences, id: \.self) { sentence in
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(sentence)
+                        .font(.system(size: 15, weight: .regular))
+                        .foregroundStyle(SoulTheme.primaryText)
+                        .lineSpacing(4)
+                    Button {
+                        onMark(sentence)
+                    } label: {
+                        Label(
+                            markedQuotes.contains(sentence)
+                                ? localizedText("已记下这句", "Saved")
+                                : localizedText("这句是我说的", "This sentence is mine"),
+                            systemImage: markedQuotes.contains(sentence) ? "checkmark" : "quote.opening"
+                        )
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(SoulTheme.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(markingQuote == sentence || markedQuotes.contains(sentence))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(SoulGlassCardBackground())
     }
 }
 

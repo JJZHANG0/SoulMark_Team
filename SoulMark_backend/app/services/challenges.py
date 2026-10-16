@@ -24,6 +24,12 @@ from app.services.challenge_catalog import (
 )
 
 
+def _in_distress(text: str) -> bool:
+    from app.services.self_page import looks_in_distress
+
+    return looks_in_distress(text)
+
+
 def get_challenge(key: str) -> Challenge:
     challenge = CHALLENGES_BY_KEY.get(key)
     if challenge is None:
@@ -69,8 +75,12 @@ def _summary_fields(challenge: Challenge, progress: ChallengeProgress | None) ->
 
 
 async def _detail(
-    session: AsyncSession, challenge: Challenge, progress: ChallengeProgress | None
+    session: AsyncSession,
+    owner_id: UUID,
+    challenge: Challenge,
+    progress: ChallengeProgress | None,
 ) -> ChallengeDetail:
+    from app.services.self_page import challenge_context
     answers: dict[int, ChallengeReflection] = {}
     if progress is not None:
         rows = await session.scalars(
@@ -95,6 +105,7 @@ async def _detail(
         intro=challenge.intro,
         completion_rule=challenge.completion_rule,
         steps=steps,
+        context_notes=await challenge_context(session, owner_id, challenge.key),
     )
 
 
@@ -110,7 +121,7 @@ async def list_challenges(session: AsyncSession, owner_id: UUID) -> ChallengeLis
 
 async def challenge_detail(session: AsyncSession, owner_id: UUID, key: str) -> ChallengeDetail:
     challenge = get_challenge(key)
-    return await _detail(session, challenge, await _progress(session, owner_id, key))
+    return await _detail(session, owner_id, challenge, await _progress(session, owner_id, key))
 
 
 async def start_challenge(session: AsyncSession, owner_id: UUID, key: str) -> ChallengeDetail:
@@ -131,7 +142,7 @@ async def start_challenge(session: AsyncSession, owner_id: UUID, key: str) -> Ch
         progress.started_at = now
         progress.completed_at = None
     await session.flush()
-    result = await _detail(session, challenge, progress)
+    result = await _detail(session, owner_id, challenge, progress)
     await session.commit()
     return result
 
@@ -165,7 +176,7 @@ async def _complete(
                 hashlib.sha256(event_key.encode()).hexdigest(),
             )
     snapshot = await growth_service.growth_snapshot(session, state, now, decayed)
-    detail = await _detail(session, challenge, progress)
+    detail = await _detail(session, owner_id, challenge, progress)
     await session.commit()
     return ChallengeActionResponse(challenge=detail, awarded_experience=awarded, growth=snapshot)
 
@@ -187,6 +198,13 @@ async def submit_step(
         raise AppError("challenge_step_locked", "请先完成前面的步骤。", 409)
     step = challenge.steps[index]
     text = payload.response.strip()
+    if (
+        step.kind != "rating"
+        and text
+        and not payload.continue_anyway
+        and _in_distress(text)
+    ):
+        raise AppError("distress_check", "你现在还好吗", 409)
     if step.kind == "rating":
         if payload.rating is None:
             raise AppError("challenge_rating_required", "请选择 1–5 的分数。", 422)
@@ -218,7 +236,9 @@ async def submit_step(
     await session.commit()
     if progress.completed_steps >= len(challenge.steps):
         return await _complete(session, owner_id, challenge, progress)
-    return ChallengeActionResponse(challenge=await _detail(session, challenge, progress))
+    return ChallengeActionResponse(
+        challenge=await _detail(session, owner_id, challenge, progress)
+    )
 
 
 async def complete_challenge(

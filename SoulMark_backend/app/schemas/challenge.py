@@ -40,6 +40,7 @@ class ChallengeDetail(ChallengeSummary):
     intro: str
     completion_rule: str
     steps: list[ChallengeStepResponse]
+    context_notes: list[str] = []
 
 
 class ChallengeList(BaseModel):
@@ -51,53 +52,10 @@ class ChallengeList(BaseModel):
 class ChallengeStepSubmission(BaseModel):
     response: str = Field(default="", max_length=4000)
     rating: int | None = Field(default=None, ge=1, le=5)
+    continue_anyway: bool = False
 
 
 class ChallengeActionResponse(BaseModel):
     challenge: ChallengeDetail
     awarded_experience: int = 0
     growth: GrowthSnapshot | None = None
-
-
-class ReportDimension(BaseModel):
-    key: str
-    title: str
-    score: int
-    completed_challenges: int
-    insight: str
-
-
-class ReportHighlight(BaseModel):
-    challenge_title: str
-    step_title: str
-    response: str
-    created_at: datetime
-
-
-class RelationshipMix(BaseModel):
-    label: str
-    count: int
-
-
-class SelfAwarenessReport(BaseModel):
-    generated_at: datetime
-    display_name: str
-    headline: str
-    summary: str
-    overall_score: int
-    level: int
-    title_key: str
-    experience_balance: int
-    challenges_completed: int
-    challenges_active: int
-    reflections_count: int
-    reviews_count: int
-    average_review_score: float | None
-    practices_count: int
-    contacts_count: int
-    dimensions: list[ReportDimension]
-    strengths: list[str]
-    growth_edges: list[str]
-    next_steps: list[str]
-    highlights: list[ReportHighlight]
-    relationship_mix: list[RelationshipMix]

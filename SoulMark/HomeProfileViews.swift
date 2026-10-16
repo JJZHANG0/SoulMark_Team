@@ -7,10 +7,13 @@ import AVFoundation
 import SwiftUI
 
 struct IntegratedHomePage: View {
+    @EnvironmentObject private var session: AppSession
     @AppStorage("soulMarkLanguage") private var language = "zh"
     @AppStorage("soulMarkGenderTheme") private var genderTheme = "male"
     @AppStorage("soulMarkAppearanceMode") private var appearanceMode = "auto"
     @State private var showingSettings = false
+    @State private var showingReport = false
+    @State private var pageSummary: SelfAwarenessReportDTO?
     @State private var sharePayload: DailyQuoteSharePayload?
     @State private var shareErrorMessage: String?
 
@@ -38,6 +41,9 @@ struct IntegratedHomePage: View {
 
                     dailyDose
                     heroPanel
+                    if let pageSummary {
+                        selfPageLine(pageSummary)
+                    }
 
                     VStack(alignment: .leading, spacing: 14) {
                         SoulSectionHeader(
@@ -75,6 +81,15 @@ struct IntegratedHomePage: View {
         } message: {
             Text(shareErrorMessage ?? "")
         }
+        .fullScreenCover(isPresented: $showingReport) {
+            SelfAwarenessReportSheet(
+                onOpenGraph: onOpenRelationshipGraph,
+                onOpenScenario: onOpenScenario,
+                onOpenJournal: onOpenJournal
+            )
+            .environmentObject(session)
+        }
+        .task(id: session.selfPageRevision) { await loadPageSummary() }
     }
 
     private var heroPanel: some View {
@@ -139,6 +154,35 @@ struct IntegratedHomePage: View {
         }
         .frame(height: language == "en" ? 334 : 286)
         .clipShape(RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+
+    private func selfPageLine(_ summary: SelfAwarenessReportDTO) -> some View {
+        Button {
+            showingReport = true
+        } label: {
+            HStack(spacing: 12) {
+                Text(localizedText(
+                    "证据 \(summary.evidenceCovered)/\(summary.evidenceTotal)",
+                    "Evidence \(summary.evidenceCovered)/\(summary.evidenceTotal)"
+                ))
+                Spacer(minLength: 8)
+                Text(localizedText(
+                    "本周这一步：\(summary.weeklyStepDone ? "已做" : "未做")",
+                    "This week's step: \(summary.weeklyStepDone ? "Done" : "Not done")"
+                ))
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 12, weight: .heavy))
+            }
+            .font(.system(size: 14, weight: .heavy, design: .rounded))
+            .foregroundStyle(SoulTheme.primaryText)
+            .padding(16)
+            .background(SoulGlassCardBackground())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func loadPageSummary() async {
+        pageSummary = try? await session.loadSelfAwarenessReport()
     }
 
     private var dailyDose: some View {
@@ -384,6 +428,9 @@ struct IntegratedProfilePage: View {
 
     var people: [RelationshipPerson] = []
     var achievementProgress: AchievementProgress = .empty
+    var onOpenRelationshipGraph: () -> Void = {}
+    var onOpenScenario: () -> Void = {}
+    var onOpenJournal: () -> Void = {}
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -434,8 +481,12 @@ struct IntegratedProfilePage: View {
                 .presentationDragIndicator(.visible)
         }
         .fullScreenCover(isPresented: $showingReport) {
-            SelfAwarenessReportSheet()
-                .environmentObject(session)
+            SelfAwarenessReportSheet(
+                onOpenGraph: onOpenRelationshipGraph,
+                onOpenScenario: onOpenScenario,
+                onOpenJournal: onOpenJournal
+            )
+            .environmentObject(session)
         }
         .sheet(item: $selectedRecentSection) { section in
             ProfileRecentActivitySheet(section: section, people: people)

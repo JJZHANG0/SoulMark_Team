@@ -70,10 +70,12 @@ struct ChallengeDetailDTO: Decodable, Equatable {
     let intro: String
     let completionRule: String
     let steps: [ChallengeStepDTO]
+    let contextNotes: [String]
 
     enum CodingKeys: String, CodingKey {
         case intro, steps
         case completionRule = "completion_rule"
+        case contextNotes = "context_notes"
     }
 
     init(from decoder: Decoder) throws {
@@ -82,6 +84,7 @@ struct ChallengeDetailDTO: Decodable, Equatable {
         intro = try container.decode(String.self, forKey: .intro)
         completionRule = try container.decode(String.self, forKey: .completionRule)
         steps = try container.decode([ChallengeStepDTO].self, forKey: .steps)
+        contextNotes = try container.decodeIfPresent([String].self, forKey: .contextNotes) ?? []
     }
 
     var currentStepIndex: Int? {
@@ -115,74 +118,143 @@ struct ChallengeActionDTO: Decodable {
 struct ChallengeStepSubmissionPayload: Encodable {
     let response: String
     let rating: Int?
+    var continueAnyway: Bool = false
+
+    enum CodingKeys: String, CodingKey {
+        case response, rating
+        case continueAnyway = "continue_anyway"
+    }
+}
+
+struct SelfEvidenceInput: Encodable {
+    let sourceType: String
+    let sourceId: UUID?
+    let quote: String
+    let detail: String
+    let occurredOn: String?
+
+    enum CodingKeys: String, CodingKey {
+        case quote, detail
+        case sourceType = "source_type"
+        case sourceId = "source_id"
+        case occurredOn = "occurred_on"
+    }
+}
+
+struct ConfirmSelfCellPayload: Encodable {
+    let slot: String
+    let text: String
+    let evidence: [SelfEvidenceInput]
+    let continueAnyway: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case slot, text, evidence
+        case continueAnyway = "continue_anyway"
+    }
+}
+
+struct MarkMyLinePayload: Encodable {
+    let quote: String
+}
+
+struct MarkedReviewLineDTO: Decodable {
+    let id: UUID
+    let slot: String
+    let quote: String
+    let confirmed: Bool
 }
 
 struct SelfAwarenessReportDTO: Decodable, Equatable {
-    struct Dimension: Decodable, Equatable, Identifiable {
-        let key: String
+    struct Cell: Decodable, Equatable, Identifiable {
+        let slot: String
         let title: String
-        let score: Int
-        let completedChallenges: Int
-        let insight: String
-        var id: String { key }
+        let text: String
+        let covered: Bool
+        let missing: [String]
+        var id: String { slot }
+    }
+
+    struct DraftItem: Decodable, Equatable, Identifiable {
+        let slot: String
+        let sourceType: String
+        let sourceId: UUID?
+        let quote: String
+        let detail: String
+        let occurredOn: Date?
+        let prompt: String
+        let ready: Bool
+
+        var id: String {
+            "\(slot)|\(sourceType)|\(sourceId?.uuidString ?? "")|\(quote)|\(detail)"
+        }
+
         enum CodingKeys: String, CodingKey {
-            case key, title, score, insight
-            case completedChallenges = "completed_challenges"
+            case slot, quote, detail, prompt, ready
+            case sourceType = "source_type"
+            case sourceId = "source_id"
+            case occurredOn = "occurred_on"
         }
     }
 
-    struct Highlight: Decodable, Equatable, Identifiable {
-        let challengeTitle: String
-        let stepTitle: String
-        let response: String
-        var id: String { challengeTitle + stepTitle + response }
+    struct Bookkeeping: Decodable, Equatable {
+        let contactsCount: Int
+        let eventsCount: Int
+        let reviewsCount: Int
+        let practicesCount: Int
+
         enum CodingKeys: String, CodingKey {
-            case response
-            case challengeTitle = "challenge_title"
-            case stepTitle = "step_title"
+            case contactsCount = "contacts_count"
+            case eventsCount = "events_count"
+            case reviewsCount = "reviews_count"
+            case practicesCount = "practices_count"
         }
     }
 
-    struct Mix: Decodable, Equatable, Identifiable {
-        let label: String
-        let count: Int
-        var id: String { label }
-    }
-
-    let displayName: String
-    let headline: String
-    let summary: String
-    let overallScore: Int
-    let level: Int
-    let titleKey: String
-    let challengesCompleted: Int
-    let challengesActive: Int
-    let reflectionsCount: Int
-    let reviewsCount: Int
-    let averageReviewScore: Double?
-    let practicesCount: Int
-    let contactsCount: Int
-    let dimensions: [Dimension]
-    let strengths: [String]
-    let growthEdges: [String]
-    let nextSteps: [String]
-    let highlights: [Highlight]
-    let relationshipMix: [Mix]
+    let weekStart: Date
+    let pausedAt: Date?
+    let evidenceCovered: Int
+    let evidenceTotal: Int
+    let weeklyStepDone: Bool
+    let weeklyStepCompletedAt: Date?
+    let cells: [Cell]
+    let draft: [DraftItem]
+    let bookkeeping: Bookkeeping
 
     enum CodingKeys: String, CodingKey {
-        case headline, summary, level, dimensions, strengths, highlights
-        case displayName = "display_name"
-        case overallScore = "overall_score"
-        case titleKey = "title_key"
-        case challengesCompleted = "challenges_completed"
-        case challengesActive = "challenges_active"
-        case reflectionsCount = "reflections_count"
-        case reviewsCount = "reviews_count"
-        case averageReviewScore = "average_review_score"
-        case practicesCount = "practices_count"
-        case contactsCount = "contacts_count"
-        case growthEdges = "growth_edges"
-        case nextSteps = "next_steps"
-        case relationshipMix = "relationship_mix"
+        case cells, draft, bookkeeping
+        case weekStart = "week_start"
+        case pausedAt = "paused_at"
+        case evidenceCovered = "evidence_covered"
+        case evidenceTotal = "evidence_total"
+        case weeklyStepDone = "weekly_step_done"
+        case weeklyStepCompletedAt = "weekly_step_completed_at"
+    }
+}
+
+func selfPageDayString(_ date: Date) -> String {
+    let formatter = DateFormatter()
+    formatter.calendar = Calendar(identifier: .gregorian)
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = TimeZone(identifier: "Asia/Singapore")
+    formatter.dateFormat = "yyyy-MM-dd"
+    return formatter.string(from: date)
+}
+
+func selfPageSlotTitle(_ slot: String) -> String {
+    switch slot {
+    case "who":
+        localizedText("我是谁", "Who I am")
+    case "pursuit":
+        localizedText("在追", "Pursuing")
+    case "fear":
+        localizedText("在怕", "Afraid of")
+    case "pattern_1", "pattern_2", "pattern_3":
+        localizedText("模式", "Pattern")
+    case "blind_spot":
+        localizedText("盲区", "Blind spot")
+    case "weekly_step":
+        localizedText("本周一步", "This week's step")
+    default:
+        slot
     }
 }
