@@ -41,8 +41,7 @@ struct IntegratedHomePage: View {
 
                     VStack(alignment: .leading, spacing: 14) {
                         SoulSectionHeader(
-                            title: localizedText("快速开始", "Quick Start"),
-                            detail: "02 Actions"
+                            title: localizedText("快速开始", "Quick Start")
                         )
                         quickActions
                     }
@@ -179,10 +178,6 @@ struct IntegratedHomePage: View {
                 .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundStyle(SoulTheme.tertiaryText)
                 .lineLimit(2)
-
-            Text("SOULMARK / DAILY DOSE")
-                .font(.system(size: 9, weight: .heavy, design: .monospaced))
-                .foregroundStyle(SoulTheme.tertiaryText)
         }
         .padding(18)
         .background(SoulGlassCardBackground(accented: true))
@@ -536,7 +531,7 @@ struct IntegratedProfilePage: View {
 
     private var accountMenu: some View {
         VStack(alignment: .leading, spacing: 14) {
-            SoulSectionHeader(title: localizedText("数据与安全", "Data & Security"), detail: "Vault")
+            SoulSectionHeader(title: localizedText("数据与安全", "Data & Security"))
 
             VStack(spacing: 0) {
                 Button {
