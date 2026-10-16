@@ -270,7 +270,7 @@ private struct ConfirmSelfCellSheet: View {
 
     @State private var text: String
     @State private var selected: Set<String> = []
-    @State private var addedQuotes: [String: String] = []
+    @State private var addedQuotes: [String: String] = [:]
     @State private var noteQuote = ""
     @State private var noteDetail = ""
     @State private var noteDate = Date()
