@@ -87,6 +87,7 @@ struct ContentView: View {
         ZStack {
             ForEach(AppSection.allCases, id: \.self) { section in
                 page(for: section)
+                    .clipShape(Rectangle())
                     .opacity(selectedSection == section ? 1 : 0)
                     .allowsHitTesting(selectedSection == section)
                     .accessibilityHidden(selectedSection != section)
@@ -221,10 +222,7 @@ struct ContentView: View {
     }
 
     private var relationshipGraphPage: some View {
-        ZStack(alignment: .bottom) {
-            RelationshipBackground()
-
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 RelationshipHeader(
                     onAddPerson: {
                         requestAddPerson()
@@ -269,8 +267,9 @@ struct ContentView: View {
                 )
                 .id(graphLayoutRevision)
                 .padding(.top, 8)
-            }
+                .padding(.bottom, AppTabBar.reservedHeight)
         }
+        .background { RelationshipBackground() }
         .sheet(isPresented: $isAddingPerson) {
             AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData, informationFields in
                 if case .custom = category, !customCategories.contains(category) {

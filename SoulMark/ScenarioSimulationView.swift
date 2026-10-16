@@ -74,10 +74,7 @@ struct ScenarioSimulationView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            SoulBackground()
-
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 ScenarioHeader(
                     onShowHistory: {
                         Task {
@@ -140,11 +137,11 @@ struct ScenarioSimulationView: View {
 
                     voiceControl
                         .padding(.top, 16)
-                        .padding(.bottom, 18)
+                        .padding(.bottom, AppTabBar.reservedHeight)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
         }
+        .background { SoulBackground() }
         .onChange(of: relationshipPeople) { _, _ in
             syncRelationshipParticipants()
         }
@@ -803,7 +800,6 @@ private struct ScenarioHeader: View {
 
     var body: some View {
         SoulPageHeader(
-            eyebrow: "Practice / 03",
             title: localizedText("情景模拟", "Simulation"),
             subtitle: localizedText("先练习，再走进真实对话。", "Practice first, then step into the real conversation.")
         ) {

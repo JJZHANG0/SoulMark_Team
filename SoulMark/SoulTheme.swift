@@ -380,18 +380,15 @@ struct SoulIconButton: View {
 }
 
 struct SoulPageHeader<Trailing: View>: View {
-    let eyebrow: String
     let title: String
     let subtitle: String
     let trailing: Trailing
 
     init(
-        eyebrow: String,
         title: String,
         subtitle: String,
         @ViewBuilder trailing: () -> Trailing
     ) {
-        self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
         self.trailing = trailing()
@@ -400,16 +397,6 @@ struct SoulPageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 7) {
-                    Capsule()
-                        .fill(SoulTheme.energy)
-                        .frame(width: 26, height: 3)
-
-                    Text(eyebrow.uppercased())
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.energy)
-                }
-
                 Text(title)
                     .font(.system(size: 29, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
@@ -427,8 +414,8 @@ struct SoulPageHeader<Trailing: View>: View {
 }
 
 extension SoulPageHeader where Trailing == EmptyView {
-    init(eyebrow: String, title: String, subtitle: String) {
-        self.init(eyebrow: eyebrow, title: title, subtitle: subtitle) { EmptyView() }
+    init(title: String, subtitle: String) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
     }
 }
 

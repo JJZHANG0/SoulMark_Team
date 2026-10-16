@@ -70,12 +70,8 @@ struct ConversationReviewPage: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            SoulBackground()
-
-            VStack(spacing: 0) {
+        VStack(spacing: 0) {
                 SoulPageHeader(
-                    eyebrow: "Reflect / 04",
                     title: localizedText("沟通复盘", "Conversation Review"),
                     subtitle: localizedText("回看表达如何发生，也看见下一次可以怎么说。", "See how your words landed and what you can try next time.")
                 ) {
@@ -118,10 +114,10 @@ struct ConversationReviewPage: View {
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 8)
-                    .padding(.bottom, 18)
+                    .padding(.bottom, AppTabBar.reservedHeight)
                 }
-            }
         }
+        .background { SoulBackground() }
         .sheet(isPresented: $isAddingRecord) {
             AddReviewRecordSheet { eventID, title, source, transcript, media in
                 let (record, suggestion) = try await session.analyzeAndRecordReview(

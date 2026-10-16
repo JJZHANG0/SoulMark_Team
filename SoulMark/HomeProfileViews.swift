@@ -24,13 +24,9 @@ struct IntegratedHomePage: View {
     let onSelectPerson: (RelationshipPerson) -> Void
 
     var body: some View {
-        ZStack {
-            SoulBackground()
-
-            ScrollView(showsIndicators: false) {
+        ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 26) {
                     SoulPageHeader(
-                        eyebrow: "Soul OS / 01",
                         title: "SoulMark",
                         subtitle: greetingSubtitle
                     ) {
@@ -58,9 +54,9 @@ struct IntegratedHomePage: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 18)
-                .padding(.bottom, 18)
+                .padding(.bottom, AppTabBar.reservedHeight)
             }
-        }
+        .background { SoulBackground() }
         .sheet(isPresented: $showingSettings) {
             SoulSettingsSheet()
                 .presentationDetents([.large])
@@ -395,13 +391,9 @@ struct IntegratedProfilePage: View {
     var achievementProgress: AchievementProgress = .empty
 
     var body: some View {
-        ZStack {
-            SoulBackground()
-
-            ScrollView(showsIndicators: false) {
+        ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 24) {
                     SoulPageHeader(
-                        eyebrow: "Identity / 05",
                         title: localizedText("我的", "Profile"),
                         subtitle: localizedText("通过关系，认识自己。", "Know yourself through your relationships.")
                     ) {
@@ -423,9 +415,9 @@ struct IntegratedProfilePage: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 18)
-                .padding(.bottom, 18)
+                .padding(.bottom, AppTabBar.reservedHeight)
             }
-        }
+        .background { SoulBackground() }
         .sheet(isPresented: $showingSettings) {
             SoulSettingsSheet()
                 .presentationDetents([.large])

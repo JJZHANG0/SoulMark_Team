@@ -22,7 +22,6 @@ struct RelationshipHeader: View {
 
     var body: some View {
         SoulPageHeader(
-            eyebrow: "Network / 02",
             title: localizedText("关系图谱", "Relationship Map"),
             subtitle: localizedText("看见每一段关系正在靠近，还是远离。", "See which relationships are moving closer and which are drifting away.")
         ) {

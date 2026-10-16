@@ -6,6 +6,13 @@
 import SwiftUI
 
 struct AppTabBar: View {
+    /// Glass bar height, matching the frame below.
+    static let barHeight: CGFloat = 55
+    /// Space kept between the bar and the home indicator.
+    static let bottomPadding: CGFloat = 10
+    /// Bottom inset for tab scroll content, equal to the space the bar occupies.
+    static var reservedHeight: CGFloat { barHeight + bottomPadding }
+
     @Binding var selectedSection: AppSection
     @State private var draggedSelectionX: CGFloat?
     @AppStorage("soulMarkLanguage") private var language = "zh"
@@ -87,10 +94,10 @@ struct AppTabBar: View {
                     }
             )
         }
-        .frame(height: 55)
+        .frame(height: Self.barHeight)
         .background(SoulLiquidGlassBackground(cornerRadius: 26))
         .padding(.horizontal, 18)
-        .padding(.bottom, 10)
+        .padding(.bottom, Self.bottomPadding)
     }
 
     @ViewBuilder
