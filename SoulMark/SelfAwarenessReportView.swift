@@ -52,7 +52,7 @@ struct SelfAwarenessReportSheet: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(red: 0.06, green: 0.065, blue: 0.08).ignoresSafeArea()
+                SoulBackground()
                 ScrollView(showsIndicators: false) {
                     if let report {
                         SelfAwarenessReportCard(report: report)
@@ -76,7 +76,6 @@ struct SelfAwarenessReportSheet: View {
             }
             .navigationTitle(localizedText("自我认知报告", "Self-awareness Report"))
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(localizedText("关闭", "Close")) { dismiss() }
@@ -218,7 +217,7 @@ struct SelfAwarenessReportCard: View {
                         .stroke(AngularGradient(colors: [violet, mint, violet], center: .center), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     VStack(spacing: 0) {
-                        Text("\(report.overallScore)").font(.system(size: 26, weight: .black, design: .rounded)).foregroundStyle(.white)
+                        Text("\(report.overallScore)").font(.system(size: 26, weight: .bold, design: .rounded)).foregroundStyle(.white)
                         Text("觉察指数").font(.system(size: 9, weight: .bold)).foregroundStyle(soft)
                     }
                 }
@@ -240,7 +239,7 @@ struct SelfAwarenessReportCard: View {
                     HStack {
                         Text(dimension.title).font(.system(size: 14, weight: .heavy, design: .rounded)).foregroundStyle(.white)
                         Spacer()
-                        Text("\(dimension.score)").font(.system(size: 14, weight: .black, design: .monospaced)).foregroundStyle(mint)
+                        Text("\(dimension.score)").font(.system(size: 14, weight: .bold, design: .rounded)).foregroundStyle(mint)
                     }
                     GeometryReader { proxy in
                         ZStack(alignment: .leading) {
@@ -308,7 +307,7 @@ struct SelfAwarenessReportCard: View {
             HStack(spacing: 0) {
                 ForEach(stats, id: \.1) { value, label in
                     VStack(spacing: 4) {
-                        Text(value).font(.system(size: 22, weight: .black, design: .rounded)).foregroundStyle(.white)
+                        Text(value).font(.system(size: 22, weight: .bold, design: .rounded)).foregroundStyle(.white)
                         Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(soft)
                     }
                     .frame(maxWidth: .infinity)

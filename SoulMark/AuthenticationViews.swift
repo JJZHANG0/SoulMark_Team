@@ -5,7 +5,7 @@ struct SoulLaunchView: View {
 
     var body: some View {
         ZStack {
-            SoulBackground()
+            SoulBackground(showsGrid: true)
 
             VStack(spacing: 18) {
                 Spacer()
@@ -266,8 +266,8 @@ struct AuthenticationView: View {
             .font(.system(size: 16, weight: .heavy, design: .rounded))
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 52)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
             .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
         }
         .buttonStyle(.plain)
@@ -330,8 +330,8 @@ struct AuthenticationView: View {
             .font(.system(size: 16, weight: .heavy, design: .rounded))
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 52)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
             .shadow(color: canSubmit ? SoulTheme.accent.opacity(0.28) : .clear, radius: 16, y: 8)
         }
         .buttonStyle(.plain)
@@ -364,7 +364,7 @@ struct AuthenticationView: View {
                     : localizedText("获取验证码", "Send code"))
                     .font(.system(size: 12, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.accent)
-                    .frame(width: 86, height: 54)
+                    .frame(width: 86, height: 52)
                     .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             .buttonStyle(.plain)
@@ -388,8 +388,8 @@ struct AuthenticationView: View {
             .font(.system(size: 16, weight: .heavy, design: .rounded))
             .foregroundStyle(Color.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(height: 52)
+            .background(canSubmit ? SoulTheme.accent : SoulTheme.secondaryText.opacity(0.35), in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(!canSubmit || session.isWorking)
@@ -417,10 +417,7 @@ private struct AuthField: View {
                 .autocorrectionDisabled()
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
         }
-        .padding(.horizontal, 15)
-        .frame(height: 54)
-        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(SoulTheme.cardStroke, lineWidth: 1))
+        .soulInsetField()
     }
 }
 
@@ -439,10 +436,7 @@ private struct AuthSecureField: View {
                 .textContentType(contentType)
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
         }
-        .padding(.horizontal, 15)
-        .frame(height: 54)
-        .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(SoulTheme.cardStroke, lineWidth: 1))
+        .soulInsetField()
     }
 }
 
@@ -629,8 +623,8 @@ struct SoulOnboardingView: View {
                 .font(.system(size: 16, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.white)
                 .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .frame(height: 52)
+                .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || session.isWorking)

@@ -167,27 +167,52 @@ enum SoulTheme {
 }
 
 struct SoulBackground: View {
+    var showsGrid = false
+
     var body: some View {
         ZStack {
             SoulTheme.pageGradient
 
-            GeometryReader { proxy in
-                Path { path in
-                    for x in stride(from: 18.0, through: proxy.size.width, by: 42.0) {
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: proxy.size.height))
-                    }
+            if showsGrid {
+                GeometryReader { proxy in
+                    Path { path in
+                        for x in stride(from: 18.0, through: proxy.size.width, by: 42.0) {
+                            path.move(to: CGPoint(x: x, y: 0))
+                            path.addLine(to: CGPoint(x: x, y: proxy.size.height))
+                        }
 
-                    for y in stride(from: 12.0, through: proxy.size.height, by: 42.0) {
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: proxy.size.width, y: y))
+                        for y in stride(from: 12.0, through: proxy.size.height, by: 42.0) {
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: proxy.size.width, y: y))
+                        }
                     }
+                    .stroke(SoulTheme.gridLine, lineWidth: 0.6)
                 }
-                .stroke(SoulTheme.gridLine, lineWidth: 0.6)
             }
-
         }
         .ignoresSafeArea()
+    }
+}
+
+struct SoulInsetField: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 15)
+            .frame(minHeight: 52)
+            .background(
+                SoulTheme.cardFill,
+                in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+                    .stroke(SoulTheme.cardStroke, lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func soulInsetField() -> some View {
+        modifier(SoulInsetField())
     }
 }
 

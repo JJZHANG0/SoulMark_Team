@@ -21,6 +21,7 @@ struct IntegratedHomePage: View {
     let onOpenRelationshipGraph: () -> Void
     let onOpenScenario: () -> Void
     let onOpenJournal: () -> Void
+    let onSelectPerson: (RelationshipPerson) -> Void
 
     var body: some View {
         ZStack {
@@ -31,11 +32,12 @@ struct IntegratedHomePage: View {
                     SoulPageHeader(
                         eyebrow: "Soul OS / 01",
                         title: "SoulMark",
-                        subtitle: localizedText("早上好。今天也更清楚地理解自己与他人。", "Good morning. See yourself and others a little more clearly today.")
+                        subtitle: greetingSubtitle
                     ) {
                         SoulIconButton(systemImage: "slider.horizontal.3") {
                             showingSettings = true
                         }
+                        .accessibilityLabel(localizedText("个性化", "Personalization"))
                     }
 
                     dailyDose
@@ -56,7 +58,7 @@ struct IntegratedHomePage: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 18)
-                .padding(.bottom, 126)
+                .padding(.bottom, 18)
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -249,53 +251,56 @@ struct IntegratedHomePage: View {
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(radarPeople.enumerated()), id: \.element.id) { index, person in
-                        HStack(spacing: 13) {
-                            ZStack {
-                                Circle()
-                                    .fill(SoulTheme.accentSoft)
-                                    .frame(width: 46, height: 46)
-
-                                Text(String(person.name.prefix(1)))
-                                    .font(.system(size: 17, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(SoulTheme.accent)
-                            }
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(person.name)
-                                    .font(.system(size: 15, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(SoulTheme.primaryText)
-
-                                Text(person.intimacyCalculated
-                                    ? localizedText(
-                                        "\(person.category.displayTitle) · 亲密度 \(Int(person.strength * 100))%",
-                                        "\(person.category.displayTitle) · Closeness \(Int(person.strength * 100))%"
-                                    )
-                                    : localizedText(
-                                        "\(person.category.displayTitle) · 还需 \(max(0, 10 - person.eventCount)) 件事件",
-                                        "\(person.category.displayTitle) · \(max(0, 10 - person.eventCount)) more events"
-                                    )
+                        Button {
+                            onSelectPerson(person)
+                        } label: {
+                            HStack(spacing: 13) {
+                                ContactAvatarView(
+                                    avatarPath: person.avatarURL,
+                                    color: person.category.color,
+                                    symbol: person.symbol,
+                                    size: 46
                                 )
-                                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(SoulTheme.secondaryText)
-                            }
 
-                            Spacer()
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(person.name)
+                                        .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                        .foregroundStyle(SoulTheme.primaryText)
 
-                            HStack(spacing: 4) {
-                                ForEach(0..<4, id: \.self) { strength in
-                                    Capsule()
-                                        .fill(
-                                            person.intimacyCalculated
-                                                && Double(strength + 1) / 4 <= person.strength
-                                                ? SoulTheme.energy
-                                                : SoulTheme.subtleFill
+                                    Text(person.intimacyCalculated
+                                        ? localizedText(
+                                            "\(person.category.displayTitle) · 亲密度 \(Int(person.strength * 100))%",
+                                            "\(person.category.displayTitle) · Closeness \(Int(person.strength * 100))%"
                                         )
-                                        .frame(width: 4, height: CGFloat(9 + strength * 4))
+                                        : localizedText(
+                                            "\(person.category.displayTitle) · 还需 \(max(0, 10 - person.eventCount)) 件事件",
+                                            "\(person.category.displayTitle) · \(max(0, 10 - person.eventCount)) more events"
+                                        )
+                                    )
+                                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(SoulTheme.secondaryText)
                                 }
+
+                                Spacer()
+
+                                HStack(spacing: 4) {
+                                    ForEach(0..<4, id: \.self) { strength in
+                                        Capsule()
+                                            .fill(
+                                                person.intimacyCalculated
+                                                    && Double(strength + 1) / 4 <= person.strength
+                                                    ? SoulTheme.energy
+                                                    : SoulTheme.subtleFill
+                                            )
+                                            .frame(width: 4, height: CGFloat(9 + strength * 4))
+                                    }
+                                }
+                                .frame(width: 30, height: 28, alignment: .bottom)
                             }
-                            .frame(width: 30, height: 28, alignment: .bottom)
+                            .padding(.vertical, 13)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.vertical, 13)
+                        .buttonStyle(.plain)
 
                         if index < radarPeople.count - 1 {
                             Divider().overlay(SoulTheme.cardStroke)
@@ -315,13 +320,11 @@ struct IntegratedHomePage: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(localizedText("本周表达信号", "Weekly Expression Signal"))
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(SoulTheme.primaryText)
 
-                    Text(averageReviewScore == nil
-                        ? localizedText("完成一次复盘后，这里会显示你的平均表达分。", "Complete a review to see your average expression score.")
-                        : localizedText("已完成 \(practiceCount) 次练习，当前分数与复盘平均分同步。", "\(practiceCount) practices completed. This score matches your review average."))
+                    Text(weeklySignalDetail)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.58))
+                        .foregroundStyle(SoulTheme.secondaryText)
                         .lineSpacing(3)
                 }
 
@@ -334,7 +337,7 @@ struct IntegratedHomePage: View {
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.white.opacity(0.08))
+                    Capsule().fill(SoulTheme.subtleFill)
                     Capsule()
                         .fill(SoulTheme.energy)
                         .frame(width: proxy.size.width * signal.progress)
@@ -343,7 +346,32 @@ struct IntegratedHomePage: View {
             .frame(height: 6)
         }
         .padding(18)
-        .background(SoulVisorPanelBackground())
+        .background(SoulGlassCardBackground())
+    }
+
+    private var greetingSubtitle: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:
+            return localizedText("早上好。今天也更清楚地理解自己与他人。", "Good morning. See yourself and others a little more clearly today.")
+        case 12..<18:
+            return localizedText("下午好。今天也更清楚地理解自己与他人。", "Good afternoon. See yourself and others a little more clearly today.")
+        default:
+            return localizedText("晚上好。今天也更清楚地理解自己与他人。", "Good evening. See yourself and others a little more clearly today.")
+        }
+    }
+
+    private var weeklySignalDetail: String {
+        guard averageReviewScore != nil else {
+            return localizedText(
+                "完成一次复盘后，这里会显示你的平均表达分。",
+                "Complete a review to see your average expression score."
+            )
+        }
+        return localizedText(
+            "这是复盘平均分。练习 \(practiceCount) 次另行计算。",
+            "This is the average review score. \(practiceCount) practices are counted separately."
+        )
     }
 
     private var radarPeople: [RelationshipPerson] {
@@ -377,9 +405,10 @@ struct IntegratedProfilePage: View {
                         title: localizedText("我的", "Profile"),
                         subtitle: localizedText("通过关系，认识自己。", "Know yourself through your relationships.")
                     ) {
-                        SoulIconButton(systemImage: "gearshape.fill") {
+                        SoulIconButton(systemImage: "slider.horizontal.3") {
                             showingSettings = true
                         }
+                        .accessibilityLabel(localizedText("个性化", "Personalization"))
                     }
 
                     identityPanel
@@ -394,7 +423,7 @@ struct IntegratedProfilePage: View {
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 18)
-                .padding(.bottom, 126)
+                .padding(.bottom, 18)
             }
         }
         .sheet(isPresented: $showingSettings) {
@@ -492,7 +521,7 @@ struct IntegratedProfilePage: View {
                     .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(localizedText("个性化界面", "Personalize Interface"))
+                    Text(localizedText("个性化", "Personalization"))
                         .font(.system(size: 16, weight: .heavy, design: .rounded))
                         .foregroundStyle(SoulTheme.primaryText)
 
@@ -608,10 +637,10 @@ private struct DataVaultSheet: View {
                                         .font(.system(size: 14, weight: .heavy, design: .rounded))
                                         .foregroundStyle(Color.white)
                                         .frame(maxWidth: .infinity)
-                                        .frame(height: 48)
+                                        .frame(height: 52)
                                         .background(
                                             SoulTheme.accent,
-                                            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                            in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
                                         )
                                 }
                                 .buttonStyle(.plain)
@@ -623,20 +652,20 @@ private struct DataVaultSheet: View {
                                         ProgressView()
                                             .tint(Color.white)
                                             .frame(maxWidth: .infinity)
-                                            .frame(height: 48)
+                                            .frame(height: 52)
                                             .background(
                                                 SoulTheme.accent,
-                                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
                                             )
                                     } else {
                                         Label(localizedText("生成数据副本", "Create Data Copy"), systemImage: "arrow.down.doc.fill")
                                             .font(.system(size: 14, weight: .heavy, design: .rounded))
                                             .foregroundStyle(Color.white)
                                             .frame(maxWidth: .infinity)
-                                            .frame(height: 48)
+                                            .frame(height: 52)
                                             .background(
                                                 SoulTheme.accent,
-                                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                                in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
                                             )
                                     }
                                 }
@@ -921,9 +950,7 @@ private struct AccountDeletionVerificationSheet: View {
                                 .onChange(of: code) { _, value in
                                     code = String(value.filter(\.isNumber).prefix(6))
                                 }
-                                .padding(.horizontal, 14)
-                                .frame(height: 52)
-                                .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .soulInsetField()
 
                             Button {
                                 sendCode()
@@ -942,9 +969,7 @@ private struct AccountDeletionVerificationSheet: View {
                     } else {
                         SecureField(localizedText("输入账户密码", "Enter account password"), text: $password)
                             .textContentType(.password)
-                            .padding(.horizontal, 14)
-                            .frame(height: 52)
-                            .background(SoulTheme.cardFill, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .soulInsetField()
                     }
 
                     Text(localizedText(

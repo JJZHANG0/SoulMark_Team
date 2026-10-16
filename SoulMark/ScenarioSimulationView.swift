@@ -94,16 +94,29 @@ struct ScenarioSimulationView: View {
                     }
                 )
 
-                VStack(spacing: 0) {
-                    Spacer(minLength: 8)
+                ScrollView(showsIndicators: false) {
+                    partnerSelector
+                        .padding(.horizontal, 18)
+                        .padding(.top, 8)
+
+                    HStack {
+                        Spacer()
+                        ScenarioModeQuickSwitch(mode: selectedMode) {
+                            isShowingModePicker = true
+                        }
+                    }
+                    .padding(.trailing, 14)
+                    .padding(.top, 8)
 
                     ScenarioAnimatedMascot(
-                        height: voiceCall.phase.isActive || !conversation.isEmpty ? 175 : 238,
+                        height: voiceCall.phase.isActive || !conversation.isEmpty ? 160 : 200,
                         state: voiceCall.phase.mascotAnimationState(
                             emotion: voiceCall.assistantEmotion
                         )
                     )
                     .animation(.easeInOut(duration: 0.24), value: voiceCall.phase.isActive)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 8)
 
                     VStack(spacing: 5) {
                         Text(localizedText("准备与 AI 对话", "READY TO TALK WITH AI"))
@@ -120,27 +133,17 @@ struct ScenarioSimulationView: View {
 
                     if !conversation.isEmpty {
                         MinimalScenarioTranscript(messages: conversation, scrollTarget: conversationScrollTarget)
-                            .frame(height: 110)
+                            .frame(minHeight: 160)
                             .padding(.horizontal, 18)
                             .padding(.top, 12)
                     }
 
-                    Spacer(minLength: 12)
-
                     voiceControl
-                        .padding(.bottom, 118)
+                        .padding(.top, 16)
+                        .padding(.bottom, 18)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        }
-        .overlay(alignment: .topTrailing) {
-            ScenarioModeQuickSwitch(mode: selectedMode) {
-                isShowingModePicker = true
-            }
-            .padding(.top, 126)
-            .padding(.trailing, 14)
-        }
-        .onAppear {
-            isShowingModePicker = true
         }
         .onChange(of: relationshipPeople) { _, _ in
             syncRelationshipParticipants()
@@ -889,7 +892,7 @@ private struct MinimalScenarioTranscript: View {
                             if message.isUser { Spacer(minLength: 44) }
 
                             Text(message.text)
-                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundStyle(message.isUser ? Color.white : SoulTheme.primaryText)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
@@ -1174,8 +1177,8 @@ private struct ScenarioParticipantPickerSheet: View {
                             .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(Color.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .frame(height: 52)
+                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }

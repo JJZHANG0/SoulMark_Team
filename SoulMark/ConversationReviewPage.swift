@@ -25,6 +25,7 @@ struct ConversationReviewPage: View {
     @State private var selectedRecord: ConversationReviewRecord?
     @State private var searchText = ""
     @State private var deletionError: String?
+    @State private var pendingDeletion: ConversationReviewRecord?
     @State private var queuedTimelineSuggestion: ReviewTimelineSuggestion?
     @State private var pendingTimelineSuggestion: ReviewTimelineSuggestion?
     let onRecordCountChange: (Int) -> Void
@@ -40,6 +41,32 @@ struct ConversationReviewPage: View {
     private var averageScore: Int {
         guard !filteredRecords.isEmpty else { return 0 }
         return filteredRecords.map(\.score).reduce(0, +) / filteredRecords.count
+    }
+
+    private func reviewTrend(of records: [ConversationReviewRecord]) -> ReviewScoreTrend {
+        let sorted = records.sorted { $0.date < $1.date }
+        guard sorted.count >= 2 else { return .none }
+        let midpoint = sorted.count / 2
+        let earlier = sorted.prefix(midpoint)
+        let later = sorted.suffix(sorted.count - midpoint)
+        guard !earlier.isEmpty, !later.isEmpty else { return .none }
+        let earlierAverage = Double(earlier.map(\.score).reduce(0, +)) / Double(earlier.count)
+        let laterAverage = Double(later.map(\.score).reduce(0, +)) / Double(later.count)
+        if laterAverage >= earlierAverage + 3 { return .up }
+        if laterAverage <= earlierAverage - 3 { return .down }
+        return .flat
+    }
+
+    private func deleteRecord(_ record: ConversationReviewRecord) {
+        Task {
+            do {
+                try await session.deleteReview(record.id)
+                records.removeAll { $0.id == record.id }
+                onRecordCountChange(records.count)
+            } catch {
+                deletionError = error.localizedDescription
+            }
+        }
     }
 
     var body: some View {
@@ -62,7 +89,11 @@ struct ConversationReviewPage: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: 18) {
-                        ReviewSignalPanel(averageScore: averageScore, resultCount: filteredRecords.count)
+                        ReviewSignalPanel(
+                            averageScore: averageScore,
+                            resultCount: filteredRecords.count,
+                            trend: reviewTrend(of: filteredRecords)
+                        )
 
                         ReviewFilterPanel(
                             selectedSource: $selectedSource,
@@ -70,7 +101,7 @@ struct ConversationReviewPage: View {
                         )
 
                         if filteredRecords.isEmpty {
-                            EmptyReviewState()
+                            EmptyReviewState(isSearchMiss: !records.isEmpty)
                         }
 
                         ForEach(filteredRecords) { record in
@@ -80,22 +111,14 @@ struct ConversationReviewPage: View {
                                     selectedRecord = record
                                 },
                                 onDelete: {
-                                    Task {
-                                        do {
-                                            try await session.deleteReview(record.id)
-                                            records.removeAll { $0.id == record.id }
-                                            onRecordCountChange(records.count)
-                                        } catch {
-                                            deletionError = error.localizedDescription
-                                        }
-                                    }
+                                    pendingDeletion = record
                                 }
                             )
                         }
                     }
                     .padding(.horizontal, 18)
                     .padding(.top, 8)
-                    .padding(.bottom, 126)
+                    .padding(.bottom, 18)
                 }
             }
         }
@@ -154,6 +177,26 @@ struct ConversationReviewPage: View {
                 onRecordCountChange(records.count)
             }
         }
+        .confirmationDialog(
+            localizedText("删除这条复盘？", "Delete this review?"),
+            isPresented: Binding(
+                get: { pendingDeletion != nil },
+                set: { if !$0 { pendingDeletion = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(localizedText("删除", "Delete"), role: .destructive) {
+                if let pendingDeletion {
+                    deleteRecord(pendingDeletion)
+                }
+                self.pendingDeletion = nil
+            }
+            Button(localizedText("取消", "Cancel"), role: .cancel) {
+                pendingDeletion = nil
+            }
+        } message: {
+            Text(localizedText("删除后无法恢复。", "This cannot be undone."))
+        }
         .alert(
             localizedText("删除失败", "Delete Failed"),
             isPresented: Binding(
@@ -168,9 +211,35 @@ struct ConversationReviewPage: View {
     }
 }
 
+private enum ReviewScoreTrend {
+    case none, up, down, flat
+
+    var label: String? {
+        switch self {
+        case .none:
+            nil
+        case .up:
+            localizedText("近期分数高于更早的记录", "Recent scores are higher than earlier ones")
+        case .down:
+            localizedText("近期分数低于更早的记录", "Recent scores are lower than earlier ones")
+        case .flat:
+            localizedText("近期分数和更早的记录接近", "Recent scores are close to earlier ones")
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .up: "arrow.up.right"
+        case .down: "arrow.down.right"
+        case .flat, .none: "minus"
+        }
+    }
+}
+
 private struct ReviewSignalPanel: View {
     let averageScore: Int
     let resultCount: Int
+    let trend: ReviewScoreTrend
 
     var body: some View {
         HStack(spacing: 18) {
@@ -196,7 +265,9 @@ private struct ReviewSignalPanel: View {
 
             VStack(alignment: .leading, spacing: 10) {
                 Label(localizedText("\(resultCount) 条复盘", "\(resultCount) reviews"), systemImage: "text.bubble.fill")
-                Label(localizedText("信号持续上升", "Signal trending up"), systemImage: "arrow.up.right")
+                if let trendLabel = trend.label {
+                    Label(trendLabel, systemImage: trend.systemImage)
+                }
             }
             .font(.system(size: 12, weight: .heavy, design: .rounded))
             .foregroundStyle(SoulTheme.secondaryText)
@@ -313,15 +384,26 @@ private struct ReviewSourceFilterButton: View {
 }
 
 private struct EmptyReviewState: View {
+    var isSearchMiss = false
+
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: "doc.text.magnifyingglass")
+            Image(systemName: isSearchMiss ? "magnifyingglass" : "square.and.pencil")
                 .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(secondaryTextColor)
 
-            Text(localizedText("没有找到相关复盘", "No matching reviews"))
+            Text(isSearchMiss
+                ? localizedText("没有找到相关复盘", "No matching reviews")
+                : localizedText("还没有复盘", "No reviews yet"))
                 .font(.system(size: 15, weight: .bold))
                 .foregroundStyle(primaryTextColor)
+
+            if !isSearchMiss {
+                Text(localizedText("记下一次真实沟通，这里会出现表达分析。", "Save a real conversation to see how it landed."))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(secondaryTextColor)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)

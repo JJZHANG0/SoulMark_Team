@@ -122,11 +122,18 @@ struct ChallengeHubSheet: View {
     @State private var list: ChallengeListDTO?
     @State private var errorMessage: String?
     @State private var filter: String = "all"
+    @AppStorage("soulMarkLanguage") private var language = "zh"
 
-    private let filters: [(String, String)] = [
-        ("all", "全部"), ("johari", "乔哈里视窗"), ("values", "价值与自我"),
-        ("emotional_intelligence", "情绪智力"), ("awareness_wheel", "觉察之轮"),
-    ]
+    private var filters: [(String, String)] {
+        _ = language
+        return [
+            ("all", localizedText("全部", "All")),
+            ("johari", localizedText("乔哈里视窗", "Johari")),
+            ("values", localizedText("价值与自我", "Values")),
+            ("emotional_intelligence", localizedText("情绪智力", "Emotion")),
+            ("awareness_wheel", localizedText("觉察之轮", "Awareness")),
+        ]
+    }
 
     var body: some View {
         NavigationStack {
@@ -389,10 +396,17 @@ struct ChallengeDetailView: View {
                 } else {
                     TextEditor(text: $draft)
                         .scrollContentBackground(.hidden)
-                        .font(.system(size: 14))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .frame(minHeight: 110)
                         .padding(8)
-                        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14))
+                        .background(
+                            SoulTheme.cardFill,
+                            in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+                                .stroke(SoulTheme.cardStroke, lineWidth: 1)
+                        )
                     if step.minChars > 0 {
                         Text("\(draft.trimmingCharacters(in: .whitespacesAndNewlines).count) / 至少 \(step.minChars) 字")
                             .font(.system(size: 10, weight: .medium))
@@ -406,8 +420,8 @@ struct ChallengeDetailView: View {
                             .font(.system(size: 15, weight: .heavy, design: .rounded))
                     }
                     .foregroundStyle(Color.white)
-                    .frame(maxWidth: .infinity, minHeight: 48)
-                    .background(canSubmit(step) ? SoulTheme.accent : SoulTheme.tertiaryText, in: RoundedRectangle(cornerRadius: 16))
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(canSubmit(step) ? SoulTheme.accent : SoulTheme.tertiaryText, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSubmit(step) || isWorking)
@@ -437,7 +451,7 @@ struct ChallengeDetailView: View {
                     .font(.system(size: 16, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity, minHeight: 52)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 18))
+                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
             .disabled(isWorking)

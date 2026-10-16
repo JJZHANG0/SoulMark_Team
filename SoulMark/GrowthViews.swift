@@ -60,7 +60,7 @@ struct GrowthProgressCard: View {
                     }
                     Spacer(minLength: 0)
                     Text("Lv.\(growth.level)")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
                         .foregroundStyle(SoulTheme.accent)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)

@@ -84,18 +84,74 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedSection) {
+        ZStack {
             ForEach(AppSection.allCases, id: \.self) { section in
                 page(for: section)
-                    .tag(section)
-                    .tabItem {
-                        Label(section.title, systemImage: section.systemImage)
-                    }
+                    .opacity(selectedSection == section ? 1 : 0)
+                    .allowsHitTesting(selectedSection == section)
+                    .accessibilityHidden(selectedSection != section)
+                    .zIndex(selectedSection == section ? 1 : 0)
             }
+        }
+        .background(SoulBackground())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AppTabBar(selectedSection: $selectedSection)
         }
         .tint(SoulTheme.accent)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
         .overlay(alignment: .top) { GrowthFeedbackOverlay() }
+        .sheet(item: $selectedPerson) { person in
+            RelationshipDetailSheet(
+                person: person,
+                availableCategories: availableCategories,
+                onCategoryChange: { category in
+                    people.updateRelationship(for: person.id, to: category)
+                    selectedPerson = people.first { $0.id == person.id }
+                    if let updated = selectedPerson {
+                        Task { await session.updateContact(updated) }
+                    }
+                },
+                onDeletePerson: {
+                    people.deletePerson(person.id)
+                    selectedPerson = nil
+                    Task { await session.deleteContact(person.id) }
+                },
+                onStartScenario: {
+                    scenarioFocusedPersonID = person.id
+                    selectedPerson = nil
+                    selectedSection = .scenarioSimulation
+                },
+                onAvatarChange: { imageData in
+                    Task {
+                        if let updated = await session.uploadContactAvatar(
+                            contactID: person.id,
+                            imageData: imageData
+                        ) {
+                            replacePerson(updated)
+                        } else {
+                            relationshipErrorMessage = localizedText(
+                                "联系人仍然保留，但头像上传失败，请稍后重试。",
+                                "The contact is safe, but the photo upload failed. Try again later."
+                            )
+                        }
+                    }
+                },
+                onAvatarDelete: {
+                    Task {
+                        if let updated = await session.deleteContactAvatar(contactID: person.id) {
+                            replacePerson(updated)
+                        } else {
+                            relationshipErrorMessage = localizedText(
+                                "头像删除失败，请稍后重试。",
+                                "The photo could not be removed. Try again later."
+                            )
+                        }
+                    }
+                }
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
         .task {
             await session.recordForegroundActivity()
             await reloadContacts()
@@ -131,6 +187,9 @@ struct ContentView: View {
                 },
                 onOpenJournal: {
                     selectedSection = .journal
+                },
+                onSelectPerson: { person in
+                    selectedPerson = person
                 }
             )
         case .relationshipGraph:
@@ -184,6 +243,8 @@ struct ContentView: View {
                         if selectedPerson?.id == id {
                             selectedPerson = people.first { $0.id == id }
                         }
+                    },
+                    onFinishMove: { id in
                         if let updated = people.first(where: { $0.id == id }) {
                             Task { await session.updateContact(updated) }
                         }
@@ -208,61 +269,7 @@ struct ContentView: View {
                 )
                 .id(graphLayoutRevision)
                 .padding(.top, 8)
-                .padding(.bottom, 106)
             }
-        }
-        .ignoresSafeArea(edges: .bottom)
-        .sheet(item: $selectedPerson) { person in
-            RelationshipDetailSheet(
-                person: person,
-                availableCategories: availableCategories,
-                onCategoryChange: { category in
-                    people.updateRelationship(for: person.id, to: category)
-                    selectedPerson = people.first { $0.id == person.id }
-                    if let updated = selectedPerson {
-                        Task { await session.updateContact(updated) }
-                    }
-                },
-                onDeletePerson: {
-                    people.deletePerson(person.id)
-                    selectedPerson = nil
-                    Task { await session.deleteContact(person.id) }
-                },
-                onStartScenario: {
-                    scenarioFocusedPersonID = person.id
-                    selectedPerson = nil
-                    selectedSection = .scenarioSimulation
-                },
-                onAvatarChange: { imageData in
-                    Task {
-                        if let updated = await session.uploadContactAvatar(
-                            contactID: person.id,
-                            imageData: imageData
-                        ) {
-                            replacePerson(updated)
-                        } else {
-                            relationshipErrorMessage = localizedText(
-                                "联系人仍然保留，但头像上传失败，请稍后重试。",
-                                "The contact is safe, but the photo upload failed. Try again later."
-                            )
-                        }
-                    }
-                },
-                onAvatarDelete: {
-                    Task {
-                        if let updated = await session.deleteContactAvatar(contactID: person.id) {
-                            replacePerson(updated)
-                        } else {
-                            relationshipErrorMessage = localizedText(
-                                "头像删除失败，请稍后重试。",
-                                "The photo could not be removed. Try again later."
-                            )
-                        }
-                    }
-                }
-            )
-            .presentationDetents([.medium, .large])
-            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $isAddingPerson) {
             AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData, informationFields in
