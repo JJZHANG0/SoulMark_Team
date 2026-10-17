@@ -1212,13 +1212,17 @@ final class AppSession: ObservableObject {
     private var cachedReviewAnalyses: [UUID: AnalyzedConversationReview] = [:]
     private var tutorialAdvanceID: UUID?
     private let api: SoulAPIClient
+    /// Set only by the Xcode canvas session. A normal launch leaves this nil and still calls the API.
+    private let previewChallenges: ChallengeListDTO?
 
     init(
         networkSession: URLSession = .shared,
-        tokenStore: any AuthTokenStoring = AuthTokenStore.shared
+        tokenStore: any AuthTokenStoring = AuthTokenStore.shared,
+        previewChallenges: ChallengeListDTO? = nil
     ) {
         api = SoulAPIClient(session: networkSession)
         self.tokenStore = tokenStore
+        self.previewChallenges = previewChallenges
     }
 
     private let tokenStore: any AuthTokenStoring
@@ -1549,6 +1553,7 @@ final class AppSession: ObservableObject {
     @Published private(set) var selfPageRevision = UUID()
 
     func loadChallenges() async throws -> ChallengeListDTO {
+        if let previewChallenges { return previewChallenges }
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         return try await api.challenges(token: token)
     }
