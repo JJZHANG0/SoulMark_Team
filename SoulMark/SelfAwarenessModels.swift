@@ -187,6 +187,127 @@ struct MarkedReviewLineDTO: Decodable {
     let confirmed: Bool
 }
 
+struct LegacySelfAwarenessReportDTO: Decodable, Equatable {
+    struct Dimension: Decodable, Equatable, Identifiable {
+        let key: String
+        let title: String
+        let score: Int
+        let completedChallenges: Int
+        let insight: String
+        var id: String { key }
+
+        enum CodingKeys: String, CodingKey {
+            case key, title, score, insight
+            case completedChallenges = "completed_challenges"
+        }
+    }
+
+    struct Highlight: Decodable, Equatable, Identifiable {
+        let challengeTitle: String
+        let stepTitle: String
+        let response: String
+        var id: String { challengeTitle + stepTitle + response }
+
+        enum CodingKeys: String, CodingKey {
+            case response
+            case challengeTitle = "challenge_title"
+            case stepTitle = "step_title"
+        }
+    }
+
+    struct Mix: Decodable, Equatable, Identifiable {
+        let label: String
+        let count: Int
+        var id: String { label }
+    }
+
+    let displayName: String
+    let headline: String
+    let summary: String
+    let overallScore: Int
+    let level: Int
+    let titleKey: String
+    let challengesCompleted: Int
+    let challengesActive: Int
+    let reflectionsCount: Int
+    let reviewsCount: Int
+    let averageReviewScore: Double?
+    let practicesCount: Int
+    let contactsCount: Int
+    let dimensions: [Dimension]
+    let strengths: [String]
+    let growthEdges: [String]
+    let nextSteps: [String]
+    let highlights: [Highlight]
+    let relationshipMix: [Mix]
+
+    enum CodingKeys: String, CodingKey {
+        case headline, summary, level, dimensions, strengths, highlights
+        case displayName = "display_name"
+        case overallScore = "overall_score"
+        case titleKey = "title_key"
+        case challengesCompleted = "challenges_completed"
+        case challengesActive = "challenges_active"
+        case reflectionsCount = "reflections_count"
+        case reviewsCount = "reviews_count"
+        case averageReviewScore = "average_review_score"
+        case practicesCount = "practices_count"
+        case contactsCount = "contacts_count"
+        case growthEdges = "growth_edges"
+        case nextSteps = "next_steps"
+        case relationshipMix = "relationship_mix"
+    }
+}
+
+enum SelfReportDocument: Equatable {
+    case page(SelfAwarenessReportDTO)
+    case legacy(LegacySelfAwarenessReportDTO)
+
+    static func decode(_ data: Data) throws -> SelfReportDocument {
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw SoulAPIError.incompatibleBackend(200)
+        }
+        let decoder = soulMarkJSONDecoder()
+        if object["cells"] != nil {
+            return .page(try decoder.decode(SelfAwarenessReportDTO.self, from: data))
+        }
+        if object["overall_score"] != nil {
+            return .legacy(try decoder.decode(LegacySelfAwarenessReportDTO.self, from: data))
+        }
+        throw SoulAPIError.incompatibleBackend(200)
+    }
+}
+
+func soulMarkJSONDecoder() -> JSONDecoder {
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .custom { decoder in
+        let container = try decoder.singleValueContainer()
+        let value = try container.decode(String.self)
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: value) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        if let date = formatter.date(from: value) {
+            return date
+        }
+        let day = DateFormatter()
+        day.calendar = Calendar(identifier: .gregorian)
+        day.locale = Locale(identifier: "en_US_POSIX")
+        day.timeZone = TimeZone(identifier: "Asia/Singapore")
+        day.dateFormat = "yyyy-MM-dd"
+        if let date = day.date(from: value) {
+            return date
+        }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Invalid ISO-8601 date"
+        )
+    }
+    return decoder
+}
+
 struct SelfAwarenessReportDTO: Decodable, Equatable {
     struct Cell: Decodable, Equatable, Identifiable {
         let slot: String

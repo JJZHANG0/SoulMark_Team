@@ -907,7 +907,24 @@ private final class SoulAPIClient {
     }
 
     func selfAwarenessReport(token: String) async throws -> SelfAwarenessReportDTO {
-        try await request(path: "/api/v1/users/me/self-awareness-report", method: "GET", token: token, bodyData: nil, timeoutInterval: 30)
+        guard case .page(let page) = try await selfReport(token: token) else {
+            throw SoulAPIError.incompatibleBackend(200)
+        }
+        return page
+    }
+
+    func selfReport(token: String) async throws -> SelfReportDocument {
+        let data = try await requestData(
+            path: "/api/v1/users/me/self-awareness-report",
+            token: token
+        )
+        do {
+            return try SelfReportDocument.decode(data)
+        } catch let error as SoulAPIError {
+            throw error
+        } catch {
+            throw SoulAPIError.incompatibleBackend(200)
+        }
     }
 
     func confirmSelfCell(token: String, payload: ConfirmSelfCellPayload) async throws -> SelfAwarenessReportDTO {
@@ -1099,33 +1116,7 @@ private final class SoulAPIClient {
             throw apiError(data)
         }
         do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .custom { decoder in
-                let container = try decoder.singleValueContainer()
-                let value = try container.decode(String.self)
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                formatter.formatOptions = [.withInternetDateTime]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                let day = DateFormatter()
-                day.calendar = Calendar(identifier: .gregorian)
-                day.locale = Locale(identifier: "en_US_POSIX")
-                day.timeZone = TimeZone(identifier: "Asia/Singapore")
-                day.dateFormat = "yyyy-MM-dd"
-                if let date = day.date(from: value) {
-                    return date
-                }
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid ISO-8601 date"
-                )
-            }
-            return try decoder.decode(Response.self, from: data)
+            return try soulMarkJSONDecoder().decode(Response.self, from: data)
         } catch {
 #if DEBUG
             print("SoulMark response decoding failed for \(request.url?.path ?? "unknown path"): \(error)")
@@ -1601,6 +1592,11 @@ final class AppSession: ObservableObject {
     func loadSelfAwarenessReport() async throws -> SelfAwarenessReportDTO {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         return try await api.selfAwarenessReport(token: token)
+    }
+
+    func loadSelfReport() async throws -> SelfReportDocument {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.selfReport(token: token)
     }
 
     func confirmSelfCell(_ payload: ConfirmSelfCellPayload) async throws -> SelfAwarenessReportDTO {
