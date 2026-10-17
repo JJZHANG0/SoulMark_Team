@@ -505,25 +505,65 @@ struct IntegratedProfilePage: View {
                     systemImage: "person.text.rectangle"
                 )
 
-                Spacer()
+                Spacer(minLength: 12)
 
                 Text(session.user?.displayName ?? "Soul User")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
 
-                Text(session.growthState.snapshot.map { "Lv.\($0.level) · \($0.currentMilestone.title)" } ?? localizedText("成长记录同步中", "Syncing growth"))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.58))
+                Text(identityLevelLine)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.62))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
 
+                if let growth = session.growthState.snapshot {
+                    identityXP(growth)
+                        .padding(.top, 4)
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .padding(19)
+            .padding(.trailing, 118)
 
             SoulMascotFigure(height: 180)
                 .offset(x: 2, y: 22)
         }
-        .frame(height: 210)
+        .frame(height: 236)
         .clipped()
+    }
+
+    private var identityLevelLine: String {
+        if let snapshot = session.growthState.snapshot {
+            return "Lv.\(snapshot.level) · \(snapshot.currentMilestone.title)"
+        }
+        if case .failed = session.growthState {
+            return localizedText("成长记录暂时无法同步", "Progress is temporarily unavailable")
+        }
+        return localizedText("成长记录同步中", "Syncing growth")
+    }
+
+    private func identityXP(_ growth: GrowthSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("\(growth.levelExperience)/\(growth.nextLevelExperience)")
+                .font(.system(size: 12, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.white.opacity(0.78))
+            Capsule()
+                .fill(Color.white.opacity(0.16))
+                .frame(height: 8)
+                .overlay(alignment: .leading) {
+                    GeometryReader { geo in
+                        Capsule()
+                            .fill(LinearGradient(colors: [SoulTheme.accent, SoulTheme.energy], startPoint: .leading, endPoint: .trailing))
+                            .frame(width: geo.size.width * growth.progress)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(localizedText("升级进度", "Level progress"))
+                .accessibilityValue("\(growth.levelExperience)/\(growth.nextLevelExperience)")
+        }
     }
 
     private var statsBand: some View {
