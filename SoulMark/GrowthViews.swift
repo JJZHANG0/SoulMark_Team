@@ -48,11 +48,6 @@ struct GrowthProgressCard: View {
                     rewardPill(localizedText("对话 +5 / 轮", "Chat +5 / turn"), icon: "waveform")
                     rewardPill(localizedText("挑战 +20", "Challenge +20"), icon: "flag.checkered")
                 }
-                if let next = GrowthMilestone.all.first(where: { $0.level > growth.level }) {
-                    Text(localizedText("下个称号：Lv.\(next.level) · \(next.title)", "Next title: Lv.\(next.level) · \(next.title)"))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(SoulTheme.secondaryText)
-                }
                 Text(localizedText("今日聊天经验 \(growth.chatExperienceToday) / 50", "Chat EXP today: \(growth.chatExperienceToday) / 50"))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(SoulTheme.secondaryText)

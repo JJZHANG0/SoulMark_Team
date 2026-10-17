@@ -453,7 +453,6 @@ struct IntegratedProfilePage: View {
                     GrowthProgressCard(state: session.growthState) {
                         Task { await session.refreshGrowth() }
                     }
-                    statsBand
                     ChallengeHubCard()
                     personalizationButton
                     accountMenu
@@ -502,13 +501,11 @@ struct IntegratedProfilePage: View {
         ZStack(alignment: .bottomTrailing) {
             SoulVisorPanelBackground()
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 SoulStatusPill(
                     text: "ID / \(PublicUserIDFormatter.string(session.user?.publicID))",
                     systemImage: "person.text.rectangle"
                 )
-
-                Spacer(minLength: 12)
 
                 Text(session.user?.displayName ?? "Soul User")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
@@ -518,23 +515,30 @@ struct IntegratedProfilePage: View {
 
                 Text(identityLevelLine)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(Color.white.opacity(0.62))
+                    .foregroundStyle(Color.white.opacity(0.72))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
                 if let growth = session.growthState.snapshot {
                     identityXP(growth)
-                        .padding(.top, 4)
+                    if let next = GrowthMilestone.all.first(where: { $0.level > growth.level }) {
+                        Text(localizedText("下个称号：Lv.\(next.level) · \(next.title)", "Next title: Lv.\(next.level) · \(next.title)"))
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.white.opacity(0.72))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .padding(19)
-            .padding(.trailing, 118)
 
-            SoulMascotFigure(height: 180)
-                .offset(x: 2, y: 22)
+                identityCounts
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(18)
+            .padding(.trailing, 108)
+
+            SoulMascotFigure(height: 176)
+                .offset(x: 4, y: 16)
         }
-        .frame(height: 236)
         .clipped()
     }
 
@@ -549,13 +553,13 @@ struct IntegratedProfilePage: View {
     }
 
     private func identityXP(_ growth: GrowthSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 7) {
             Text("\(growth.levelExperience)/\(growth.nextLevelExperience)")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.78))
+                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.white)
             Capsule()
-                .fill(Color.white.opacity(0.16))
-                .frame(height: 8)
+                .fill(Color.white.opacity(0.22))
+                .frame(height: 12)
                 .overlay(alignment: .leading) {
                     GeometryReader { geo in
                         Capsule()
@@ -569,25 +573,32 @@ struct IntegratedProfilePage: View {
         }
     }
 
-    private var statsBand: some View {
+    private var identityCounts: some View {
         HStack(spacing: 0) {
-            Button { selectedRecentSection = .reviews } label: {
-                SoulStatItem(title: localizedText("复盘", "Reviews"), value: String(format: "%02d", achievementProgress.reviewCount), icon: "text.bubble.fill")
-            }
-            .buttonStyle(.plain)
-            Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            Button { selectedRecentSection = .connections } label: {
-                SoulStatItem(title: localizedText("连接", "People"), value: String(format: "%02d", achievementProgress.peopleCount), icon: "person.2.fill")
-            }
-            .buttonStyle(.plain)
-            Divider().frame(height: 48).overlay(SoulTheme.cardStroke)
-            Button { selectedRecentSection = .practices } label: {
-                SoulStatItem(title: localizedText("练习", "Practice"), value: String(format: "%02d", achievementProgress.practiceCount), icon: "bolt.fill")
-            }
-            .buttonStyle(.plain)
+            identityCount(.reviews, localizedText("复盘", "Reviews"), achievementProgress.reviewCount, "text.bubble.fill")
+            identityCount(.connections, localizedText("连接", "People"), achievementProgress.peopleCount, "person.2.fill")
+            identityCount(.practices, localizedText("练习", "Practice"), achievementProgress.practiceCount, "bolt.fill")
         }
-        .padding(.vertical, 16)
-        .background(SoulGlassCardBackground(accented: true))
+        .padding(.top, 2)
+    }
+
+    private func identityCount(_ section: ProfileRecentSection, _ title: String, _ value: Int, _ icon: String) -> some View {
+        Button { selectedRecentSection = section } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold))
+                    Text(String(format: "%02d", value))
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
+                }
+                .foregroundStyle(Color.white)
+                Text(title)
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.58))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(.plain)
     }
 
     private var personalizationButton: some View {
@@ -1679,25 +1690,6 @@ private struct SoulActionCard: View {
             .background(SoulGlassCardBackground())
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct SoulStatItem: View {
-    let title: String
-    let value: String
-    let icon: String
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Label(value, systemImage: icon)
-                .font(.system(size: 19, weight: .heavy, design: .rounded))
-                .foregroundStyle(SoulTheme.primaryText)
-
-            Text(title)
-                .font(.system(size: 10, weight: .bold, design: .rounded))
-                .foregroundStyle(SoulTheme.secondaryText)
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
