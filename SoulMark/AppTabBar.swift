@@ -9,7 +9,9 @@ struct AppTabBar: View {
     /// Glass bar height, matching the frame below.
     static let barHeight: CGFloat = 55
     /// Space kept between the bar and the home indicator.
-    static let bottomPadding: CGFloat = 10
+    static let bottomPadding: CGFloat = 4
+    /// Drops the icon and label onto the pill's optical center.
+    private let contentOffsetY: CGFloat = 2
     /// Bottom inset for tab scroll content, equal to the space the bar occupies.
     static var reservedHeight: CGFloat { barHeight + bottomPadding }
 
@@ -66,6 +68,7 @@ struct AppTabBar: View {
                     }
                 }
                 .padding(.horizontal, horizontalInset)
+                .offset(y: contentOffsetY)
             }
             .contentShape(Rectangle())
             .simultaneousGesture(
