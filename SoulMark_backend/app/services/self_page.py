@@ -826,6 +826,60 @@ async def mark_review_line(
     )
 
 
+async def keep_challenge_quote(
+    session: AsyncSession,
+    owner_id: UUID,
+    reflection: ChallengeReflection,
+    quote: str,
+    detail: str,
+) -> EvidenceOut:
+    """Park one verbatim sentence in the unassigned pool. Cells stay empty."""
+    text = quote.strip()
+    note = detail.strip()
+    if text not in reflection.response or reflection.owner_id != owner_id:
+        raise AppError("evidence_not_a_quote", "原话要来自你写下的回答。", 422)
+    if not note:
+        raise AppError("evidence_detail_required", "还缺一个具体细节。", 422)
+    if looks_in_distress(text) or looks_in_distress(reflection.response):
+        raise AppError("distress_check", "你现在还好吗", 409)
+    start = week_start_on(singapore_today())
+    page = await _ensure_page(session, owner_id, start)
+    existing = await session.scalar(
+        select(SelfEvidence).where(
+            SelfEvidence.page_id == page.id,
+            SelfEvidence.slot == "pool",
+            SelfEvidence.source_type == "challenge_reflection",
+            SelfEvidence.source_id == reflection.id,
+            SelfEvidence.quote == text,
+        )
+    )
+    if existing is None:
+        existing = SelfEvidence(
+            page_id=page.id,
+            owner_id=owner_id,
+            slot="pool",
+            source_type="challenge_reflection",
+            source_id=reflection.id,
+            quote=text,
+            detail=note,
+            occurred_on=_sg_date(reflection.created_at),
+            confirmed=False,
+        )
+        session.add(existing)
+        await session.flush()
+    await session.commit()
+    return EvidenceOut(
+        id=existing.id,
+        slot=existing.slot,
+        source_type=existing.source_type,
+        source_id=existing.source_id,
+        quote=existing.quote,
+        detail=existing.detail,
+        occurred_on=existing.occurred_on,
+        confirmed=existing.confirmed,
+    )
+
+
 async def challenge_context(session: AsyncSession, owner_id: UUID, key: str) -> list[str]:
     if key == "how_i_want_to_be_seen":
         rows = await _reflections(session, owner_id)

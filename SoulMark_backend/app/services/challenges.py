@@ -4,16 +4,20 @@ from uuid import UUID
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.review import draft_challenge_keep
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models.challenge import ChallengeProgress, ChallengeReflection
 from app.schemas.challenge import (
     ChallengeActionResponse,
     ChallengeDetail,
+    ChallengeKeepDraft,
     ChallengeList,
     ChallengeStepResponse,
     ChallengeStepSubmission,
     ChallengeSummary,
 )
+from app.schemas.self_page import EvidenceOut
 from app.services import growth as growth_service
 from app.services.challenge_catalog import (
     CHALLENGES,
@@ -21,6 +25,7 @@ from app.services.challenge_catalog import (
     DIMENSIONS,
     MODELS,
     Challenge,
+    ChallengeStep,
 )
 
 
@@ -181,6 +186,70 @@ async def _complete(
     return ChallengeActionResponse(challenge=detail, awarded_experience=awarded, growth=snapshot)
 
 
+async def _written_rows(
+    session: AsyncSession, progress: ChallengeProgress, challenge: Challenge
+) -> list[tuple[ChallengeStep, ChallengeReflection]]:
+    rows = await session.scalars(
+        select(ChallengeReflection).where(ChallengeReflection.progress_id == progress.id)
+    )
+    by_index = {row.step_index: row for row in rows}
+    written: list[tuple[ChallengeStep, ChallengeReflection]] = []
+    for index, step in enumerate(challenge.steps):
+        if step.kind == "rating":
+            continue
+        row = by_index.get(index)
+        if row is None or not row.response.strip():
+            continue
+        written.append((step, row))
+    return written
+
+
+async def _offer_keep(
+    session: AsyncSession, owner_id: UUID, challenge: Challenge
+) -> ChallengeKeepDraft | None:
+    """One model call after completion. Distress and a bad excerpt produce no draft."""
+    progress = await _progress(session, owner_id, challenge.key)
+    if progress is None:
+        return None
+    written = await _written_rows(session, progress, challenge)
+    if not written:
+        return None
+    combined = "\n".join(row.response.strip() for _, row in written)
+    if _in_distress(combined):
+        return None
+    answers = [(step.title, row.response.strip()) for step, row in written]
+    try:
+        sentence, question = await draft_challenge_keep(challenge.title, answers, get_settings())
+    except AppError:
+        return None
+    sentence = sentence.strip()
+    question = question.strip()
+    if not sentence or not question:
+        return None
+    matched = next(((step, row) for step, row in written if sentence in row.response), None)
+    if matched is None:
+        return None
+    step, row = matched
+    return ChallengeKeepDraft(
+        sentence=sentence,
+        question=question,
+        reflection_id=row.id,
+        detail=step.title,
+    )
+
+
+async def _with_keep(
+    session: AsyncSession,
+    owner_id: UUID,
+    challenge: Challenge,
+    result: ChallengeActionResponse,
+) -> ChallengeActionResponse:
+    keep = await _offer_keep(session, owner_id, challenge)
+    if keep is None:
+        return result
+    return result.model_copy(update={"keep": keep})
+
+
 async def submit_step(
     session: AsyncSession,
     owner_id: UUID,
@@ -233,9 +302,11 @@ async def submit_step(
         reflection.response = text
         reflection.rating = payload.rating
     progress.updated_at = growth_service.utc_now()
+    finished = progress.completed_steps >= len(challenge.steps)
     await session.commit()
-    if progress.completed_steps >= len(challenge.steps):
-        return await _complete(session, owner_id, challenge, progress)
+    if finished:
+        result = await _complete(session, owner_id, challenge, progress)
+        return await _with_keep(session, owner_id, challenge, result)
     return ChallengeActionResponse(
         challenge=await _detail(session, owner_id, challenge, progress)
     )
@@ -250,4 +321,33 @@ async def complete_challenge(
         raise AppError("challenge_not_active", "请先开始这个挑战。", 409)
     if progress.status != "completed" and progress.completed_steps < len(challenge.steps):
         raise AppError("challenge_incomplete", "还有步骤没有完成。", 409)
-    return await _complete(session, owner_id, challenge, progress)
+    fresh = progress.status != "completed"
+    result = await _complete(session, owner_id, challenge, progress)
+    if not fresh:
+        return result
+    return await _with_keep(session, owner_id, challenge, result)
+
+
+async def confirm_keep(
+    session: AsyncSession,
+    owner_id: UUID,
+    key: str,
+    reflection_id: UUID,
+    sentence: str,
+) -> EvidenceOut:
+    """Store the kept sentence. Reflections and the eight cells stay as they were."""
+    from app.services.self_page import keep_challenge_quote
+
+    challenge = get_challenge(key)
+    reflection = await session.get(ChallengeReflection, reflection_id)
+    if reflection is None or reflection.owner_id != owner_id:
+        raise AppError("evidence_source_not_found", "找不到这句原话。", 404)
+    progress = await session.get(ChallengeProgress, reflection.progress_id)
+    if progress is None or progress.owner_id != owner_id or progress.challenge_key != key:
+        raise AppError("evidence_source_not_found", "找不到这句原话。", 404)
+    if reflection.step_index < 0 or reflection.step_index >= len(challenge.steps):
+        raise AppError("challenge_step_not_found", "没有这一步。", 404)
+    step = challenge.steps[reflection.step_index]
+    if step.kind == "rating":
+        raise AppError("evidence_not_a_quote", "原话要来自你写下的回答。", 422)
+    return await keep_challenge_quote(session, owner_id, reflection, sentence, step.title)

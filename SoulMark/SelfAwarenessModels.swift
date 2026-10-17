@@ -104,13 +104,36 @@ struct ChallengeListDTO: Decodable, Equatable {
     }
 }
 
+struct ChallengeKeepDTO: Decodable, Equatable {
+    let sentence: String
+    let question: String
+    let reflectionId: UUID
+    let detail: String
+
+    enum CodingKeys: String, CodingKey {
+        case sentence, question, detail
+        case reflectionId = "reflection_id"
+    }
+}
+
+struct ChallengeKeepPayload: Encodable {
+    let reflectionId: UUID
+    let sentence: String
+
+    enum CodingKeys: String, CodingKey {
+        case sentence
+        case reflectionId = "reflection_id"
+    }
+}
+
 struct ChallengeActionDTO: Decodable {
     let challenge: ChallengeDetailDTO
     let awardedExperience: Int
     let growth: GrowthSnapshot?
+    let keep: ChallengeKeepDTO?
 
     enum CodingKeys: String, CodingKey {
-        case challenge, growth
+        case challenge, growth, keep
         case awardedExperience = "awarded_experience"
     }
 }

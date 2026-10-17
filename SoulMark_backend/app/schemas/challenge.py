@@ -1,4 +1,5 @@
 from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -55,7 +56,20 @@ class ChallengeStepSubmission(BaseModel):
     continue_anyway: bool = False
 
 
+class ChallengeKeepDraft(BaseModel):
+    sentence: str
+    question: str
+    reflection_id: UUID
+    detail: str
+
+
+class ChallengeKeepRequest(BaseModel):
+    reflection_id: UUID
+    sentence: str = Field(min_length=1, max_length=2000)
+
+
 class ChallengeActionResponse(BaseModel):
     challenge: ChallengeDetail
     awarded_experience: int = 0
     growth: GrowthSnapshot | None = None
+    keep: ChallengeKeepDraft | None = None

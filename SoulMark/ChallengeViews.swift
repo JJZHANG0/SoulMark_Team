@@ -287,6 +287,8 @@ struct ChallengeDetailView: View {
     @State private var isWorking = false
     @State private var errorMessage: String?
     @State private var celebration: Int?
+    @State private var keepOffer: ChallengeKeepDTO?
+    @State private var keptSentence = false
     @State private var distressStep: ChallengeStepDTO?
     @Environment(\.dismiss) private var dismiss
 
@@ -307,8 +309,12 @@ struct ChallengeDetailView: View {
                                 }
                             }
                         }
-                        if let celebration { completionCard(awarded: celebration) }
-                        else if detail.summary.isCompleted { completionCard(awarded: nil) }
+                        if let celebration {
+                            completionCard(awarded: celebration)
+                            keepCard
+                        } else if detail.summary.isCompleted {
+                            completionCard(awarded: nil)
+                        }
                         ForEach(detail.steps) { step in stepCard(step, detail: detail) }
                         footer(detail)
                     }
@@ -505,7 +511,13 @@ struct ChallengeDetailView: View {
                 Text(localizedText("挑战完成", "Challenge complete"))
                     .font(.system(size: 17, weight: .heavy, design: .rounded))
                     .foregroundStyle(Color.white)
-                Text(awarded.map { $0 > 0 ? "+\($0) EXP · 已写入你的自我认知报告" : "已写入你的自我认知报告" } ?? "你的反思已收进自我认知报告")
+                Text(
+                    awarded.map { value in
+                        value > 0
+                            ? "+\(value) EXP"
+                            : localizedText("你的回答已记下", "Your answers are saved")
+                    } ?? localizedText("你的回答已记下", "Your answers are saved")
+                )
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(Color.white.opacity(0.7))
             }
@@ -514,6 +526,58 @@ struct ChallengeDetailView: View {
         .padding(18)
         .background(SoulVisorPanelBackground())
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var keepCard: some View {
+        if let offer = keepOffer {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(localizedText("或许留下这句", "A sentence you might keep"))
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundStyle(SoulTheme.tertiaryText)
+                Text("“\(offer.sentence)”")
+                    .font(.system(size: 16, weight: .semibold, design: .serif))
+                    .foregroundStyle(SoulTheme.primaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(offer.question)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
+                    .fixedSize(horizontal: false, vertical: true)
+                if keptSentence {
+                    Text(localizedText("已留下这句。格子还是空的，等你自己确认。", "Kept. The cells stay empty until you confirm them."))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(SoulTheme.energy)
+                } else {
+                    HStack(spacing: 10) {
+                        Button { Task { await keep(offer) } } label: {
+                            HStack {
+                                if isWorking { ProgressView().tint(.white) }
+                                Text(localizedText("留下这句", "Keep this sentence"))
+                                    .font(.system(size: 14, weight: .heavy, design: .rounded))
+                            }
+                            .foregroundStyle(Color.white)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isWorking)
+                        Button {
+                            keepOffer = nil
+                        } label: {
+                            Text(localizedText("先不留", "Not now"))
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .foregroundStyle(SoulTheme.primaryText)
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isWorking)
+                    }
+                }
+            }
+            .padding(16)
+            .background(SoulGlassCardBackground(accented: true))
+        }
     }
 
     private func canSubmit(_ step: ChallengeStepDTO) -> Bool {
@@ -530,6 +594,8 @@ struct ChallengeDetailView: View {
         do {
             detail = try await session.startChallenge(key: key)
             celebration = nil
+            keepOffer = nil
+            keptSentence = false
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -557,9 +623,28 @@ struct ChallengeDetailView: View {
             detail = result.challenge
             draft = ""
             rating = nil
-            if result.challenge.summary.isCompleted { celebration = result.awardedExperience }
+            if result.challenge.summary.isCompleted {
+                celebration = result.awardedExperience
+                keepOffer = result.keep
+                keptSentence = false
+            }
         } catch SoulAPIError.distressCheck {
             distressStep = step
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func keep(_ offer: ChallengeKeepDTO) async {
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await session.keepChallengeSentence(
+                key: key, reflectionID: offer.reflectionId, sentence: offer.sentence
+            )
+            keptSentence = true
+        } catch SoulAPIError.distressCheck {
+            keepOffer = nil
         } catch {
             errorMessage = error.localizedDescription
         }

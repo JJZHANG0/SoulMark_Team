@@ -8,9 +8,11 @@ from app.db.session import get_db
 from app.schemas.challenge import (
     ChallengeActionResponse,
     ChallengeDetail,
+    ChallengeKeepRequest,
     ChallengeList,
     ChallengeStepSubmission,
 )
+from app.schemas.self_page import EvidenceOut
 from app.services import challenges as service
 
 router = APIRouter(prefix="/challenges", tags=["challenges"])
@@ -52,3 +54,15 @@ async def complete_challenge(
     key: str, current_user: CurrentUser, session: DatabaseSession
 ) -> ChallengeActionResponse:
     return await service.complete_challenge(session, current_user.id, key)
+
+
+@router.post("/{key}/keep", response_model=EvidenceOut)
+async def keep_challenge_sentence(
+    key: str,
+    payload: ChallengeKeepRequest,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> EvidenceOut:
+    return await service.confirm_keep(
+        session, current_user.id, key, payload.reflection_id, payload.sentence
+    )

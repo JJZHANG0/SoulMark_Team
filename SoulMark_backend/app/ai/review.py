@@ -511,6 +511,90 @@ async def analyze_relationship_profile(
     )
 
 
+CHALLENGE_KEEP_RULES = (
+    "Use only their words. "
+    "Return one short draft sentence they might keep, plus one sharper question. "
+    "No score, no diagnosis, no praise, no comfort."
+)
+
+
+def build_challenge_keep_prompt(title: str, answers: list[tuple[str, str]]) -> str:
+    """Prompt for one completion. Answers are this challenge's own writing."""
+    blocks = [
+        "你只看到这个人在这一项挑战里自己写下的回答。",
+        CHALLENGE_KEEP_RULES,
+        "sentence 必须是某条回答里连续出现的原文，不要改写，不要补充他们没写的事实。",
+        "question 只提出一个更尖锐的问题。",
+        '只返回 JSON：{"sentence": "...", "question": "..."}',
+        f"挑战：{title}",
+        "他们的回答：",
+    ]
+    for index, (step_title, response) in enumerate(answers, start=1):
+        blocks.append(f"{index}. {step_title}\n{response}")
+    return "\n".join(blocks)
+
+
+def _parse_challenge_keep(text: str) -> tuple[str, str]:
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise AppError(
+            "review_ai_invalid_response",
+            "The review AI returned invalid data.",
+            502,
+        ) from exc
+    if not isinstance(payload, dict):
+        raise AppError(
+            "review_ai_invalid_response",
+            "The review AI returned invalid data.",
+            502,
+        )
+    sentence = payload.get("sentence")
+    question = payload.get("question")
+    if not isinstance(sentence, str) or not isinstance(question, str):
+        raise AppError(
+            "review_ai_invalid_response",
+            "The review AI returned invalid data.",
+            502,
+        )
+    sentence = sentence.strip()
+    question = question.strip()
+    if not sentence or not question:
+        raise AppError(
+            "review_ai_invalid_response",
+            "The review AI returned invalid data.",
+            502,
+        )
+    return sentence, question
+
+
+def _draft_challenge_keep(
+    title: str,
+    answers: list[tuple[str, str]],
+    settings: Settings,
+) -> tuple[str, str]:
+    prompt = build_challenge_keep_prompt(title, answers)
+    text = _call_model(
+        settings,
+        model=settings.qwen_review_model,
+        messages=[
+            {"role": "system", "content": [{"text": CHALLENGE_KEEP_RULES}]},
+            {"role": "user", "content": [{"text": prompt}]},
+        ],
+        structured=True,
+    )
+    return _parse_challenge_keep(text)
+
+
+async def draft_challenge_keep(
+    title: str,
+    answers: list[tuple[str, str]],
+    settings: Settings,
+) -> tuple[str, str]:
+    """One Qwen call, same client as analyze_review. Not a chat."""
+    return await asyncio.to_thread(_draft_challenge_keep, title, answers, settings)
+
+
 async def analyze_review_media(
     *,
     source: str,

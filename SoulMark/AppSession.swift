@@ -897,6 +897,15 @@ private final class SoulAPIClient {
         )
     }
 
+    func keepChallengeSentence(token: String, key: String, reflectionID: UUID, sentence: String) async throws -> MarkedReviewLineDTO {
+        try await request(
+            path: "/api/v1/challenges/\(key)/keep",
+            method: "POST",
+            token: token,
+            body: ChallengeKeepPayload(reflectionId: reflectionID, sentence: sentence)
+        )
+    }
+
     func selfAwarenessReport(token: String) async throws -> SelfAwarenessReportDTO {
         try await request(path: "/api/v1/users/me/self-awareness-report", method: "GET", token: token, bodyData: nil, timeoutInterval: 30)
     }
@@ -1579,6 +1588,14 @@ final class AppSession: ObservableObject {
             await acceptGrowthReward(result.growth, awarded: result.awardedExperience, requestID: requestID)
         }
         return result
+    }
+
+    func keepChallengeSentence(key: String, reflectionID: UUID, sentence: String) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        _ = try await api.keepChallengeSentence(
+            token: token, key: key, reflectionID: reflectionID, sentence: sentence
+        )
+        selfPageRevision = UUID()
     }
 
     func loadSelfAwarenessReport() async throws -> SelfAwarenessReportDTO {
