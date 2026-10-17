@@ -248,11 +248,18 @@ private struct ChallengeRow: View {
 struct ChallengeIcon: View {
     let name: String
     var body: some View {
-        Image(systemName: name)
-            .font(.system(size: 20, weight: .bold))
-            .foregroundStyle(SoulTheme.accent)
-            .frame(width: 50, height: 50)
-            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        Group {
+            if let asset = SoulArtwork.challengeAsset(symbol: name) {
+                SoulSlotIcon(asset: asset)
+                    .padding(8)
+            } else {
+                Image(systemName: name)
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(SoulTheme.accent)
+            }
+        }
+        .frame(width: 50, height: 50)
+        .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 

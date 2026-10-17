@@ -92,11 +92,18 @@ struct GrowthMilestoneSection: View {
             ForEach(GrowthMilestone.all) { milestone in
                 let unlocked = growth.peakLevel >= milestone.level
                 HStack(spacing: 12) {
-                    Image(systemName: unlocked ? milestone.icon : "lock.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(unlocked ? SoulTheme.accent : SoulTheme.tertiaryText)
-                        .frame(width: 44, height: 44)
-                        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14))
+                    Group {
+                        if unlocked, let asset = SoulArtwork.titleAsset(level: milestone.level) {
+                            SoulSlotIcon(asset: asset)
+                                .padding(7)
+                        } else {
+                            Image(systemName: unlocked ? milestone.icon : "lock.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(unlocked ? SoulTheme.accent : SoulTheme.tertiaryText)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 4) {
                         Text(milestone.title).font(.system(size: 15, weight: .bold))
                             .foregroundStyle(SoulTheme.primaryText)

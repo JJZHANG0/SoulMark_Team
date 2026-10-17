@@ -109,9 +109,8 @@ struct AppTabBar: View {
     private func tabItem(_ section: AppSection) -> some View {
         let isSelected = selectedSection == section
         VStack(spacing: 2) {
-            Image(systemName: section.systemImage)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(isSelected ? SoulTheme.accent : SoulTheme.secondaryText)
+            SoulSlotIcon(asset: SoulArtwork.tabAsset(section))
+                .frame(width: 22, height: 22)
                 .frame(height: 25)
 
             Text(section.title)

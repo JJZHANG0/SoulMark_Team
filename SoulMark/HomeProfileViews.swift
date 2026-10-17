@@ -234,6 +234,7 @@ struct IntegratedHomePage: View {
                 title: localizedText("关系图谱", "Relationship Map"),
                 subtitle: localizedText("在关系里看见自己", "See yourself through others"),
                 icon: "point.3.connected.trianglepath.dotted",
+                iconAsset: SoulArtwork.tabMap,
                 action: onOpenRelationshipGraph
             )
 
@@ -242,6 +243,7 @@ struct IntegratedHomePage: View {
                 title: localizedText("沟通复盘", "Conversation Review"),
                 subtitle: localizedText("读懂表达的影响", "Read the impact of words"),
                 icon: "text.bubble.fill",
+                iconAsset: SoulArtwork.tabReview,
                 action: onOpenJournal
             )
         }
@@ -257,11 +259,8 @@ struct IntegratedHomePage: View {
             if radarPeople.isEmpty {
                 Button(action: onOpenRelationshipGraph) {
                     HStack(spacing: 13) {
-                        Image(systemName: "person.badge.plus")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundStyle(SoulTheme.accent)
+                        SoulSlotIcon(asset: SoulArtwork.emptyMirror)
                             .frame(width: 44, height: 44)
-                            .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                         VStack(alignment: .leading, spacing: 4) {
                             Text(localizedText("关系镜子还是空的", "Your relationship mirror is empty"))
@@ -353,9 +352,13 @@ struct IntegratedHomePage: View {
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(localizedText("本周表达信号", "Weekly Expression Signal"))
-                        .font(.system(size: 17, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.primaryText)
+                    HStack(spacing: 8) {
+                        SoulSlotIcon(asset: SoulArtwork.signal)
+                            .frame(width: 28, height: 16)
+                        Text(localizedText("本周表达信号", "Weekly Expression Signal"))
+                    }
+                    .font(.system(size: 17, weight: .heavy, design: .rounded))
+                    .foregroundStyle(SoulTheme.primaryText)
 
                     Text(weeklySignalDetail)
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
@@ -1626,17 +1629,25 @@ private struct SoulActionCard: View {
     let title: String
     let subtitle: String
     let icon: String
+    var iconAsset: String? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 11) {
                 HStack {
-                    Image(systemName: icon)
-                        .font(.system(size: 19, weight: .bold))
-                        .foregroundStyle(SoulTheme.accent)
-                        .frame(width: 42, height: 42)
-                        .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    Group {
+                        if let iconAsset {
+                            SoulSlotIcon(asset: iconAsset)
+                                .padding(8)
+                        } else {
+                            Image(systemName: icon)
+                                .font(.system(size: 19, weight: .bold))
+                                .foregroundStyle(SoulTheme.accent)
+                        }
+                    }
+                    .frame(width: 42, height: 42)
+                    .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     Spacer()
 

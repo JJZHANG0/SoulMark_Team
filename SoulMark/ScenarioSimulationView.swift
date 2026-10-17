@@ -839,8 +839,7 @@ private struct ScenarioModeQuickSwitch: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 5) {
-                Image(systemName: mode.systemImage)
-                    .font(.system(size: 15, weight: .bold))
+                SoulModeIcon(mode: mode, pointSize: 18)
 
                 Text(mode.displayTitle)
                     .font(.system(size: 9, weight: .heavy, design: .rounded))
@@ -1589,9 +1588,12 @@ private struct ScenarioModePicker: View {
                     Button {
                         selectedModeID = mode.id
                     } label: {
-                        Label(mode.displayTitle, systemImage: mode.systemImage)
-                            .font(.system(size: 11, weight: .heavy, design: .rounded))
-                            .foregroundStyle(selectedModeID == mode.id ? SoulTheme.accent : SoulTheme.secondaryText)
+                        HStack(spacing: 6) {
+                            SoulModeIcon(mode: mode, pointSize: 13)
+                            Text(mode.displayTitle)
+                        }
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .foregroundStyle(selectedModeID == mode.id ? SoulTheme.accent : SoulTheme.secondaryText)
                             .padding(.horizontal, 11)
                             .frame(height: 36)
                             .background(
@@ -1645,8 +1647,7 @@ private struct ScenarioModePickerSheet: View {
                             onSelect(mode)
                         } label: {
                             HStack(spacing: 14) {
-                                Image(systemName: mode.systemImage)
-                                    .font(.system(size: 18, weight: .bold))
+                                SoulModeIcon(mode: mode, pointSize: 20)
                                     .foregroundStyle(
                                         selectedModeID == mode.id
                                             ? Color.white

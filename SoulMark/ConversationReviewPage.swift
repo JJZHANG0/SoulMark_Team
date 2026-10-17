@@ -384,9 +384,14 @@ private struct EmptyReviewState: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: isSearchMiss ? "magnifyingglass" : "square.and.pencil")
-                .font(.system(size: 30, weight: .semibold))
-                .foregroundStyle(secondaryTextColor)
+            if isSearchMiss {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(secondaryTextColor)
+            } else {
+                SoulSlotIcon(asset: SoulArtwork.emptyReview)
+                    .frame(width: 88, height: 88)
+            }
 
             Text(isSearchMiss
                 ? localizedText("没有找到相关复盘", "No matching reviews")

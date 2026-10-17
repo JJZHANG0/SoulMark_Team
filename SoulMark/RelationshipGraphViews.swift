@@ -151,9 +151,13 @@ struct RelationshipMapView: View {
 
                     if people.isEmpty {
                         Button(action: onAddPerson) {
-                            Label(localizedText("添加第一个人", "Add Your First Person"), systemImage: "person.badge.plus")
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
-                                .foregroundStyle(Color.white)
+                            HStack(spacing: 8) {
+                                SoulSlotIcon(asset: SoulArtwork.emptyMap, template: true)
+                                    .frame(width: 15, height: 15)
+                                Text(localizedText("添加第一个人", "Add Your First Person"))
+                            }
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.white)
                                 .padding(.horizontal, 16)
                                 .frame(height: 42)
                                 .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -479,8 +483,13 @@ struct RelationshipFilterBar: View {
                             }
                         } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: filter.systemImage)
-                                    .font(.system(size: 13, weight: .bold))
+                                if filter == .confidant {
+                                    SoulSlotIcon(asset: SoulArtwork.categoryConfidant)
+                                        .frame(width: 16, height: 16)
+                                } else {
+                                    Image(systemName: filter.systemImage)
+                                        .font(.system(size: 13, weight: .bold))
+                                }
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(filter.title)
