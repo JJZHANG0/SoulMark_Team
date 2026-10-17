@@ -19,7 +19,6 @@ struct IntegratedHomePage: View {
 
     let userID: UUID?
     let people: [RelationshipPerson]
-    let practiceCount: Int
     let averageReviewScore: Double?
     let onOpenRelationshipGraph: () -> Void
     let onOpenScenario: () -> Void
@@ -55,7 +54,6 @@ struct IntegratedHomePage: View {
                     ChallengeHubCard()
 
                     relationshipSnapshot
-                    weeklySignal
                 }
                 .padding(.horizontal, 18)
                 .padding(.top, 18)
@@ -187,10 +185,44 @@ struct IntegratedHomePage: View {
 
     private var dailyDose: some View {
         let quote = DailyQuoteCatalog.quote(userID: userID ?? DailyQuoteCatalog.guestUserID)
+        let signal = WeeklyExpressionSignal(averageScore: averageReviewScore)
 
         return VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Spacer()
+            Text(quote.text)
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+                .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("— \(quote.source)")
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
+                .foregroundStyle(SoulTheme.tertiaryText)
+                .lineLimit(2)
+
+            if averageReviewScore == nil {
+                Text(weeklySignalDetail)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(SoulTheme.secondaryText)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            HStack(alignment: .center, spacing: 8) {
+                HStack(spacing: 8) {
+                    SoulSlotIcon(asset: SoulArtwork.signal)
+                        .frame(width: 28, height: 16)
+                    Text(localizedText("本周表达信号", "Weekly Expression Signal"))
+                }
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(SoulTheme.primaryText)
+
+                Spacer(minLength: 8)
+
+                if averageReviewScore != nil {
+                    Text(signal.displayScore)
+                        .font(.system(size: 32, weight: .heavy, design: .rounded))
+                        .foregroundStyle(SoulTheme.energy)
+                }
 
                 Button {
                     do {
@@ -211,17 +243,6 @@ struct IntegratedHomePage: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(localizedText("分享今日内容", "Share today's quote"))
             }
-
-            Text(quote.text)
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
-                .foregroundStyle(SoulTheme.primaryText)
-                .lineSpacing(4)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("— \(quote.source)")
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                .foregroundStyle(SoulTheme.tertiaryText)
-                .lineLimit(2)
         }
         .padding(18)
         .background(SoulGlassCardBackground(accented: true))
@@ -347,46 +368,6 @@ struct IntegratedHomePage: View {
         }
     }
 
-    private var weeklySignal: some View {
-        let signal = WeeklyExpressionSignal(averageScore: averageReviewScore)
-        return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        SoulSlotIcon(asset: SoulArtwork.signal)
-                            .frame(width: 28, height: 16)
-                        Text(localizedText("本周表达信号", "Weekly Expression Signal"))
-                    }
-                    .font(.system(size: 17, weight: .heavy, design: .rounded))
-                    .foregroundStyle(SoulTheme.primaryText)
-
-                    Text(weeklySignalDetail)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(SoulTheme.secondaryText)
-                        .lineSpacing(3)
-                }
-
-                Spacer()
-
-                Text(signal.displayScore)
-                    .font(.system(size: 36, weight: .heavy, design: .rounded))
-                    .foregroundStyle(SoulTheme.energy)
-            }
-
-            GeometryReader { proxy in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(SoulTheme.subtleFill)
-                    Capsule()
-                        .fill(SoulTheme.energy)
-                        .frame(width: proxy.size.width * signal.progress)
-                }
-            }
-            .frame(height: 6)
-        }
-        .padding(18)
-        .background(SoulGlassCardBackground())
-    }
-
     private var greetingSubtitle: String {
         let hour = Calendar.current.component(.hour, from: Date())
         switch hour {
@@ -400,15 +381,9 @@ struct IntegratedHomePage: View {
     }
 
     private var weeklySignalDetail: String {
-        guard averageReviewScore != nil else {
-            return localizedText(
-                "完成一次复盘后，这里会显示你的平均表达分。",
-                "Complete a review to see your average expression score."
-            )
-        }
-        return localizedText(
-            "这是复盘平均分。练习 \(practiceCount) 次另行计算。",
-            "This is the average review score. \(practiceCount) practices are counted separately."
+        localizedText(
+            "完成一次复盘后，这里会显示你的平均表达分。",
+            "Complete a review to see your average expression score."
         )
     }
 
@@ -1685,7 +1660,7 @@ private struct SoulActionCard: View {
                         .foregroundStyle(SoulTheme.energy)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 142, alignment: .topLeading)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
             .padding(14)
             .background(SoulGlassCardBackground())
         }

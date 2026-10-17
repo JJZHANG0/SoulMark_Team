@@ -178,7 +178,6 @@ struct ContentView: View {
             IntegratedHomePage(
                 userID: session.user?.id,
                 people: people,
-                practiceCount: practiceCount,
                 averageReviewScore: averageReviewScore,
                 onOpenRelationshipGraph: {
                     selectedSection = .relationshipGraph
