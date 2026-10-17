@@ -467,6 +467,7 @@ enum SoulAPIError: LocalizedError {
     case incompatibleBackend(Int)
     case server(String)
     case offline
+    case distressCheck
 
     var errorDescription: String? {
         switch self {
@@ -481,12 +482,15 @@ enum SoulAPIError: LocalizedError {
             message
         case .offline:
             localizedText("暂时无法连接 SoulMark 服务。", "SoulMark is temporarily unreachable.")
+        case .distressCheck:
+            localizedText("你现在还好吗", "Are you okay right now?")
         }
     }
 }
 
 private struct APIErrorEnvelope: Decodable {
     struct Detail: Decodable {
+        let code: String
         let message: String
     }
 
@@ -886,15 +890,80 @@ private final class SoulAPIClient {
         try await request(path: "/api/v1/challenges/\(key)/start", method: "POST", token: token)
     }
 
-    func submitChallengeStep(token: String, key: String, index: Int, response: String, rating: Int?) async throws -> ChallengeActionDTO {
+    func submitChallengeStep(token: String, key: String, index: Int, response: String, rating: Int?, continueAnyway: Bool = false) async throws -> ChallengeActionDTO {
         try await request(
             path: "/api/v1/challenges/\(key)/steps/\(index)", method: "PUT", token: token,
-            body: ChallengeStepSubmissionPayload(response: response, rating: rating)
+            body: ChallengeStepSubmissionPayload(response: response, rating: rating, continueAnyway: continueAnyway)
+        )
+    }
+
+    func keepChallengeSentence(token: String, key: String, reflectionID: UUID, sentence: String) async throws -> MarkedReviewLineDTO {
+        try await request(
+            path: "/api/v1/challenges/\(key)/keep",
+            method: "POST",
+            token: token,
+            body: ChallengeKeepPayload(reflectionId: reflectionID, sentence: sentence)
         )
     }
 
     func selfAwarenessReport(token: String) async throws -> SelfAwarenessReportDTO {
-        try await request(path: "/api/v1/users/me/self-awareness-report", method: "GET", token: token, bodyData: nil, timeoutInterval: 30)
+        guard case .page(let page) = try await selfReport(token: token) else {
+            throw SoulAPIError.incompatibleBackend(200)
+        }
+        return page
+    }
+
+    func selfReport(token: String) async throws -> SelfReportDocument {
+        let data = try await requestData(
+            path: "/api/v1/users/me/self-awareness-report",
+            token: token
+        )
+        do {
+            return try SelfReportDocument.decode(data)
+        } catch let error as SoulAPIError {
+            throw error
+        } catch {
+            throw SoulAPIError.incompatibleBackend(200)
+        }
+    }
+
+    func confirmSelfCell(token: String, payload: ConfirmSelfCellPayload) async throws -> SelfAwarenessReportDTO {
+        try await request(
+            path: "/api/v1/users/me/self-page/cells",
+            method: "PUT",
+            token: token,
+            body: payload,
+            timeoutInterval: 30
+        )
+    }
+
+    func pauseSelfPage(token: String) async throws -> SelfAwarenessReportDTO {
+        try await request(
+            path: "/api/v1/users/me/self-page/pause",
+            method: "POST",
+            token: token,
+            bodyData: nil,
+            timeoutInterval: 30
+        )
+    }
+
+    func completeWeeklyStep(token: String) async throws -> SelfAwarenessReportDTO {
+        try await request(
+            path: "/api/v1/users/me/self-page/step",
+            method: "POST",
+            token: token,
+            bodyData: nil,
+            timeoutInterval: 30
+        )
+    }
+
+    func markReviewLine(token: String, reviewID: UUID, quote: String) async throws {
+        let _: MarkedReviewLineDTO = try await request(
+            path: "/api/v1/reviews/\(reviewID.uuidString)/my-line",
+            method: "POST",
+            token: token,
+            body: MarkMyLinePayload(quote: quote)
+        )
     }
 
     private func request<Response: Decodable>(
@@ -952,11 +1021,7 @@ private final class SoulAPIClient {
             throw SoulAPIError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
-            let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
-            throw SoulAPIError.server(
-                envelope?.error.message
-                    ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
-            )
+            throw apiError(data)
         }
     }
 
@@ -979,13 +1044,20 @@ private final class SoulAPIClient {
             throw SoulAPIError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
-            let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
-            throw SoulAPIError.server(
-                envelope?.error.message
-                    ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
-            )
+            throw apiError(data)
         }
         return data
+    }
+
+    private func apiError(_ data: Data) -> SoulAPIError {
+        let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
+        if envelope?.error.code == "distress_check" {
+            return .distressCheck
+        }
+        return .server(
+            envelope?.error.message
+                ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
+        )
     }
 
     private func request<Response: Decodable, Body: Encodable>(
@@ -1041,32 +1113,10 @@ private final class SoulAPIClient {
             throw SoulAPIError.invalidResponse
         }
         guard (200..<300).contains(http.statusCode) else {
-            let envelope = try? JSONDecoder().decode(APIErrorEnvelope.self, from: data)
-            throw SoulAPIError.server(
-                envelope?.error.message
-                    ?? localizedText("请求没有完成，请稍后再试。", "The request could not be completed.")
-            )
+            throw apiError(data)
         }
         do {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .custom { decoder in
-                let container = try decoder.singleValueContainer()
-                let value = try container.decode(String.self)
-                let formatter = ISO8601DateFormatter()
-                formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                formatter.formatOptions = [.withInternetDateTime]
-                if let date = formatter.date(from: value) {
-                    return date
-                }
-                throw DecodingError.dataCorruptedError(
-                    in: container,
-                    debugDescription: "Invalid ISO-8601 date"
-                )
-            }
-            return try decoder.decode(Response.self, from: data)
+            return try soulMarkJSONDecoder().decode(Response.self, from: data)
         } catch {
 #if DEBUG
             print("SoulMark response decoding failed for \(request.url?.path ?? "unknown path"): \(error)")
@@ -1162,13 +1212,17 @@ final class AppSession: ObservableObject {
     private var cachedReviewAnalyses: [UUID: AnalyzedConversationReview] = [:]
     private var tutorialAdvanceID: UUID?
     private let api: SoulAPIClient
+    /// Set only by the Xcode canvas session. A normal launch leaves this nil and still calls the API.
+    private let previewChallenges: ChallengeListDTO?
 
     init(
         networkSession: URLSession = .shared,
-        tokenStore: any AuthTokenStoring = AuthTokenStore.shared
+        tokenStore: any AuthTokenStoring = AuthTokenStore.shared,
+        previewChallenges: ChallengeListDTO? = nil
     ) {
         api = SoulAPIClient(session: networkSession)
         self.tokenStore = tokenStore
+        self.previewChallenges = previewChallenges
     }
 
     private let tokenStore: any AuthTokenStoring
@@ -1496,8 +1550,10 @@ final class AppSession: ObservableObject {
     // MARK: Self-awareness challenges & report
 
     @Published private(set) var challengesRevision = UUID()
+    @Published private(set) var selfPageRevision = UUID()
 
     func loadChallenges() async throws -> ChallengeListDTO {
+        if let previewChallenges { return previewChallenges }
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         return try await api.challenges(token: token)
     }
@@ -1514,9 +1570,9 @@ final class AppSession: ObservableObject {
         return result
     }
 
-    func submitChallengeStep(key: String, index: Int, response: String, rating: Int?) async throws -> ChallengeActionDTO {
+    func submitChallengeStep(key: String, index: Int, response: String, rating: Int?, continueAnyway: Bool = false) async throws -> ChallengeActionDTO {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
-        let result = try await api.submitChallengeStep(token: token, key: key, index: index, response: response, rating: rating)
+        let result = try await api.submitChallengeStep(token: token, key: key, index: index, response: response, rating: rating, continueAnyway: continueAnyway)
         challengesRevision = UUID()
         if result.growth != nil {
             let requestID = growthRequests.begin()
@@ -1525,9 +1581,49 @@ final class AppSession: ObservableObject {
         return result
     }
 
+    func keepChallengeSentence(key: String, reflectionID: UUID, sentence: String) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        _ = try await api.keepChallengeSentence(
+            token: token, key: key, reflectionID: reflectionID, sentence: sentence
+        )
+        selfPageRevision = UUID()
+    }
+
     func loadSelfAwarenessReport() async throws -> SelfAwarenessReportDTO {
         guard let token = tokenStore.read() else { throw SoulAPIError.offline }
         return try await api.selfAwarenessReport(token: token)
+    }
+
+    func loadSelfReport() async throws -> SelfReportDocument {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        return try await api.selfReport(token: token)
+    }
+
+    func confirmSelfCell(_ payload: ConfirmSelfCellPayload) async throws -> SelfAwarenessReportDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let report = try await api.confirmSelfCell(token: token, payload: payload)
+        selfPageRevision = UUID()
+        return report
+    }
+
+    func pauseSelfPage() async throws -> SelfAwarenessReportDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let report = try await api.pauseSelfPage(token: token)
+        selfPageRevision = UUID()
+        return report
+    }
+
+    func completeWeeklyStep() async throws -> SelfAwarenessReportDTO {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        let report = try await api.completeWeeklyStep(token: token)
+        selfPageRevision = UUID()
+        return report
+    }
+
+    func markReviewLine(reviewID: UUID, quote: String) async throws {
+        guard let token = tokenStore.read() else { throw SoulAPIError.offline }
+        try await api.markReviewLine(token: token, reviewID: reviewID, quote: quote)
+        selfPageRevision = UUID()
     }
 
     func loadStats() async -> DashboardStatsDTO? {

@@ -84,134 +84,23 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedSection) {
+        ZStack {
             ForEach(AppSection.allCases, id: \.self) { section in
                 page(for: section)
-                    .tag(section)
-                    .tabItem {
-                        Label(section.title, systemImage: section.systemImage)
-                    }
+                    .clipShape(Rectangle())
+                    .opacity(selectedSection == section ? 1 : 0)
+                    .allowsHitTesting(selectedSection == section)
+                    .accessibilityHidden(selectedSection != section)
+                    .zIndex(selectedSection == section ? 1 : 0)
             }
+        }
+        .background(SoulBackground())
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            AppTabBar(selectedSection: $selectedSection)
         }
         .tint(SoulTheme.accent)
         .preferredColorScheme(isSoulNightMode() ? .dark : .light)
         .overlay(alignment: .top) { GrowthFeedbackOverlay() }
-        .task {
-            await session.recordForegroundActivity()
-            await reloadContacts()
-            await refreshStats()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await session.recordForegroundActivity() } }
-        }
-        .onChange(of: session.contactsRevision) {
-            Task { await reloadContacts(); await refreshStats() }
-        }
-        .onChange(of: selectedSection) {
-            if selectedSection == .profile {
-                Task { await refreshStats(); await session.refreshGrowth() }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func page(for section: AppSection) -> some View {
-        switch section {
-        case .home:
-            IntegratedHomePage(
-                userID: session.user?.id,
-                people: people,
-                practiceCount: practiceCount,
-                averageReviewScore: averageReviewScore,
-                onOpenRelationshipGraph: {
-                    selectedSection = .relationshipGraph
-                },
-                onOpenScenario: {
-                    selectedSection = .scenarioSimulation
-                },
-                onOpenJournal: {
-                    selectedSection = .journal
-                }
-            )
-        case .relationshipGraph:
-            relationshipGraphPage
-        case .scenarioSimulation:
-            ScenarioSimulationView(
-                relationshipPeople: people,
-                focusedPersonID: scenarioFocusedPersonID,
-                onPracticeDeleted: {
-                    Task { await refreshStats() }
-                }
-            )
-        case .journal:
-            ConversationReviewPage { count in
-                reviewCount = count
-                Task { await refreshStats() }
-            }
-        case .profile:
-            IntegratedProfilePage(people: people, achievementProgress: achievementProgress)
-        }
-    }
-
-    @MainActor
-    private func refreshStats() async {
-        guard let stats = await session.loadStats() else { return }
-        practiceCount = stats.practicesCount
-        reviewCount = stats.reviewsCount
-        averageReviewScore = stats.averageReviewScore
-    }
-
-    private var relationshipGraphPage: some View {
-        ZStack(alignment: .bottom) {
-            RelationshipBackground()
-
-            VStack(spacing: 0) {
-                RelationshipHeader(
-                    onAddPerson: {
-                        requestAddPerson()
-                    },
-                    onOpenCategories: {
-                        showingRelationshipCategories = true
-                    }
-                )
-
-                RelationshipMapView(
-                    people: visiblePeople,
-                    ownerDisplayName: session.user?.displayName,
-                    selectedPerson: selectedPerson,
-                    onMovePerson: { id, position in
-                        people.updatePosition(for: id, to: position)
-                        if selectedPerson?.id == id {
-                            selectedPerson = people.first { $0.id == id }
-                        }
-                        if let updated = people.first(where: { $0.id == id }) {
-                            Task { await session.updateContact(updated) }
-                        }
-                    },
-                    onOrganize: {
-                        withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
-                            people.organizePositions()
-                            graphLayoutRevision = UUID()
-                            if let selectedPerson {
-                                self.selectedPerson = people.first { $0.id == selectedPerson.id }
-                            }
-                        }
-                        let organizedPeople = people
-                        Task { await session.updateContacts(organizedPeople) }
-                    },
-                    onSelect: { person in
-                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
-                            selectedPerson = person
-                        }
-                    },
-                    onAddPerson: requestAddPerson
-                )
-                .id(graphLayoutRevision)
-                .padding(.top, 8)
-                .padding(.bottom, 106)
-            }
-        }
-        .ignoresSafeArea(edges: .bottom)
         .sheet(item: $selectedPerson) { person in
             RelationshipDetailSheet(
                 person: person,
@@ -264,6 +153,128 @@ struct ContentView: View {
             .presentationDetents([.medium, .large])
             .presentationDragIndicator(.visible)
         }
+        .task {
+            await session.recordForegroundActivity()
+            await reloadContacts()
+            await refreshStats()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await session.recordForegroundActivity() } }
+        }
+        .onChange(of: session.contactsRevision) {
+            Task { await reloadContacts(); await refreshStats() }
+        }
+        .onChange(of: selectedSection) {
+            if selectedSection == .profile {
+                Task { await refreshStats(); await session.refreshGrowth() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func page(for section: AppSection) -> some View {
+        switch section {
+        case .home:
+            IntegratedHomePage(
+                userID: session.user?.id,
+                people: people,
+                averageReviewScore: averageReviewScore,
+                onOpenRelationshipGraph: {
+                    selectedSection = .relationshipGraph
+                },
+                onOpenScenario: {
+                    selectedSection = .scenarioSimulation
+                },
+                onOpenJournal: {
+                    selectedSection = .journal
+                },
+                onSelectPerson: { person in
+                    selectedPerson = person
+                }
+            )
+        case .relationshipGraph:
+            relationshipGraphPage
+        case .scenarioSimulation:
+            ScenarioSimulationView(
+                relationshipPeople: people,
+                focusedPersonID: scenarioFocusedPersonID,
+                onPracticeDeleted: {
+                    Task { await refreshStats() }
+                }
+            )
+        case .journal:
+            ConversationReviewPage { count in
+                reviewCount = count
+                Task { await refreshStats() }
+            }
+        case .profile:
+            IntegratedProfilePage(
+                people: people,
+                achievementProgress: achievementProgress,
+                onOpenRelationshipGraph: { selectedSection = .relationshipGraph },
+                onOpenScenario: { selectedSection = .scenarioSimulation },
+                onOpenJournal: { selectedSection = .journal }
+            )
+        }
+    }
+
+    @MainActor
+    private func refreshStats() async {
+        guard let stats = await session.loadStats() else { return }
+        practiceCount = stats.practicesCount
+        reviewCount = stats.reviewsCount
+        averageReviewScore = stats.averageReviewScore
+    }
+
+    private var relationshipGraphPage: some View {
+        VStack(spacing: 0) {
+                RelationshipHeader(
+                    onAddPerson: {
+                        requestAddPerson()
+                    },
+                    onOpenCategories: {
+                        showingRelationshipCategories = true
+                    }
+                )
+
+                RelationshipMapView(
+                    people: visiblePeople,
+                    ownerDisplayName: session.user?.displayName,
+                    selectedPerson: selectedPerson,
+                    onMovePerson: { id, position in
+                        people.updatePosition(for: id, to: position)
+                        if selectedPerson?.id == id {
+                            selectedPerson = people.first { $0.id == id }
+                        }
+                    },
+                    onFinishMove: { id in
+                        if let updated = people.first(where: { $0.id == id }) {
+                            Task { await session.updateContact(updated) }
+                        }
+                    },
+                    onOrganize: {
+                        withAnimation(.spring(response: 0.48, dampingFraction: 0.86)) {
+                            people.organizePositions()
+                            graphLayoutRevision = UUID()
+                            if let selectedPerson {
+                                self.selectedPerson = people.first { $0.id == selectedPerson.id }
+                            }
+                        }
+                        let organizedPeople = people
+                        Task { await session.updateContacts(organizedPeople) }
+                    },
+                    onSelect: { person in
+                        withAnimation(.spring(response: 0.36, dampingFraction: 0.82)) {
+                            selectedPerson = person
+                        }
+                    },
+                    onAddPerson: requestAddPerson
+                )
+                .id(graphLayoutRevision)
+                .padding(.top, 8)
+                .padding(.bottom, AppTabBar.reservedHeight)
+        }
+        .background { RelationshipBackground() }
         .sheet(isPresented: $isAddingPerson) {
             AddPersonSheet(availableCategories: availableCategories) { name, note, category, avatarData, informationFields in
                 if case .custom = category, !customCategories.contains(category) {
@@ -413,5 +424,6 @@ struct ContentView: View {
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
         ContentView()
+            .environmentObject(SoulPreviewSession.shared)
     }
 }

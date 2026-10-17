@@ -3,7 +3,6 @@ import SwiftUI
 struct GrowthProgressCard: View {
     let state: GrowthLoadState
     var onRetry: () -> Void = {}
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showingRules = false
 
     var body: some View {
@@ -44,62 +43,10 @@ struct GrowthProgressCard: View {
                         .padding(.vertical, 8)
                 }
             case .loaded(let growth):
-                HStack(alignment: .center, spacing: 14) {
-                    Image(systemName: growth.currentMilestone.icon)
-                        .font(.system(size: 24, weight: .bold))
-                        .foregroundStyle(SoulTheme.accent)
-                        .frame(width: 56, height: 56)
-                        .background(SoulTheme.accentSoft, in: RoundedRectangle(cornerRadius: 18))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(growth.currentMilestone.title)
-                            .font(.system(size: 19, weight: .heavy, design: .rounded))
-                            .foregroundStyle(SoulTheme.primaryText)
-                        Text(localizedText("每次认真表达，都算数。", "Every thoughtful conversation counts."))
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(SoulTheme.secondaryText)
-                    }
-                    Spacer(minLength: 0)
-                    Text("Lv.\(growth.level)")
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .foregroundStyle(SoulTheme.accent)
-                        .minimumScaleFactor(0.7)
-                        .lineLimit(1)
-                }
-                VStack(alignment: .leading, spacing: 9) {
-                    HStack {
-                        Text("\(growth.levelExperience) / \(growth.nextLevelExperience) EXP")
-                            .font(.system(size: 12, weight: .bold, design: .monospaced))
-                        Spacer(minLength: 4)
-                        Text(localizedText("下一级 Lv.\(growth.level + 1)", "Next: Lv.\(growth.level + 1)"))
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .foregroundStyle(SoulTheme.secondaryText)
-                    GeometryReader { geometry in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(SoulTheme.subtleFill)
-                            Capsule()
-                                .fill(LinearGradient(colors: [SoulTheme.accent, SoulTheme.energy], startPoint: .leading, endPoint: .trailing))
-                                .frame(width: geometry.size.width * growth.progress)
-                        }
-                    }
-                    .frame(height: 12)
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.5), value: growth.progress)
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel(localizedText("升级进度", "Level progress"))
-                    .accessibilityValue("\(growth.levelExperience) / \(growth.nextLevelExperience)")
-                    Text(localizedText("再获得 \(growth.nextLevelExperience - growth.levelExperience) 经验即可升级", "\(growth.nextLevelExperience - growth.levelExperience) more EXP to level up"))
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(SoulTheme.secondaryText)
-                }
                 HStack(spacing: 10) {
                     rewardPill(localizedText("复盘 +30", "Review +30"), icon: "text.bubble")
                     rewardPill(localizedText("对话 +5 / 轮", "Chat +5 / turn"), icon: "waveform")
                     rewardPill(localizedText("挑战 +20", "Challenge +20"), icon: "flag.checkered")
-                }
-                if let next = GrowthMilestone.all.first(where: { $0.level > growth.level }) {
-                    Text(localizedText("下个称号：Lv.\(next.level) · \(next.title)", "Next title: Lv.\(next.level) · \(next.title)"))
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(SoulTheme.secondaryText)
                 }
                 Text(localizedText("今日聊天经验 \(growth.chatExperienceToday) / 50", "Chat EXP today: \(growth.chatExperienceToday) / 50"))
                     .font(.system(size: 11, weight: .medium))
@@ -140,11 +87,18 @@ struct GrowthMilestoneSection: View {
             ForEach(GrowthMilestone.all) { milestone in
                 let unlocked = growth.peakLevel >= milestone.level
                 HStack(spacing: 12) {
-                    Image(systemName: unlocked ? milestone.icon : "lock.fill")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(unlocked ? SoulTheme.accent : SoulTheme.tertiaryText)
-                        .frame(width: 44, height: 44)
-                        .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14))
+                    Group {
+                        if unlocked, let asset = SoulArtwork.titleAsset(level: milestone.level) {
+                            SoulSlotIcon(asset: asset)
+                                .padding(7)
+                        } else {
+                            Image(systemName: unlocked ? milestone.icon : "lock.fill")
+                                .font(.system(size: 20, weight: .bold))
+                                .foregroundStyle(unlocked ? SoulTheme.accent : SoulTheme.tertiaryText)
+                        }
+                    }
+                    .frame(width: 44, height: 44)
+                    .background(SoulTheme.subtleFill, in: RoundedRectangle(cornerRadius: 14))
                     VStack(alignment: .leading, spacing: 4) {
                         Text(milestone.title).font(.system(size: 15, weight: .bold))
                             .foregroundStyle(SoulTheme.primaryText)

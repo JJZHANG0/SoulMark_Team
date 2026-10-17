@@ -13,14 +13,14 @@ from app.models.activity import ConversationReview, PracticeSession
 from app.models.challenge import ChallengeProgress, ChallengeReflection
 from app.models.contact import Contact, ContactEvent
 from app.schemas.activity import PracticeResponse, ReviewResponse
-from app.schemas.challenge import SelfAwarenessReport
 from app.schemas.contact import ContactResponse
 from app.schemas.contact_event import ContactEventResponse
+from app.schemas.self_page import ConfirmCellRequest, SelfAwarenessReport
 from app.schemas.user import AccountDeletionRequest, TutorialProgress, UserResponse, UserUpdate
 from app.services.avatar_storage import AvatarStorage, get_avatar_storage
 from app.services.event_image_storage import EventImageStorage, get_event_image_storage
 from app.services.external_auth import SmsSender, authenticate_phone, get_sms_sender
-from app.services.self_awareness_report import build_report
+from app.services.self_page import build_report, complete_weekly_step, confirm_cell, pause_page
 from app.services.users import advance_tutorial, update_profile
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -138,6 +138,31 @@ async def get_self_awareness_report(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> SelfAwarenessReport:
     return await build_report(session, current_user)
+
+
+@router.put("/me/self-page/cells", response_model=SelfAwarenessReport)
+async def put_self_page_cell(
+    payload: ConfirmCellRequest,
+    current_user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> SelfAwarenessReport:
+    return await confirm_cell(session, current_user, payload)
+
+
+@router.post("/me/self-page/pause", response_model=SelfAwarenessReport)
+async def post_self_page_pause(
+    current_user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> SelfAwarenessReport:
+    return await pause_page(session, current_user)
+
+
+@router.post("/me/self-page/step", response_model=SelfAwarenessReport)
+async def post_self_page_step(
+    current_user: CurrentUser,
+    session: Annotated[AsyncSession, Depends(get_db)],
+) -> SelfAwarenessReport:
+    return await complete_weekly_step(session, current_user)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)

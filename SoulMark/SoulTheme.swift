@@ -167,27 +167,52 @@ enum SoulTheme {
 }
 
 struct SoulBackground: View {
+    var showsGrid = false
+
     var body: some View {
         ZStack {
             SoulTheme.pageGradient
 
-            GeometryReader { proxy in
-                Path { path in
-                    for x in stride(from: 18.0, through: proxy.size.width, by: 42.0) {
-                        path.move(to: CGPoint(x: x, y: 0))
-                        path.addLine(to: CGPoint(x: x, y: proxy.size.height))
-                    }
+            if showsGrid {
+                GeometryReader { proxy in
+                    Path { path in
+                        for x in stride(from: 18.0, through: proxy.size.width, by: 42.0) {
+                            path.move(to: CGPoint(x: x, y: 0))
+                            path.addLine(to: CGPoint(x: x, y: proxy.size.height))
+                        }
 
-                    for y in stride(from: 12.0, through: proxy.size.height, by: 42.0) {
-                        path.move(to: CGPoint(x: 0, y: y))
-                        path.addLine(to: CGPoint(x: proxy.size.width, y: y))
+                        for y in stride(from: 12.0, through: proxy.size.height, by: 42.0) {
+                            path.move(to: CGPoint(x: 0, y: y))
+                            path.addLine(to: CGPoint(x: proxy.size.width, y: y))
+                        }
                     }
+                    .stroke(SoulTheme.gridLine, lineWidth: 0.6)
                 }
-                .stroke(SoulTheme.gridLine, lineWidth: 0.6)
             }
-
         }
         .ignoresSafeArea()
+    }
+}
+
+struct SoulInsetField: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 15)
+            .frame(minHeight: 52)
+            .background(
+                SoulTheme.cardFill,
+                in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous)
+                    .stroke(SoulTheme.cardStroke, lineWidth: 1)
+            )
+    }
+}
+
+extension View {
+    func soulInsetField() -> some View {
+        modifier(SoulInsetField())
     }
 }
 
@@ -355,18 +380,15 @@ struct SoulIconButton: View {
 }
 
 struct SoulPageHeader<Trailing: View>: View {
-    let eyebrow: String
     let title: String
     let subtitle: String
     let trailing: Trailing
 
     init(
-        eyebrow: String,
         title: String,
         subtitle: String,
         @ViewBuilder trailing: () -> Trailing
     ) {
-        self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
         self.trailing = trailing()
@@ -375,16 +397,6 @@ struct SoulPageHeader<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 7) {
-                    Capsule()
-                        .fill(SoulTheme.energy)
-                        .frame(width: 26, height: 3)
-
-                    Text(eyebrow.uppercased())
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(SoulTheme.energy)
-                }
-
                 Text(title)
                     .font(.system(size: 29, weight: .heavy, design: .rounded))
                     .foregroundStyle(SoulTheme.primaryText)
@@ -402,8 +414,8 @@ struct SoulPageHeader<Trailing: View>: View {
 }
 
 extension SoulPageHeader where Trailing == EmptyView {
-    init(eyebrow: String, title: String, subtitle: String) {
-        self.init(eyebrow: eyebrow, title: title, subtitle: subtitle) { EmptyView() }
+    init(title: String, subtitle: String) {
+        self.init(title: title, subtitle: subtitle) { EmptyView() }
     }
 }
 

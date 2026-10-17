@@ -26,7 +26,7 @@ def test_alembic_has_single_head() -> None:
     script = ScriptDirectory.from_config(config)
 
     assert len(script.get_heads()) == 1
-    assert script.get_current_head() == "20261015_0015"
+    assert script.get_current_head() == "20261016_0016"
 
 
 def test_tutorial_migration_completes_existing_users_and_defaults_new_users() -> None:

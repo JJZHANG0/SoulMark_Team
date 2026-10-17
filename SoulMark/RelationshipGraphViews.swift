@@ -22,7 +22,6 @@ struct RelationshipHeader: View {
 
     var body: some View {
         SoulPageHeader(
-            eyebrow: "Network / 02",
             title: localizedText("关系图谱", "Relationship Map"),
             subtitle: localizedText("看见每一段关系正在靠近，还是远离。", "See which relationships are moving closer and which are drifting away.")
         ) {
@@ -82,11 +81,21 @@ struct PlaceholderPage: View {
     }
 }
 
+private final class NodeDragGate {
+    var active = false
+}
+
+private struct NodeDragStart {
+    let location: CGPoint
+    let position: CGPoint
+}
+
 struct RelationshipMapView: View {
     let people: [RelationshipPerson]
     let ownerDisplayName: String?
     let selectedPerson: RelationshipPerson?
     let onMovePerson: (RelationshipPerson.ID, CGPoint) -> Void
+    let onFinishMove: (RelationshipPerson.ID) -> Void
     let onOrganize: () -> Void
     let onSelect: (RelationshipPerson) -> Void
     let onAddPerson: () -> Void
@@ -95,6 +104,7 @@ struct RelationshipMapView: View {
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
+    @State private var nodeDragGate = NodeDragGate()
 
     private let center = CGPoint(x: 0.50, y: 0.50)
 
@@ -117,6 +127,7 @@ struct RelationshipMapView: View {
                             person: person,
                             isSelected: selectedPerson == person
                         )
+                        .allowsHitTesting(false)
                     }
 
                     ForEach(people) { person in
@@ -129,6 +140,8 @@ struct RelationshipMapView: View {
                             canvasSize: canvas,
                             scale: scale,
                             onMovePerson: onMovePerson,
+                            onFinishMove: onFinishMove,
+                            onNodeDragActive: { nodeDragGate.active = $0 },
                             onSelect: onSelect
                         )
                     }
@@ -138,9 +151,13 @@ struct RelationshipMapView: View {
 
                     if people.isEmpty {
                         Button(action: onAddPerson) {
-                            Label(localizedText("添加第一个人", "Add Your First Person"), systemImage: "person.badge.plus")
-                                .font(.system(size: 13, weight: .heavy, design: .rounded))
-                                .foregroundStyle(Color.white)
+                            HStack(spacing: 8) {
+                                SoulSlotIcon(asset: SoulArtwork.emptyMap, template: true)
+                                    .frame(width: 15, height: 15)
+                                Text(localizedText("添加第一个人", "Add Your First Person"))
+                            }
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.white)
                                 .padding(.horizontal, 16)
                                 .frame(height: 42)
                                 .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -156,7 +173,8 @@ struct RelationshipMapView: View {
             }
             .frame(width: viewport.width, height: viewport.height)
             .contentShape(Rectangle())
-            .simultaneousGesture(dragGesture)
+            .coordinateSpace(name: "mapViewport")
+            .gesture(dragGesture)
             .simultaneousGesture(zoomGesture)
             .overlay(alignment: .topLeading) {
                 if !people.isEmpty {
@@ -189,6 +207,7 @@ struct RelationshipMapView: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 12)
             .onChanged { value in
+                guard !nodeDragGate.active else { return }
                 offset = CGSize(
                     width: lastOffset.width + value.translation.width,
                     height: lastOffset.height + value.translation.height
@@ -292,7 +311,11 @@ private struct RelationshipNode: View {
     let canvasSize: CGSize
     let scale: CGFloat
     let onMovePerson: (RelationshipPerson.ID, CGPoint) -> Void
+    let onFinishMove: (RelationshipPerson.ID) -> Void
+    let onNodeDragActive: (Bool) -> Void
     let onSelect: (RelationshipPerson) -> Void
+
+    @State private var dragStart: NodeDragStart?
 
     var body: some View {
         HStack(spacing: 6) {
@@ -307,10 +330,6 @@ private struct RelationshipNode: View {
                     symbol: person.symbol,
                     size: avatarSize
                 )
-                    .contentShape(Circle())
-                    .onTapGesture {
-                        onSelect(person)
-                    }
             }
 
             if !shouldPutTextFirst {
@@ -328,7 +347,40 @@ private struct RelationshipNode: View {
                     .stroke(person.category.color.opacity(0.42), lineWidth: 1)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect(person)
+        }
+        .highPriorityGesture(nodeDrag)
         .position(x: point.x + CGFloat(labelLayout.horizontalDirection) * 46, y: point.y)
+    }
+
+    private var nodeDrag: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .named("mapViewport"))
+            .onChanged { value in
+                if dragStart == nil {
+                    dragStart = NodeDragStart(location: value.location, position: person.position)
+                    onNodeDragActive(true)
+                }
+                guard let dragStart else { return }
+                let width = max(canvasSize.width * scale, 1)
+                let height = max(canvasSize.height * scale, 1)
+                onMovePerson(
+                    person.id,
+                    CGPoint(
+                        x: dragStart.position.x + (value.location.x - dragStart.location.x) / width,
+                        y: dragStart.position.y + (value.location.y - dragStart.location.y) / height
+                    )
+                )
+            }
+            .onEnded { _ in
+                let moved = dragStart != nil
+                dragStart = nil
+                onNodeDragActive(false)
+                if moved {
+                    onFinishMove(person.id)
+                }
+            }
     }
 
     private var label: some View {
@@ -431,8 +483,13 @@ struct RelationshipFilterBar: View {
                             }
                         } label: {
                             HStack(spacing: 8) {
-                                Image(systemName: filter.systemImage)
-                                    .font(.system(size: 13, weight: .bold))
+                                if filter == .confidant {
+                                    SoulSlotIcon(asset: SoulArtwork.categoryConfidant)
+                                        .frame(width: 16, height: 16)
+                                } else {
+                                    Image(systemName: filter.systemImage)
+                                        .font(.system(size: 13, weight: .bold))
+                                }
 
                                 VStack(alignment: .leading, spacing: 1) {
                                     Text(filter.title)
@@ -643,8 +700,8 @@ struct MembershipUpgradeSheet: View {
                         .font(.system(size: 15, weight: .heavy, design: .rounded))
                         .foregroundStyle(Color.white)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .frame(height: 52)
+                        .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -672,7 +729,8 @@ struct RelationshipDetailSheet: View {
     @State private var timelineErrorMessage: String?
 
     var body: some View {
-        ScrollView {
+        NavigationStack {
+            ScrollView {
             VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 14) {
                 PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
@@ -802,34 +860,13 @@ struct RelationshipDetailSheet: View {
                 }
             }
 
-            if person.avatarURL != nil {
-                Button(role: .destructive, action: onAvatarDelete) {
-                    Label(localizedText("删除头像", "Remove Photo"), systemImage: "person.crop.circle.badge.minus")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(SoulTheme.danger)
-                }
-                .buttonStyle(.plain)
-            }
-
             Button(action: onStartScenario) {
                 Label(localizedText("与 \(person.name) 情景模拟", "Simulate with \(person.name)"), systemImage: "figure.wave")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Color.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
-            Button(role: .destructive) {
-                isConfirmingDeletePerson = true
-            } label: {
-                Label(localizedText("从关系图谱删除此人", "Remove this person from map"), systemImage: "trash.fill")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(SoulTheme.danger)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .background(SoulTheme.danger.opacity(0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .frame(height: 52)
+                    .background(SoulTheme.accent, in: RoundedRectangle(cornerRadius: SoulTheme.controlCornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
 
@@ -839,10 +876,33 @@ struct RelationshipDetailSheet: View {
                 onSelect: { selectedTimelineEvent = $0 }
             )
 
+            if person.avatarURL != nil {
+                Button(role: .destructive, action: onAvatarDelete) {
+                    Label(localizedText("删除头像", "Remove Photo"), systemImage: "person.crop.circle.badge.minus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(SoulTheme.danger)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Button(role: .destructive) {
+                isConfirmingDeletePerson = true
+            } label: {
+                Label(localizedText("从关系图谱删除此人", "Remove this person from map"), systemImage: "trash")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(SoulTheme.danger)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
             }
             .padding(24)
+            }
+            .background(SoulTheme.pageGradient)
+            .navigationTitle(person.name)
+            .navigationBarTitleDisplayMode(.inline)
         }
-        .background(SoulTheme.pageGradient)
         .task {
             do {
                 timelineEvents = try await session.loadContactEvents(contactID: person.id)
@@ -1122,14 +1182,10 @@ private struct ContactTimelineEventDetail: View {
                         isConfirmingDelete = true
                     } label: {
                         Label(localizedText("删除此事件", "Delete Event"), systemImage: "trash")
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(SoulTheme.danger)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 48)
-                            .background(
-                                SoulTheme.danger.opacity(0.14),
-                                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            )
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 8)
                     }
                     .buttonStyle(.plain)
                     .disabled(isDeleting)
@@ -1384,9 +1440,7 @@ private struct TimelineFormRow<Content: View>: View {
                     .foregroundStyle(SoulTheme.accent)
                 content
             }
-            .padding(.horizontal, 15)
-            .frame(height: 52)
-            .background(SoulGlassCardBackground(cornerRadius: SoulTheme.controlCornerRadius))
+            .soulInsetField()
         }
     }
 }
@@ -1470,6 +1524,7 @@ struct AddPersonSheet: View {
                 ContactInformationEditor(fields: $informationFields)
             }
             .scrollContentBackground(.hidden)
+            .font(.system(size: 16, weight: .semibold, design: .rounded))
             .background(SoulTheme.pageGradient)
             .navigationTitle(localizedText("添加人物", "Add Person"))
             .navigationBarTitleDisplayMode(.inline)

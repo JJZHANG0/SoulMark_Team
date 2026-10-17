@@ -22,6 +22,7 @@ from app.schemas.activity import (
     ReviewRelatedContact,
     ReviewResponse,
 )
+from app.schemas.self_page import EvidenceOut, MarkMyLineRequest
 from app.services.activity import (
     create_practice,
     create_review,
@@ -33,6 +34,7 @@ from app.services.activity import (
 )
 from app.services.ai_memory import build_user_memory_context
 from app.services.intimacy import recalculate_contact_intimacy
+from app.services.self_page import mark_review_line
 
 router = APIRouter(tags=["activity"])
 DatabaseSession = Annotated[AsyncSession, Depends(get_db)]
@@ -205,6 +207,16 @@ async def post_review_media_analysis(
         memory_context=memory,
     )
     return await resolve_review_contact(session, current_user.id, analysis)
+
+
+@router.post("/reviews/{review_id}/my-line", response_model=EvidenceOut)
+async def post_my_line(
+    review_id: UUID,
+    payload: MarkMyLineRequest,
+    current_user: CurrentUser,
+    session: DatabaseSession,
+) -> EvidenceOut:
+    return await mark_review_line(session, current_user.id, review_id, payload.quote)
 
 
 @router.delete("/reviews/{review_id}", status_code=status.HTTP_204_NO_CONTENT)

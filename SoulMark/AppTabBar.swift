@@ -6,6 +6,17 @@
 import SwiftUI
 
 struct AppTabBar: View {
+    /// Glass bar height, matching the frame below.
+    static let barHeight: CGFloat = 55
+    /// No extra gap of our own under the pill.
+    static let bottomPadding: CGFloat = 0
+    /// Draws the pill down through the empty home-indicator band, leaving the indicator clear.
+    static let safeAreaPull: CGFloat = 18
+    /// Drops the icon and label onto the pill's optical center.
+    private let contentOffsetY: CGFloat = 8
+    /// Bottom inset for tab scroll content, equal to the space the bar occupies.
+    static var reservedHeight: CGFloat { barHeight + bottomPadding }
+
     @Binding var selectedSection: AppSection
     @State private var draggedSelectionX: CGFloat?
     @AppStorage("soulMarkLanguage") private var language = "zh"
@@ -59,6 +70,7 @@ struct AppTabBar: View {
                     }
                 }
                 .padding(.horizontal, horizontalInset)
+                .offset(y: contentOffsetY)
             }
             .contentShape(Rectangle())
             .simultaneousGesture(
@@ -87,19 +99,18 @@ struct AppTabBar: View {
                     }
             )
         }
-        .frame(height: 55)
+        .frame(height: Self.barHeight)
         .background(SoulLiquidGlassBackground(cornerRadius: 26))
         .padding(.horizontal, 18)
-        .padding(.bottom, 10)
+        .padding(.bottom, Self.bottomPadding - Self.safeAreaPull)
     }
 
     @ViewBuilder
     private func tabItem(_ section: AppSection) -> some View {
         let isSelected = selectedSection == section
         VStack(spacing: 2) {
-            Image(systemName: section.systemImage)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(isSelected ? SoulTheme.accent : SoulTheme.secondaryText)
+            SoulSlotIcon(asset: SoulArtwork.tabAsset(section))
+                .frame(width: 22, height: 22)
                 .frame(height: 25)
 
             Text(section.title)

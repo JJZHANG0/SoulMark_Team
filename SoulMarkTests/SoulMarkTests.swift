@@ -535,4 +535,30 @@ struct SoulMarkTests {
         #expect(SoulAchievement.all(progress: empty).allSatisfy { !$0.isUnlocked })
     }
 
+    @Test func oldReportBodyStaysThePreviousReport() throws {
+        let legacy = """
+        {"display_name":"JJ","headline":"你最亮的一面：开放与反馈","summary":"你已完成 1 个挑战。","overall_score":62,"level":3,"title_key":"listener","experience_balance":20,"challenges_completed":1,"challenges_active":0,"reflections_count":2,"reviews_count":6,"average_review_score":82.0,"practices_count":6,"contacts_count":8,"dimensions":[{"key":"openness","title":"开放与反馈","score":70,"completed_challenges":1,"insight":"你开始主动邀请反馈。"}],"strengths":["愿意倾听反馈"],"growth_edges":["多留意关系里的自己"],"next_steps":["做一次沟通复盘"],"highlights":[{"challenge_title":"打开一扇窗","step_title":"挑一件小事","response":"我怕迟到","created_at":"2026-10-15T08:00:00Z"}],"relationship_mix":[{"label":"朋友","count":3}],"generated_at":"2026-10-17T02:00:00Z"}
+        """.data(using: .utf8)!
+        guard case .legacy(let report) = try SelfReportDocument.decode(legacy) else {
+            Issue.record("old report was not kept")
+            return
+        }
+        #expect(report.headline == "你最亮的一面：开放与反馈")
+        #expect(report.overallScore == 62)
+        #expect(report.dimensions.count == 1)
+    }
+
+    @Test func newReportBodyShowsTheEightCells() throws {
+        let page = """
+        {"generated_at":"2026-10-17T02:00:00Z","week_start":"2026-10-12","paused_at":null,"evidence_covered":0,"evidence_total":8,"weekly_step_done":false,"weekly_step_completed_at":null,"cells":[{"slot":"who","title":"我是谁","text":"","covered":false,"missing":["原话"]}],"draft":[],"bookkeeping":{"contacts_count":8,"events_count":21,"reviews_count":6,"practices_count":6}}
+        """.data(using: .utf8)!
+        guard case .page(let report) = try SelfReportDocument.decode(page) else {
+            Issue.record("new report was not a page")
+            return
+        }
+        #expect(report.cells.count == 1)
+        #expect(report.evidenceTotal == 8)
+        #expect(report.cells[0].text == "")
+    }
+
 }
